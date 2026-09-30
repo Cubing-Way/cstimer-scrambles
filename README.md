@@ -45,7 +45,7 @@ src/
 ## Development
 
 ```sh
-npm install
+npm install      # needs Node 22.18+ (see .nvmrc); the published package runs on Node 18+
 npm test          # vitest
 npm run typecheck
 npm run lint
