@@ -1,0 +1,44 @@
+import { describe, expect, it } from 'vitest';
+import min2phase from '../src/vendor/cstimer/min2phase.js';
+import mathlib from '../src/vendor/cstimer/mathlib.js';
+import { getScramble, listEvents, setSeed } from '../src/index.js';
+
+const MOVE = /^[URFDLB][2']?$/;
+
+describe('3x3 scrambles', () => {
+  it('registers the 3x3 events', () => {
+    expect(listEvents().map((e) => e.id)).toEqual(['333', '333fm', 'edges', 'corners', 'll']);
+  });
+
+  it('produces valid, unsolved random-state scrambles', () => {
+    for (let i = 0; i < 20; i++) {
+      const moves = getScramble('333').trim().split(' ');
+      expect(moves.every((m) => MOVE.test(m))).toBe(true);
+      expect(moves.length).toBeGreaterThanOrEqual(15);
+      expect(moves.length).toBeLessThanOrEqual(21);
+      expect(min2phase.fromScramble(moves.join(' '))).not.toBe(mathlib.SOLVED_FACELET);
+    }
+  });
+
+  it('keeps the first two layers solved for LL scrambles', () => {
+    const f = min2phase.fromScramble(getScramble('ll'));
+    // Facelet order: U R F D L B, 9 each. D face and the bottom two rows of R/F/L/B stay solved.
+    expect(f.slice(27, 36)).toBe('DDDDDDDDD');
+    for (const face of [9, 18, 36, 45]) {
+      expect(new Set(f.slice(face + 3, face + 9)).size).toBe(1);
+    }
+  });
+
+  it('is reproducible with a seed', () => {
+    setSeed('cubing-way');
+    const a = getScramble('333');
+    setSeed('cubing-way');
+    expect(getScramble('333')).toBe(a);
+  });
+
+  it("wraps FMC scrambles in R' U' F", () => {
+    const s = getScramble('333fm');
+    expect(s.startsWith("R' U' F ")).toBe(true);
+    expect(s.endsWith("R' U' F")).toBe(true);
+  });
+});

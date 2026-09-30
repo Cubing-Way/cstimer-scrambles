@@ -1,0 +1,55 @@
+{
+  "name": "@cubing-way/cstimer-scrambles",
+  "version": "0.1.0",
+  "description": "csTimer's scramble generators as a modern, typed ESM library",
+  "license": "GPL-3.0-or-later",
+  "type": "module",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.mts",
+        "default": "./dist/index.mjs"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
+    },
+    "./package.json": "./package.json"
+  },
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.cts",
+  "files": [
+    "dist"
+  ],
+  "keywords": [
+    "rubiks-cube",
+    "scramble",
+    "cstimer",
+    "speedcubing",
+    "wca"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "build": "tsdown",
+    "dev": "tsdown --watch",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "prepublishOnly": "npm run typecheck && npm test && npm run build"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.11.0",
+    "eslint-config-prettier": "^10.1.8",
+    "prettier": "^3.9.9",
+    "tsdown": "^0.23.0",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.71.0",
+    "vitest": "^5.0.3"
+  }
+}
