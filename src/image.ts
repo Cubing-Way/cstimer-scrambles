@@ -1,6 +1,7 @@
 // Scramble images, drawn by csTimer's own image code (vendored in src/vendor/cstimer/image.js).
 
 import image from './vendor/cstimer/image.js';
+import kernel from './vendor/cstimer/kernel.js';
 import tools from './vendor/cstimer/toolsutil.js';
 
 /**
@@ -66,16 +67,42 @@ function hasScrambleImage(type: string): boolean {
  * Throws for types csTimer has no image for (see `hasScrambleImage`).
  */
 function getScrambleImage(type: string, scramble: string): string {
+  return drawImage(type, scramble);
+}
+
+/**
+ * Like `getScrambleImage`, with some of csTimer's settings changed for this one drawing,
+ * e.g. `{ colcube: '#fff#f00...' }` for other cube colors. `width` sets the SVG's width
+ * in pixels (the height follows the picture's shape); by default csTimer's size is kept.
+ */
+function drawImage(
+  type: string,
+  scramble: string,
+  settings: Record<string, string> = {},
+  width?: number,
+): string {
   if (!hasScrambleImage(type)) {
     throw new Error(`No scramble image for "${type}"`);
   }
-  const svg = image.draw([type, scramble, 0]);
+  // csTimer's image code reads its settings from one shared object, so they are
+  // swapped in just for this drawing and always put back.
+  const saved = { ...kernel.props };
+  Object.assign(kernel.props, settings);
+  let svg;
+  try {
+    svg = image.draw([type, scramble, 0]);
+  } finally {
+    kernel.props = saved;
+  }
   if (!svg) {
     throw new Error(`csTimer has no scramble image for "${type}"`);
   }
+  const height = width === undefined ? svg.height : (svg.height * width) / svg.width;
   // csTimer's SVG only sets width and height; a viewBox lets the picture scale.
   return svg
     .render()
+    .replace(/ width="[^"]*"/, width === undefined ? '$&' : ` width="${round(width)}"`)
+    .replace(/ height="[^"]*"/, width === undefined ? '$&' : ` height="${round(height)}"`)
     .replace('<svg ', `<svg viewBox="0 0 ${round(svg.width)} ${round(svg.height)}" `);
 }
 
@@ -83,4 +110,4 @@ function round(n: number): string {
   return parseFloat(n.toFixed(3)).toString();
 }
 
-export { getScrambleImage, hasScrambleImage };
+export { getScrambleImage, hasScrambleImage, drawImage };

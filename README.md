@@ -35,6 +35,29 @@ document.getElementById('cube').innerHTML = svg;
 
 Pass the scramble type the scramble was made for. Every puzzle csTimer can draw has images: cubes from 2x2x2 to 11x11x11, megaminx, kilominx, gigaminx, pyraminx, master pyraminx, skewb, square-1, square-2, clock, FTO, the 15 and 8 puzzles, and the other shape-mods and curvy puzzles (Redi, Dino, Helicopter, Gear, ...). Relays and multi-blind are drawn as a grid, one picture per puzzle. `hasScrambleImage(type)` tells you whether a type has one; the types csTimer can't draw (Ivy, cuboids, the "noob" text scrambles, ...) throw.
 
+## Puzzle class
+
+`new Puzzle(id)` is one physical puzzle with its own settings: face colors, image size and scramble method. Settings are `set...` methods that return the puzzle, so they can be chained, and two puzzles never share settings.
+
+```ts
+import { Puzzle } from '@cubing-way/cstimer-scrambles';
+
+const cube = new Puzzle('333')
+  .setColors({ U: '#ff0', D: '#fff' }) // yellow on top
+  .setImageSize(200) // SVG 200px wide; the height follows
+  .setScrambleMethod('random-move');
+
+cube.scramble(); // "R2 F' U ..." (25 random moves), and the puzzle is now scrambled
+cube.getImage(); // '<svg viewBox="0 0 396 296" width="200" ...>...</svg>', the scrambled puzzle
+cube.reset(); // back to solved
+```
+
+Puzzles: `listPuzzles()` gives their ids, the WCA puzzles for now: `222` to `777`, `clock`, `minx`, `pyram`, `skewb` and `sq1`.
+
+- **Colors**: `getFaces()` lists the names `setColor(face, color)` takes (`U R F D L B` for cubes, skewb and square-1; `F L R D` for pyraminx; `U F R L BR BL DR DL DBR DBL B D` for megaminx; `front back hand handOutline pin` for clock). Colors are hex, `#rgb` or `#rrggbb`; csTimer draws with `#rgb` colors, so `#rrggbb` is rounded to the nearest one. `getColors()` and `resetColors()` read them and go back to csTimer's defaults.
+- **Image size**: `setImageSize(width)` in pixels. Without it the SVG keeps csTimer's size; it can always be resized with CSS too.
+- **Scramble method**: `'default'` (the WCA scramble), `'random-state'` or `'random-move'`, each one of csTimer's scramble types (`getScrambleType()` says which). Not every puzzle has all three (csTimer has no random-state 5x5x5 to 7x7x7, nor random-move clock); `getScrambleMethods()` lists the ones it has and `setScrambleMethod` throws for the others.
+
 ## Supported events
 
 All 206 scramble types in csTimer's menu are supported, with csTimer's ids (everything except its UI-only entries: input, remote, BLD helper, pattern tool and custom). `listEvents()` returns them all with a name and a `puzzle` group; the [demo page](https://cubing-way.github.io/cstimer-scrambles/) lists them too.
@@ -84,11 +107,12 @@ src/
   random.ts            seeding (ISAAC, as in csTimer)
   cstimer.ts           runs a vendored csTimer scrambler by its type id
   image.ts             scramble images, drawn by csTimer's image code
+  puzzle.ts            the Puzzle class
   events/<puzzle>/     typed wrappers around csTimer's scramblers, one module per puzzle
   vendor/cstimer/      csTimer files kept close to upstream, with .d.ts typings
 ```
 
-`src/vendor/cstimer` holds csTimer files from commit `2547d82`: its libraries (`mathlib.js`, `min2phase.js`, `isaac.js`, `grouplib.js`, `pat3x3.js`, `poly3dlib.js`), solvers (`ftocta.js`, `mgmsolver.js`, `cross.js`), the scramble manager (`scrmgr.js`, the non-UI part of `scramble.js`), every file from csTimer's `src/js/scramble`, and for images `image.js` (from `src/js/tools`), `cubeutil.js`, `svglib.js` (csTimer's SVG helpers from `utillib.js`) and `toolsutil.js` (its puzzle type helpers from `tools.js`). They are changed only to run as ES modules outside csTimer's web page (imports/exports, no jQuery, csTimer's UI parts skipped); each file's first lines list its changes, so they stay easy to compare with upstream.
+`src/vendor/cstimer` holds csTimer files from commit `2547d82`: its libraries (`mathlib.js`, `min2phase.js`, `isaac.js`, `grouplib.js`, `pat3x3.js`, `poly3dlib.js`), solvers (`ftocta.js`, `mgmsolver.js`, `cross.js`), the scramble manager (`scrmgr.js`, the non-UI part of `scramble.js`), every file from csTimer's `src/js/scramble`, and for images `image.js` (from `src/js/tools`), `cubeutil.js`, `svglib.js` (csTimer's SVG helpers from `utillib.js`) and `toolsutil.js` (its puzzle type helpers from `tools.js`), plus `kernel.js`, a stand-in for csTimer's settings (colors) that the image code reads. They are changed only to run as ES modules outside csTimer's web page (imports/exports, no jQuery, csTimer's UI parts skipped); each file's first lines list its changes, so they stay easy to compare with upstream.
 
 To update them from a newer csTimer, run `node scripts/vendor-cstimer.mjs <path to a csTimer checkout>` (it does the same edits again; `mathlib.js`, `min2phase.js` and `isaac.js` are updated by hand).
 

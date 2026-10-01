@@ -57,6 +57,8 @@ describe('WCA events', () => {
     }
   });
 
+  // The first 4x4x4 and FTO scrambles build solver tables, which can take several seconds
+  // on a busy CI runner.
   for (const [id, pattern] of Object.entries(MOVES)) {
     it(`generates valid ${id} scrambles`, () => {
       for (let i = 0; i < 5; i++) {
@@ -70,7 +72,7 @@ describe('WCA events', () => {
           expect(moves.length).toBeLessThanOrEqual(range[1]);
         }
       }
-    });
+    }, 30_000);
   }
 
   it('generates valid Square-1 scrambles', () => {

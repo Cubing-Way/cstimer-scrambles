@@ -1,18 +1,8 @@
 // Vendored from csTimer (src/js/lib/poly3dlib.js) @ 2547d82. GPL-3.0, (c) cs0x7f.
-// Changes: ESM import/export; DEBUG disabled; kernel and $ shims give default colors.
+// Changes: ESM import/export; DEBUG disabled; kernel shim (csTimer settings) and $ shim.
 import tools from './toolsutil.js';
 var DEBUG = false;
-var kernel = {
-	getProp: function(key) {
-		return {
-			colcube: '#ff0#fa0#00f#fff#f00#0d0',
-			colpyr: '#0f0#f00#00f#ff0',
-			colmgm: '#fff#d00#060#81f#fc0#00b#ffb#8df#f83#7e0#f9f#999',
-			colfto: '#fff#808#0d0#f00#00f#bbb#ff0#fa0',
-			colico: '#fff#084#b36#a85#088#811#e71#b9b#05a#ed1#888#6a3#e8b#a52#6cb#c10#fa0#536#49c#ec9'
-		}[key];
-	}
-};
+import kernel from './kernel.js';
 var $ = {
 	col2std: function(col, faceMap) {
 		var ret = [];
