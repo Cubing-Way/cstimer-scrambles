@@ -1,5 +1,5 @@
 // Vendored from csTimer (src/js/tools/image.js) @ 2547d82. GPL-3.0, (c) cs0x7f.
-// Changes: ESM import/export; $.noop -> plain JS; DEBUG disabled; ISCSTIMER = false skips its UI part; kernel shim (csTimer settings).
+// Changes: ESM import/export; $.noop -> plain JS; exports nnnImage.genPosit (cube stickers after a scramble); DEBUG disabled; ISCSTIMER = false skips its UI part; kernel shim (csTimer settings).
 import mathlib from './mathlib.js';
 import $ from './svglib.js';
 import poly3d from './poly3dlib.js';
@@ -1088,6 +1088,7 @@ var image = (function() {
 
 	return {
 		draw: genImage,
+		nnnPosit: nnnImage.genPosit,
 		llImage: llImage,
 		pyrllImage: pyrllImage,
 		face3Image: face3Image,

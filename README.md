@@ -63,6 +63,7 @@ Puzzles: `listPuzzles()` gives their ids, the WCA puzzles for now: `222` to `777
 - **Scramble length**: `setScrambleLength(moves)` for methods that make random moves (megaminx rounds it up to whole lines of 10). Random-state scrambles are as long as they need to be, so for them `getScrambleLength()` is `undefined` and the length waits until the method changes. `resetScrambleLength()` goes back to csTimer's default.
 - **Typed moves**: `setScramble(moves)` scrambles the puzzle with your own moves, and `setSolution(moves)` sets moves done after the scramble, both in csTimer's notation for the puzzle. `scramble()` clears the solution, `reset()` clears both, and `getImage()` throws if csTimer can't read the moves.
 - **Move counts**: `getScrambleMoveCount()` and `getSolutionMoveCount()`. Moves are counted between spaces, except on Square-1, where each slash is one move (twist metric).
+- **3D view** (cubes, 2x2x2 to 7x7x7; `has3DView()` says if a puzzle has one): `show3D(element)` shows the cube in 3D inside an element of a web page, in the same state as `getImage()` and with the puzzle's colors. It can be dragged with the mouse or a finger to look at every side; call it again after a change to update it (the angle is kept). It is built from plain HTML elements turned by CSS, so it needs no 3D library. `getStickers()` gives the colors behind it: `{ U: [...], R, F, D, L, B }`, each face read row by row as in the unfolded picture.
 
 ## Supported events
 
@@ -114,11 +115,12 @@ src/
   cstimer.ts           runs a vendored csTimer scrambler by its type id
   image.ts             scramble images, drawn by csTimer's image code
   puzzle.ts            the Puzzle class
+  view3d.ts            the 3D cube view (Puzzle.show3D)
   events/<puzzle>/     typed wrappers around csTimer's scramblers, one module per puzzle
   vendor/cstimer/      csTimer files kept close to upstream, with .d.ts typings
 ```
 
-`src/vendor/cstimer` holds csTimer files from commit `2547d82`: its libraries (`mathlib.js`, `min2phase.js`, `isaac.js`, `grouplib.js`, `pat3x3.js`, `poly3dlib.js`), solvers (`ftocta.js`, `mgmsolver.js`, `cross.js`), the scramble manager (`scrmgr.js`, the non-UI part of `scramble.js`), every file from csTimer's `src/js/scramble`, and for images `image.js` (from `src/js/tools`), `cubeutil.js`, `svglib.js` (csTimer's SVG helpers from `utillib.js`) and `toolsutil.js` (its puzzle type helpers from `tools.js`), plus `kernel.js`, a stand-in for csTimer's settings (colors) that the image code reads. They are changed only to run as ES modules outside csTimer's web page (imports/exports, no jQuery, csTimer's UI parts skipped); each file's first lines list its changes, so they stay easy to compare with upstream.
+`src/vendor/cstimer` holds csTimer files from commit `2547d82`: its libraries (`mathlib.js`, `min2phase.js`, `isaac.js`, `grouplib.js`, `pat3x3.js`, `poly3dlib.js`), solvers (`ftocta.js`, `mgmsolver.js`, `cross.js`), the scramble manager (`scrmgr.js`, the non-UI part of `scramble.js`), every file from csTimer's `src/js/scramble`, and for images `image.js` (from `src/js/tools`), `cubeutil.js`, `svglib.js` (csTimer's SVG helpers from `utillib.js`) and `toolsutil.js` (its puzzle type helpers from `tools.js`), plus `kernel.js`, a stand-in for csTimer's settings (colors) that the image code reads. They are changed only to run as ES modules outside csTimer's web page (imports/exports, no jQuery, csTimer's UI parts skipped, and `image.js` also exports the cube sticker code the 3D view uses); each file's first lines list its changes, so they stay easy to compare with upstream.
 
 To update them from a newer csTimer, run `node scripts/vendor-cstimer.mjs <path to a csTimer checkout>` (it does the same edits again; `mathlib.js`, `min2phase.js` and `isaac.js` are updated by hand).
 
