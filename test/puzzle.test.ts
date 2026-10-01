@@ -191,3 +191,82 @@ describe('Puzzle image size', () => {
     expect(() => new Puzzle('333').setImageSize(NaN)).toThrow('positive number');
   });
 });
+
+describe('Puzzle scramble length', () => {
+  it('uses csTimer’s default length, or the one set', () => {
+    const puzzle = new Puzzle('333').setScrambleMethod('random-move');
+    expect(puzzle.getScrambleLength()).toBe(25);
+    expect(puzzle.setScrambleLength(12).getScrambleLength()).toBe(12);
+    expect(puzzle.scramble().split(' ')).toHaveLength(12);
+    expect(puzzle.resetScrambleLength().scramble().split(' ')).toHaveLength(25);
+  });
+
+  it('changes the WCA length of big cubes and megaminx', () => {
+    const cube = new Puzzle('555').setScrambleLength(20);
+    expect(cube.scramble().split(' ')).toHaveLength(20);
+    // Megaminx scrambles are lines of 10 moves and a U turn.
+    const minx = new Puzzle('minx').setScrambleLength(30);
+    expect(minx.scramble().split('\n')).toHaveLength(3);
+  });
+
+  it('is decided by the scrambler for random-state scrambles', () => {
+    const puzzle = new Puzzle('333').setScrambleLength(5);
+    expect(puzzle.getScrambleLength()).toBeUndefined();
+    expect(puzzle.scramble().split(' ').length).toBeGreaterThan(5);
+    // The length is kept for when the method changes.
+    expect(puzzle.setScrambleMethod('random-move').getScrambleLength()).toBe(5);
+  });
+
+  it('rejects lengths that are not whole numbers of moves', () => {
+    expect(() => new Puzzle('333').setScrambleLength(0)).toThrow('at least 1');
+    expect(() => new Puzzle('333').setScrambleLength(2.5)).toThrow('whole number');
+  });
+});
+
+describe('Puzzle typed scramble and solution', () => {
+  /** Undoes a 3x3x3 move sequence. */
+  const invert = (moves: string) =>
+    moves
+      .split(' ')
+      .reverse()
+      .map((m) => (m.endsWith("'") ? m.slice(0, -1) : m.endsWith('2') ? m : `${m}'`))
+      .join(' ');
+
+  it('draws a scramble typed in', () => {
+    const puzzle = new Puzzle('333').setScramble(" R U R' U' ");
+    expect(puzzle.getScramble()).toBe("R U R' U'");
+    expect(puzzle.getImage()).toBe(getScrambleImage('333', "R U R' U'"));
+  });
+
+  it('draws the solution after the scramble', () => {
+    const puzzle = new Puzzle('333');
+    const solved = puzzle.getImage();
+    const scramble = puzzle.scramble();
+    puzzle.setSolution("R U'");
+    expect(puzzle.getSolution()).toBe("R U'");
+    expect(puzzle.getImage()).toBe(getScrambleImage('333', `${scramble} R U'`));
+    expect(puzzle.setSolution(invert(scramble)).getImage()).toBe(solved);
+  });
+
+  it('clears the solution on a new scramble or reset, not on a typed scramble', () => {
+    const puzzle = new Puzzle('333').setSolution('R');
+    puzzle.setScramble('U');
+    expect(puzzle.getSolution()).toBe('R');
+    puzzle.scramble();
+    expect(puzzle.getSolution()).toBe('');
+    puzzle.setSolution('R').reset();
+    expect([puzzle.getScramble(), puzzle.getSolution()]).toEqual(['', '']);
+  });
+
+  it('adds up Square-1 turns where the scramble and solution meet', () => {
+    const puzzle = new Puzzle('sq1').setScramble('(1,0)/ (3,3)').setSolution('(1,0)/');
+    expect(puzzle.getImage()).toBe(getScrambleImage('sqrs', '(1,0)/ (4,3)/'));
+    puzzle.setScramble('(5,-5)').setSolution('(4,-4)');
+    expect(puzzle.getImage()).toBe(getScrambleImage('sqrs', '(-3,3)'));
+  });
+
+  it('throws a clear error for moves csTimer can’t read', () => {
+    const puzzle = new Puzzle('sq1').setScramble('hello');
+    expect(() => puzzle.getImage()).toThrow('Can\'t read these moves as Square-1 moves: "hello"');
+  });
+});

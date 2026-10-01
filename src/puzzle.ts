@@ -1,6 +1,6 @@
 // The Puzzle class: one physical puzzle with its own colors, image size and scramble method.
 
-import { getScramble } from './registry.js';
+import { getEvent, getScramble } from './registry.js';
 import { drawImage } from './image.js';
 
 /**
@@ -113,6 +113,37 @@ function toCstimerColor(color: string): string {
   return short;
 }
 
+/**
+ * csTimer's Square-1 drawing reads one turn like `(1,0)` between slashes, so turns in a
+ * row, e.g. where a scramble ends and a solution starts, are added up into one turn.
+ * Anything else is left as it is.
+ */
+function joinSq1Turns(moves: string): string {
+  const tokens = moves.match(/\(\s*-?\d+\s*,\s*-?\d+\s*\)|\/|\S/g) ?? [];
+  if (tokens.some((token) => token !== '/' && !token.startsWith('('))) return moves;
+  const out: (string | [number, number])[] = [];
+  for (const token of tokens) {
+    const last = out[out.length - 1];
+    if (token === '/') {
+      out.push(token);
+    } else {
+      const [top, bottom] = token.slice(1, -1).split(',').map(Number) as [number, number];
+      if (Array.isArray(last)) {
+        last[0] += top;
+        last[1] += bottom;
+      } else {
+        out.push([top, bottom]);
+      }
+    }
+  }
+  // Sums are written from -5 to 6, like csTimer's own scrambles.
+  const turn = (n: number) => ((((n + 5) % 12) + 12) % 12) - 5;
+  return out
+    .map((token) => (typeof token === 'string' ? token : ` (${turn(token[0])},${turn(token[1])})`))
+    .join('')
+    .trim();
+}
+
 /** Ids of the puzzles `new Puzzle(id)` accepts, e.g. `'333'`, `'pyram'`. */
 function listPuzzles(): string[] {
   return Object.keys(PUZZLES);
@@ -120,7 +151,7 @@ function listPuzzles(): string[] {
 
 /**
  * One physical puzzle, e.g. `new Puzzle('333')`. Each puzzle keeps its own settings
- * (colors, image size, scramble method), so two puzzles never affect each other.
+ * (colors, image size, scramble method and length), so two puzzles never affect each other.
  *
  * Settings are changed with `set...` methods, which return the puzzle so they can be
  * chained: `new Puzzle('333').setColor('U', '#ff0').setImageSize(200)`.
@@ -135,7 +166,9 @@ class Puzzle {
   #colors: Record<string, string>;
   #imageSize: number | undefined;
   #method: ScrambleMethod = 'default';
+  #length: number | undefined;
   #scramble = '';
+  #solution = '';
   /** The scramble type `#scramble` was made with, which is the one to draw it with. */
   #scrambleType = '';
 
@@ -237,13 +270,54 @@ class Puzzle {
   }
 
   /**
-   * Makes a new scramble with the current method and scrambles the puzzle with it, so
-   * `getImage()` then shows it.
+   * Sets how many moves `scramble()` makes, e.g. `setScrambleLength(30)`. It is used by
+   * methods that make random moves; random-state scrambles are as long as they need to
+   * be, so they ignore it (see `getScrambleLength`). Megaminx rounds it up to whole
+   * lines of 10 moves.
+   */
+  setScrambleLength(length: number): this {
+    if (!Number.isInteger(length) || length < 1) {
+      throw new Error(`Scramble length must be a whole number of moves, at least 1, not ${length}`);
+    }
+    this.#length = length;
+    return this;
+  }
+
+  /**
+   * How many moves `scramble()` will make with the current method: the length set with
+   * `setScrambleLength`, or csTimer's default for the method. `undefined` when the method
+   * picks its own length (random-state scrambles).
+   */
+  getScrambleLength(): number | undefined {
+    const defaultLength = getEvent(this.getScrambleType())?.length;
+    return defaultLength === undefined ? undefined : (this.#length ?? defaultLength);
+  }
+
+  /** Goes back to csTimer's default scramble length. */
+  resetScrambleLength(): this {
+    this.#length = undefined;
+    return this;
+  }
+
+  /**
+   * Makes a new scramble with the current method and length, and scrambles the puzzle
+   * with it (clearing any solution), so `getImage()` then shows it.
    */
   scramble(): string {
     this.#scrambleType = this.getScrambleType();
-    this.#scramble = getScramble(this.#scrambleType);
+    this.#scramble = getScramble(this.#scrambleType, this.getScrambleLength());
+    this.#solution = '';
     return this.#scramble;
+  }
+
+  /**
+   * Scrambles the puzzle with a scramble of your own, e.g. `setScramble("R U R' U'")`,
+   * written in csTimer's notation for this puzzle. The solution is kept.
+   */
+  setScramble(scramble: string): this {
+    this.#scrambleType = this.getScrambleType();
+    this.#scramble = scramble.trim();
+    return this;
   }
 
   /** The scramble the puzzle was last scrambled with, or `''` when it is solved. */
@@ -251,26 +325,48 @@ class Puzzle {
     return this.#scramble;
   }
 
-  /** Puts the puzzle back to solved. */
+  /**
+   * Sets the moves done after the scramble, e.g. a solution being typed, so `getImage()`
+   * shows the puzzle after the scramble and then these moves. Same notation as the scramble.
+   */
+  setSolution(moves: string): this {
+    this.#solution = moves.trim();
+    return this;
+  }
+
+  /** The moves set with `setSolution`, or `''`. */
+  getSolution(): string {
+    return this.#solution;
+  }
+
+  /** Puts the puzzle back to solved: no scramble and no solution. */
   reset(): this {
     this.#scramble = '';
+    this.#solution = '';
     return this;
   }
 
   /**
-   * Draws the puzzle as it is now (solved, or after `scramble()`) as an SVG string, with
-   * this puzzle's colors and image size. Same picture as `getScrambleImage`.
+   * Draws the puzzle as it is now (solved, or after the scramble and then the solution)
+   * as an SVG string, with this puzzle's colors and image size. Same picture as
+   * `getScrambleImage`. Throws if csTimer can't read the moves.
    */
   getImage(): string {
     const colors = this.#info.cstimerOrder
       .map((face) => toCstimerColor(this.#colors[face]!))
       .join('');
-    return drawImage(
-      this.#scramble ? this.#scrambleType : this.getScrambleType(),
-      this.#scramble,
-      { [this.#info.colorSetting]: colors },
-      this.#imageSize,
-    );
+    let moves = [this.#scramble, this.#solution].filter(Boolean).join(' ');
+    if (this.id === 'sq1') moves = joinSq1Turns(moves);
+    try {
+      return drawImage(
+        this.#scramble ? this.#scrambleType : this.getScrambleType(),
+        moves,
+        { [this.#info.colorSetting]: colors },
+        this.#imageSize,
+      );
+    } catch {
+      throw new Error(`Can't read these moves as ${this.name} moves: "${moves}"`);
+    }
   }
 }
 
