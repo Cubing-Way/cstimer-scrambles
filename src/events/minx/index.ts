@@ -6,13 +6,16 @@ import { cstimerEvent, cstimerScramble } from '../../cstimer.js';
 import { registerEvents } from '../../registry.js';
 import type { ScrambleEvent } from '../../types.js';
 
-/** WCA Megaminx: 7 lines of Pochmann-style moves (R++ D-- ... U), separated by newlines. */
-function getMegaminxScramble(): string {
-  return cstimerScramble('mgmp', 70);
+/**
+ * WCA Megaminx: 7 lines of Pochmann-style moves (R++ D-- ... U), separated by newlines.
+ * Another `length` gives length / 10 lines, rounded up.
+ */
+function getMegaminxScramble(length = 70): string {
+  return cstimerScramble('mgmp', length);
 }
 
 const eventsMinx: ScrambleEvent[] = [
-  { id: 'mgmp', name: 'Megaminx WCA', puzzle: 'minx', generate: getMegaminxScramble },
+  { id: 'mgmp', name: 'Megaminx WCA', puzzle: 'minx', length: 70, generate: getMegaminxScramble },
   // Other csTimer scramble types for this puzzle, in csTimer's menu order.
   cstimerEvent('mgmc', 'Megaminx Carrot', 'minx', 70),
   cstimerEvent('mgmo', 'Megaminx old style', 'minx', 70),
