@@ -87,6 +87,43 @@
         color: var(--muted);
         font-size: 0.9rem;
       }
+      h2 {
+        margin-top: 48px;
+      }
+      .colors {
+        display: flex;
+        gap: 12px;
+        flex-wrap: wrap;
+        margin: 12px 0;
+      }
+      .colors label,
+      .controls label {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      input[type='color'] {
+        width: 36px;
+        height: 28px;
+        padding: 0;
+        border: 1px solid var(--border);
+        border-radius: 4px;
+        background: none;
+      }
+      /* Shown at the size set with setImageSize, but never wider than the page. */
+      #puzzle-image svg {
+        display: block;
+        max-width: 100%;
+        height: auto;
+      }
+      #puzzle-scramble {
+        margin: 16px 0 8px;
+        font:
+          1.1rem/1.6 ui-monospace,
+          monospace;
+        word-spacing: 0.3em;
+        white-space: pre-wrap;
+      }
     </style>
   </head>
   <body>
@@ -103,9 +140,32 @@
       <div id="scramble"></div>
       <div id="image"></div>
       <p class="meta" id="info"></p>
+
+      <h2>Puzzle class</h2>
+      <p class="meta">
+        <code>new Puzzle(id)</code> with its own colors, image size and scramble method.
+      </p>
+      <div class="controls">
+        <select id="puzzle" aria-label="Puzzle"></select>
+        <select id="method" aria-label="Scramble method"></select>
+        <label>Size <input id="size" type="range" min="100" max="480" value="300" /></label>
+        <button id="puzzle-next">Scramble</button>
+        <button id="puzzle-reset">Solve</button>
+      </div>
+      <div class="colors" id="colors"></div>
+      <div id="puzzle-scramble"></div>
+      <div id="puzzle-image"></div>
+      <p class="meta" id="puzzle-info"></p>
     </main>
     <script type="module">
-      import { listEvents, getScramble, getScrambleImage, hasScrambleImage } from './index.mjs';
+      import {
+        listEvents,
+        getScramble,
+        getScrambleImage,
+        hasScrambleImage,
+        Puzzle,
+        listPuzzles,
+      } from './index.mjs';
 
       const select = document.getElementById('event');
       const out = document.getElementById('scramble');
@@ -145,6 +205,67 @@
         }
       });
       next();
+
+      // Puzzle class: one Puzzle object per puzzle, so each keeps its own settings.
+      const puzzles = new Map(listPuzzles().map((id) => [id, new Puzzle(id)]));
+      const puzzleSelect = document.getElementById('puzzle');
+      const methodSelect = document.getElementById('method');
+      const sizeInput = document.getElementById('size');
+      const colorsDiv = document.getElementById('colors');
+      const puzzleScramble = document.getElementById('puzzle-scramble');
+      const puzzleImage = document.getElementById('puzzle-image');
+      const puzzleInfo = document.getElementById('puzzle-info');
+      for (const [id, puzzle] of puzzles) puzzleSelect.append(new Option(puzzle.name, id));
+
+      const current = () => puzzles.get(puzzleSelect.value);
+      // <input type="color"> wants #rrggbb.
+      const long = (c) => (c.length === 4 ? '#' + [...c.slice(1)].map((x) => x + x).join('') : c);
+
+      function draw() {
+        const puzzle = current();
+        puzzle.setImageSize(Number(sizeInput.value));
+        puzzleScramble.textContent = puzzle.getScramble() || '(solved)';
+        puzzleImage.innerHTML = puzzle.getImage();
+        puzzleInfo.textContent = `csTimer scramble type: ${puzzle.getScrambleType()}`;
+      }
+
+      function showPuzzle() {
+        const puzzle = current();
+        methodSelect.replaceChildren(...puzzle.getScrambleMethods().map((m) => new Option(m, m)));
+        methodSelect.value = puzzle.getScrambleMethod();
+        colorsDiv.replaceChildren();
+        for (const [face, color] of Object.entries(puzzle.getColors())) {
+          const label = document.createElement('label');
+          const input = document.createElement('input');
+          input.type = 'color';
+          input.value = long(color);
+          input.addEventListener('input', () => {
+            puzzle.setColor(face, input.value);
+            draw();
+          });
+          label.append(input, face);
+          colorsDiv.append(label);
+        }
+        draw();
+      }
+
+      puzzleSelect.addEventListener('change', showPuzzle);
+      methodSelect.addEventListener('change', () => {
+        current().setScrambleMethod(methodSelect.value);
+        current().scramble();
+        draw();
+      });
+      sizeInput.addEventListener('input', draw);
+      document.getElementById('puzzle-next').addEventListener('click', () => {
+        current().scramble();
+        draw();
+      });
+      document.getElementById('puzzle-reset').addEventListener('click', () => {
+        current().reset();
+        draw();
+      });
+      puzzleSelect.value = '333';
+      showPuzzle();
     </script>
   </body>
 </html>

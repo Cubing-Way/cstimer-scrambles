@@ -1,4 +1,4 @@
-import { a as poly3d, i as scrMgr, n as clock, o as tools, r as sq1, s as mathlib, t as scramble_333$1 } from "./redi-BWxAeJ6t.mjs";
+import { a as poly3d, c as mathlib, i as scrMgr, n as clock, o as kernel, r as sq1, s as tools, t as scramble_333$1 } from "./redi-CSp0LG7N.mjs";
 //#region src/registry.ts
 const events = /* @__PURE__ */ new Map();
 /** Adds scramble events to the registry. Each puzzle module calls this once. */
@@ -148,28 +148,6 @@ $$1.col2std = function(col, faceMap) {
 };
 //#endregion
 //#region src/vendor/cstimer/cubeutil.js
-var kernel$1 = {
-	props: {
-		"col-font": "#000000",
-		"col-board": "#ffdddd",
-		colcube: "#ff0#fa0#00f#fff#f00#0d0",
-		colpyr: "#0f0#f00#00f#ff0",
-		colskb: "#fff#00f#f00#ff0#0f0#f80",
-		colmgm: "#fff#d00#060#81f#fc0#00b#ffb#8df#f83#7e0#f9f#999",
-		colsq1: "#ff0#f80#0f0#fff#f00#00f",
-		colclk: "#f00#37b#5cf#ff0#850",
-		col15p: "#f99#9f9#99f#fff",
-		colfto: "#fff#808#0d0#f00#00f#bbb#ff0#fa0",
-		colico: "#fff#084#b36#a85#088#811#e71#b9b#05a#ed1#888#6a3#e8b#a52#6cb#c10#fa0#536#49c#ec9",
-		imgSize: 15,
-		imgRep: false,
-		preScr: "",
-		preScrT: ""
-	},
-	getProp: function(key, def) {
-		return key in this.props ? this.props[key] : def;
-	}
-};
 var cubeutil = (function() {
 	function toEqus(facelet) {
 		var col2equ = {};
@@ -637,7 +615,7 @@ var cubeutil = (function() {
 	var scrambleReg = /^([\d]+(?:-\d+)?)?([FRUBLDfrubldzxySME])(?:([w])|&sup([\d]);)?([2'])?$/;
 	function parseScramble(scramble, moveMap, addPreScr) {
 		scramble = scramble || "";
-		if (addPreScr) scramble = kernel$1.getProp(tools.isCurTrainScramble() ? "preScrT" : "preScr") + " " + scramble;
+		if (addPreScr) scramble = kernel.getProp(tools.isCurTrainScramble() ? "preScrT" : "preScr") + " " + scramble;
 		var moveseq = [];
 		var moves = scramble.split(" ");
 		var m, w, f, p;
@@ -686,7 +664,7 @@ var cubeutil = (function() {
 		});
 	}
 	function getPreConj() {
-		var preScr = kernel$1.getProp(tools.isCurTrainScramble() ? "preScrT" : "preScr", "").split(" ");
+		var preScr = kernel.getProp(tools.isCurTrainScramble() ? "preScrT" : "preScr", "").split(" ");
 		var cc = new mathlib.CubieCube();
 		for (var i = 0; i < preScr.length; i++) cc.selfMoveStr(preScr[i]);
 		return cc.ori || 0;
@@ -739,28 +717,6 @@ var cubeutil = (function() {
 })();
 //#endregion
 //#region src/vendor/cstimer/image.js
-var kernel = {
-	props: {
-		"col-font": "#000000",
-		"col-board": "#ffdddd",
-		colcube: "#ff0#fa0#00f#fff#f00#0d0",
-		colpyr: "#0f0#f00#00f#ff0",
-		colskb: "#fff#00f#f00#ff0#0f0#f80",
-		colmgm: "#fff#d00#060#81f#fc0#00b#ffb#8df#f83#7e0#f9f#999",
-		colsq1: "#ff0#f80#0f0#fff#f00#00f",
-		colclk: "#f00#37b#5cf#ff0#850",
-		col15p: "#f99#9f9#99f#fff",
-		colfto: "#fff#808#0d0#f00#00f#bbb#ff0#fa0",
-		colico: "#fff#084#b36#a85#088#811#e71#b9b#05a#ed1#888#6a3#e8b#a52#6cb#c10#fa0#536#49c#ec9",
-		imgSize: 15,
-		imgRep: false,
-		preScr: "",
-		preScrT: ""
-	},
-	getProp: function(key, def) {
-		return key in this.props ? this.props[key] : def;
-	}
-};
 var image = (function() {
 	var img;
 	var hsq3 = Math.sqrt(3) / 2;
@@ -2578,18 +2534,384 @@ function hasScrambleImage(type) {
 * Throws for types csTimer has no image for (see `hasScrambleImage`).
 */
 function getScrambleImage(type, scramble) {
+	return drawImage(type, scramble);
+}
+/**
+* Like `getScrambleImage`, with some of csTimer's settings changed for this one drawing,
+* e.g. `{ colcube: '#fff#f00...' }` for other cube colors. `width` sets the SVG's width
+* in pixels (the height follows the picture's shape); by default csTimer's size is kept.
+*/
+function drawImage(type, scramble, settings = {}, width) {
 	if (!hasScrambleImage(type)) throw new Error(`No scramble image for "${type}"`);
-	const svg = image.draw([
-		type,
-		scramble,
-		0
-	]);
+	const saved = { ...kernel.props };
+	Object.assign(kernel.props, settings);
+	let svg;
+	try {
+		svg = image.draw([
+			type,
+			scramble,
+			0
+		]);
+	} finally {
+		kernel.props = saved;
+	}
 	if (!svg) throw new Error(`csTimer has no scramble image for "${type}"`);
-	return svg.render().replace("<svg ", `<svg viewBox="0 0 ${round(svg.width)} ${round(svg.height)}" `);
+	const height = width === void 0 ? svg.height : svg.height * width / svg.width;
+	return svg.render().replace(/ width="[^"]*"/, width === void 0 ? "$&" : ` width="${round(width)}"`).replace(/ height="[^"]*"/, width === void 0 ? "$&" : ` height="${round(height)}"`).replace("<svg ", `<svg viewBox="0 0 ${round(svg.width)} ${round(svg.height)}" `);
 }
 function round(n) {
 	return parseFloat(n.toFixed(3)).toString();
 }
+//#endregion
+//#region \0@oxc-project+runtime@0.152.0/helpers/esm/checkPrivateRedeclaration.js
+function _checkPrivateRedeclaration(e, t) {
+	if (t.has(e)) throw new TypeError("Cannot initialize the same private elements twice on an object");
+}
+//#endregion
+//#region \0@oxc-project+runtime@0.152.0/helpers/esm/classPrivateFieldInitSpec.js
+function _classPrivateFieldInitSpec(e, t, a) {
+	_checkPrivateRedeclaration(e, t), t.set(e, a);
+}
+//#endregion
+//#region \0@oxc-project+runtime@0.152.0/helpers/esm/assertClassBrand.js
+function _assertClassBrand(e, t, n) {
+	if ("function" == typeof e ? e === t : e.has(t)) return arguments.length < 3 ? t : n;
+	throw new TypeError("Private element is not present on this object");
+}
+//#endregion
+//#region \0@oxc-project+runtime@0.152.0/helpers/esm/classPrivateFieldSet2.js
+function _classPrivateFieldSet2(s, a, r) {
+	return s.set(_assertClassBrand(s, a), r), r;
+}
+//#endregion
+//#region \0@oxc-project+runtime@0.152.0/helpers/esm/classPrivateFieldGet2.js
+function _classPrivateFieldGet2(s, a) {
+	return s.get(_assertClassBrand(s, a));
+}
+//#endregion
+//#region src/puzzle.ts
+function cube(n, methods) {
+	return {
+		name: `${n}x${n}x${n}`,
+		colorSetting: "colcube",
+		defaultColors: {
+			U: "#fff",
+			R: "#f00",
+			F: "#0d0",
+			D: "#ff0",
+			L: "#fa0",
+			B: "#00f"
+		},
+		cstimerOrder: [
+			"D",
+			"L",
+			"B",
+			"U",
+			"R",
+			"F"
+		],
+		methods
+	};
+}
+/** The puzzles `Puzzle` supports, by id (the same ids as `ScrambleEvent.puzzle`). */
+const PUZZLES = {
+	"222": cube(2, {
+		default: "222so",
+		"random-state": "222so",
+		"random-move": "2223"
+	}),
+	"333": cube(3, {
+		default: "333",
+		"random-state": "333",
+		"random-move": "333o"
+	}),
+	"444": cube(4, {
+		default: "444wca",
+		"random-state": "444wca",
+		"random-move": "444m"
+	}),
+	"555": cube(5, {
+		default: "555wca",
+		"random-move": "555wca"
+	}),
+	"666": cube(6, {
+		default: "666wca",
+		"random-move": "666wca"
+	}),
+	"777": cube(7, {
+		default: "777wca",
+		"random-move": "777wca"
+	}),
+	clock: {
+		name: "Clock",
+		colorSetting: "colclk",
+		defaultColors: {
+			front: "#5cf",
+			back: "#37b",
+			hand: "#ff0",
+			handOutline: "#f00",
+			pin: "#850"
+		},
+		cstimerOrder: [
+			"handOutline",
+			"back",
+			"front",
+			"hand",
+			"pin"
+		],
+		methods: {
+			default: "clkwca",
+			"random-state": "clkwca"
+		}
+	},
+	minx: {
+		name: "Megaminx",
+		colorSetting: "colmgm",
+		defaultColors: {
+			U: "#fff",
+			F: "#060",
+			R: "#d00",
+			L: "#81f",
+			BR: "#00b",
+			BL: "#fc0",
+			DR: "#ffb",
+			DL: "#8df",
+			DBR: "#f9f",
+			DBL: "#f83",
+			B: "#7e0",
+			D: "#999"
+		},
+		cstimerOrder: [
+			"U",
+			"R",
+			"F",
+			"L",
+			"BL",
+			"BR",
+			"DR",
+			"DL",
+			"DBL",
+			"B",
+			"DBR",
+			"D"
+		],
+		methods: {
+			default: "mgmp",
+			"random-state": "mgmso",
+			"random-move": "mgmp"
+		}
+	},
+	pyram: {
+		name: "Pyraminx",
+		colorSetting: "colpyr",
+		defaultColors: {
+			F: "#0f0",
+			L: "#f00",
+			R: "#00f",
+			D: "#ff0"
+		},
+		cstimerOrder: [
+			"F",
+			"L",
+			"R",
+			"D"
+		],
+		methods: {
+			default: "pyrso",
+			"random-state": "pyrso",
+			"random-move": "pyrm"
+		}
+	},
+	skewb: {
+		name: "Skewb",
+		colorSetting: "colskb",
+		defaultColors: {
+			U: "#fff",
+			R: "#f00",
+			F: "#0f0",
+			D: "#ff0",
+			L: "#f80",
+			B: "#00f"
+		},
+		cstimerOrder: [
+			"U",
+			"B",
+			"R",
+			"D",
+			"F",
+			"L"
+		],
+		methods: {
+			default: "skbso",
+			"random-state": "skbso",
+			"random-move": "skb"
+		}
+	},
+	sq1: {
+		name: "Square-1",
+		colorSetting: "colsq1",
+		defaultColors: {
+			U: "#ff0",
+			R: "#f80",
+			F: "#0f0",
+			D: "#fff",
+			L: "#f00",
+			B: "#00f"
+		},
+		cstimerOrder: [
+			"U",
+			"R",
+			"F",
+			"D",
+			"L",
+			"B"
+		],
+		methods: {
+			default: "sqrs",
+			"random-state": "sqrs",
+			"random-move": "sq1h"
+		}
+	}
+};
+const METHODS = [
+	"default",
+	"random-state",
+	"random-move"
+];
+const HEX_COLOR = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i;
+/**
+* csTimer draws with 3-digit colors (#rgb), so a 6-digit color becomes the nearest one,
+* e.g. "#ff8000" -> "#f80".
+*/
+function toCstimerColor(color) {
+	const hex = color.slice(1);
+	if (hex.length === 3) return color;
+	let short = "#";
+	for (let i = 0; i < 6; i += 2) short += Math.round(parseInt(hex.slice(i, i + 2), 16) / 17).toString(16);
+	return short;
+}
+/** Ids of the puzzles `new Puzzle(id)` accepts, e.g. `'333'`, `'pyram'`. */
+function listPuzzles() {
+	return Object.keys(PUZZLES);
+}
+var _info = /* @__PURE__ */ new WeakMap();
+var _colors = /* @__PURE__ */ new WeakMap();
+var _imageSize = /* @__PURE__ */ new WeakMap();
+var _method = /* @__PURE__ */ new WeakMap();
+var _scramble = /* @__PURE__ */ new WeakMap();
+var _scrambleType = /* @__PURE__ */ new WeakMap();
+/**
+* One physical puzzle, e.g. `new Puzzle('333')`. Each puzzle keeps its own settings
+* (colors, image size, scramble method), so two puzzles never affect each other.
+*
+* Settings are changed with `set...` methods, which return the puzzle so they can be
+* chained: `new Puzzle('333').setColor('U', '#ff0').setImageSize(200)`.
+*/
+var Puzzle = class {
+	constructor(id) {
+		_classPrivateFieldInitSpec(this, _info, void 0);
+		_classPrivateFieldInitSpec(this, _colors, void 0);
+		_classPrivateFieldInitSpec(this, _imageSize, void 0);
+		_classPrivateFieldInitSpec(this, _method, "default");
+		_classPrivateFieldInitSpec(this, _scramble, "");
+		_classPrivateFieldInitSpec(this, _scrambleType, "");
+		const info = PUZZLES[id];
+		if (!info) throw new Error(`Unknown puzzle "${id}". Puzzles: ${listPuzzles().join(", ")}`);
+		this.id = id;
+		this.name = info.name;
+		_classPrivateFieldSet2(_info, this, info);
+		_classPrivateFieldSet2(_colors, this, { ...info.defaultColors });
+	}
+	/** Names `setColor` accepts, e.g. `['U', 'R', 'F', 'D', 'L', 'B']` for cubes. */
+	getFaces() {
+		return Object.keys(_classPrivateFieldGet2(_info, this).defaultColors);
+	}
+	/**
+	* Sets the color of one face (or part, for clock), as a hex color like `'#ff0'` or
+	* `'#ffaa00'`. csTimer draws with 3-digit colors, so 6-digit ones are rounded to the
+	* nearest of those.
+	*/
+	setColor(face, color) {
+		if (!Object.prototype.hasOwnProperty.call(_classPrivateFieldGet2(_colors, this), face)) throw new Error(`${this.name} has no face "${face}". Faces: ${this.getFaces().join(", ")}`);
+		if (!HEX_COLOR.test(color)) throw new Error(`"${color}" is not a hex color like "#ff0" or "#ffaa00"`);
+		_classPrivateFieldGet2(_colors, this)[face] = color.toLowerCase();
+		return this;
+	}
+	/** Sets several colors at once, e.g. `{ U: '#ff0', D: '#fff' }`. */
+	setColors(colors) {
+		for (const [face, color] of Object.entries(colors)) this.setColor(face, color);
+		return this;
+	}
+	/** Every face's color, e.g. `{ D: '#ff0', L: '#fa0', ... }`. */
+	getColors() {
+		return { ..._classPrivateFieldGet2(_colors, this) };
+	}
+	/** Goes back to csTimer's default colors. */
+	resetColors() {
+		_classPrivateFieldSet2(_colors, this, { ..._classPrivateFieldGet2(_info, this).defaultColors });
+		return this;
+	}
+	/**
+	* Sets the width of `getImage()`'s SVG in pixels; the height follows the picture's
+	* shape. Without it the SVG keeps csTimer's own size. It can still be resized with CSS.
+	*/
+	setImageSize(width) {
+		if (!(width > 0) || !Number.isFinite(width)) throw new Error(`Image size must be a positive number of pixels, not ${width}`);
+		_classPrivateFieldSet2(_imageSize, this, width);
+		return this;
+	}
+	/** The width set with `setImageSize`, or `undefined` for csTimer's own size. */
+	getImageSize() {
+		return _classPrivateFieldGet2(_imageSize, this);
+	}
+	/** Which methods `setScrambleMethod` accepts for this puzzle. */
+	getScrambleMethods() {
+		return METHODS.filter((method) => method in _classPrivateFieldGet2(_info, this).methods);
+	}
+	/**
+	* Picks how `scramble()` makes scrambles: `'default'` (the WCA way), `'random-state'`
+	* or `'random-move'`. Throws if csTimer has no such scrambler for this puzzle
+	* (see `getScrambleMethods`).
+	*/
+	setScrambleMethod(method) {
+		if (!(method in _classPrivateFieldGet2(_info, this).methods)) throw new Error(`${this.name} has no "${method}" scrambles. Methods: ${this.getScrambleMethods().join(", ")}`);
+		_classPrivateFieldSet2(_method, this, method);
+		return this;
+	}
+	getScrambleMethod() {
+		return _classPrivateFieldGet2(_method, this);
+	}
+	/** The csTimer scramble type id the current method uses, e.g. `'333o'`. */
+	getScrambleType() {
+		return _classPrivateFieldGet2(_info, this).methods[_classPrivateFieldGet2(_method, this)];
+	}
+	/**
+	* Makes a new scramble with the current method and scrambles the puzzle with it, so
+	* `getImage()` then shows it.
+	*/
+	scramble() {
+		_classPrivateFieldSet2(_scrambleType, this, this.getScrambleType());
+		_classPrivateFieldSet2(_scramble, this, getScramble(_classPrivateFieldGet2(_scrambleType, this)));
+		return _classPrivateFieldGet2(_scramble, this);
+	}
+	/** The scramble the puzzle was last scrambled with, or `''` when it is solved. */
+	getScramble() {
+		return _classPrivateFieldGet2(_scramble, this);
+	}
+	/** Puts the puzzle back to solved. */
+	reset() {
+		_classPrivateFieldSet2(_scramble, this, "");
+		return this;
+	}
+	/**
+	* Draws the puzzle as it is now (solved, or after `scramble()`) as an SVG string, with
+	* this puzzle's colors and image size. Same picture as `getScrambleImage`.
+	*/
+	getImage() {
+		const colors = _classPrivateFieldGet2(_info, this).cstimerOrder.map((face) => toCstimerColor(_classPrivateFieldGet2(_colors, this)[face])).join("");
+		return drawImage(_classPrivateFieldGet2(_scramble, this) ? _classPrivateFieldGet2(_scrambleType, this) : this.getScrambleType(), _classPrivateFieldGet2(_scramble, this), { [_classPrivateFieldGet2(_info, this).colorSetting]: colors }, _classPrivateFieldGet2(_imageSize, this));
+	}
+};
 //#endregion
 //#region src/cstimer.ts
 const ENTITIES = {
@@ -3147,6 +3469,6 @@ const eventsJoke = [
 ];
 registerEvents(...eventsJoke);
 //#endregion
-export { Move, events222, events333, events333Variants, events444, events555, events666, events777, eventsClock, eventsFto, eventsJoke, eventsMinx, eventsOther, eventsPyram, eventsRelay, eventsSkewb, eventsSq1, get222Scramble, get333BldScramble, get333CornersScramble, get333EdgesScramble, get333FmcScramble, get333LLScramble, get333MultiBldScramble, get333OhScramble, get333Scramble, get444BldScramble, get444Scramble, get555BldScramble, get555Scramble, get666Scramble, get777Scramble, getAnyScramble, getClockScramble, getEvent, getFtoScramble, getMegaminxScramble, getPyraminxScramble, getScramble, getScrambleImage, getSeed, getSkewbScramble, getSquare1Scramble, hasScrambleImage, listEvents, registerEvents, setSeed };
+export { Move, Puzzle, events222, events333, events333Variants, events444, events555, events666, events777, eventsClock, eventsFto, eventsJoke, eventsMinx, eventsOther, eventsPyram, eventsRelay, eventsSkewb, eventsSq1, get222Scramble, get333BldScramble, get333CornersScramble, get333EdgesScramble, get333FmcScramble, get333LLScramble, get333MultiBldScramble, get333OhScramble, get333Scramble, get444BldScramble, get444Scramble, get555BldScramble, get555Scramble, get666Scramble, get777Scramble, getAnyScramble, getClockScramble, getEvent, getFtoScramble, getMegaminxScramble, getPyraminxScramble, getScramble, getScrambleImage, getSeed, getSkewbScramble, getSquare1Scramble, hasScrambleImage, listEvents, listPuzzles, registerEvents, setSeed };
 
 //# sourceMappingURL=index.mjs.map
