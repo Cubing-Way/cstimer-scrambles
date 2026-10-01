@@ -1,4 +1,4 @@
-import { a as mathlib, i as poly3d, n as sq1, r as scrMgr, t as scramble_333$1 } from "./redi-Du3xG7rl.mjs";
+import { a as poly3d, i as scrMgr, n as clock, o as tools, r as sq1, s as mathlib, t as scramble_333$1 } from "./redi-BWxAeJ6t.mjs";
 //#region src/registry.ts
 const events = /* @__PURE__ */ new Map();
 /** Adds scramble events to the registry. Each puzzle module calls this once. */
@@ -145,77 +145,6 @@ $$1.col2std = function(col, faceMap) {
 	col = (col || "").match(/#[0-9a-fA-F]{3}/g) || [];
 	for (var i = 0; i < col.length; i++) ret.push(~~$$1.nearColor(col[faceMap[i]], 0, true).replace("#", "0x"));
 	return ret;
-};
-//#endregion
-//#region src/vendor/cstimer/toolsutil.js
-var curScramble = [
-	"-",
-	"",
-	0
-];
-function scrambleType(scramble) {
-	if (scramble.match(/^([\d]?[xyzFRUBLDfrubldSME]([w]|&sup[\d];)?[2']?\s*)+$/) == null) return "-";
-	else if (scramble.match(/^([xyzFRU][2']?\s*)+$/)) return "222o";
-	else if (scramble.match(/^([xyzFRUBLDSME][2']?\s*)+$/)) return "333";
-	else if (scramble.match(/^(([xyzFRUBLDfru]|[FRU]w)[2']?\s*)+$/)) return "444";
-	else if (scramble.match(/^(([xyzFRUBLDfrubld])[w]?[2']?\s*)+$/)) return "555";
-	else return "-";
-}
-function carrot2poch(scramble) {
-	return scramble.replace(/([+-])([+-]) /g, function(m, p1, p2) {
-		return "R" + p1 + p1 + " D" + p2 + p2 + " ";
-	});
-}
-function isPuzzle(puzzle, scramble) {
-	scramble = scramble || curScramble;
-	var scrPuzzle = puzzleType(scramble[0]);
-	scramble = scramble[1];
-	if (scrPuzzle) return scrPuzzle == puzzle;
-	else if (puzzle == "222") return scramble.match(/^([xyzFRU][2']?\s*)+$/);
-	else if (puzzle == "333") return scramble.match(/^([xyzFRUBLDSME][2']?\s*)+$/);
-	else if (puzzle == "444") return scramble.match(/^(([xyzFRUBLDfru]|[FRU]w)[2']?\s*)+$/);
-	else if (puzzle == "555") return scramble.match(/^(([xyzFRUBLDfrubld])[w]?[2']?\s*)+$/);
-	else if (puzzle == "skb") return scramble.match(/^([RLUB]'?\s*)+$/);
-	else if (puzzle == "pyr") return scramble.match(/^([RLUBrlub]'?\s*)+$/);
-	else if (puzzle == "sq1") return scramble.match(/^$/);
-	else if (puzzle == "fto") return scramble.match(/^(([FRUBLD]|(?:BL)|(?:BR))[']?\s*)+$/);
-	return false;
-}
-function puzzleType(scrambleType) {
-	if (/^222(so|[236o]|eg[012]?|tc[np]?|lsall|nb)$/.exec(scrambleType)) return "222";
-	else if (/^(333(oh?|ni|f[mt]|drud|custom)?|(z[zb]|[coep]|c[om]|2g|ls|tt)?ll|lse(mu)?|2genl?|3gen_[LF]|edges|corners|f2l|lsll2|(zb|w?v|eo)ls|roux|RrU|half|easyx?c|eoline|eocross|sbrx|mt(3qb|eole|tdr|6cp|l5ep|cdrll)|nocache_333(bld|pat)spec)$/.exec(scrambleType)) return "333";
-	else if (/^(444([mo]|wca|yj|bld|ctud|ctrl|ud3c|l8e|rlda|rlca|edo|cto|e?ll|p[op]ll)?|4edge|RrUu)$/.exec(scrambleType)) return "444";
-	else if (/^(555(wca|bld)?|5edge)$/.exec(scrambleType)) return "555";
-	else if (/^(666(si|[sp]|wca)?|6edge)$/.exec(scrambleType)) return "666";
-	else if (/^(777(si|[sp]|wca)?|7edge)$/.exec(scrambleType)) return "777";
-	else if (/^pyr(s?[om]|l4e|nb|4c)$/.exec(scrambleType)) return "pyr";
-	else if (/^skb(s?o|nb)?$/.exec(scrambleType)) return "skb";
-	else if (/^sq(rs|1pll|1[ht]|rcsp)$/.exec(scrambleType)) return "sq1";
-	else if (/^clk(wcab?|o|nf)$/.exec(scrambleType)) return "clk";
-	else if (/^(mgmp|mgmo|mgmc|minx2g|mlsll|mgmpll|mgmll|mgmso|mgms2l)$/.exec(scrambleType)) return "mgm";
-	else if (/^(klmso|klmp)$/.exec(scrambleType)) return "klm";
-	else if (/^(fto|fto(so|l[34]t|tcp|edge|cent|corn))$/.exec(scrambleType)) return "fto";
-	else if (/^(dmdso)$/.exec(scrambleType)) return "dmd";
-	else if (/^(mpyr|mpyrso)$/.exec(scrambleType)) return "mpyr";
-	else if (/^15p(at|ra?p?)?$/.exec(scrambleType)) return "15p";
-	else if (/^15p(rmp|m)$/.exec(scrambleType)) return "15b";
-	else if (/^8p(at|ra?p?)?$/.exec(scrambleType)) return "8p";
-	else if (/^8p(rmp|m)$/.exec(scrambleType)) return "8b";
-	else if (/^heli2x2g?$/.exec(scrambleType)) return "heli2x2";
-	else if (/^prc[po]$/.exec(scrambleType)) return "prc";
-	else if (/^redi(m|so)?$/.exec(scrambleType)) return "redi";
-	else if (/^dino(o|so)?$/.exec(scrambleType)) return "dino";
-	else if (/^gear(o|so)?$/.exec(scrambleType)) return "gear";
-	else return scrambleType;
-}
-var tools = {
-	scrambleType,
-	puzzleType,
-	isPuzzle,
-	carrot2poch,
-	isCurTrainScramble: function() {
-		return false;
-	}
 };
 //#endregion
 //#region src/vendor/cstimer/cubeutil.js
@@ -2592,23 +2521,64 @@ var image = (function() {
 })();
 //#endregion
 //#region src/image.ts
-/** Puzzles that have images so far. 3x3x3 is the trial; the other puzzles come next. */
-const IMAGE_PUZZLES = ["333"];
+/**
+* Puzzles csTimer's image code can draw, as csTimer's puzzle type ids (what
+* `tools.puzzleType(type)` returns). Mirrors `renderSVG` in csTimer's image.js.
+*/
+const IMAGE_PUZZLES = [
+	"222",
+	"333",
+	"444",
+	"555",
+	"666",
+	"777",
+	"888",
+	"999",
+	"101010",
+	"111111",
+	"pyr",
+	"mpyr",
+	"skb",
+	"mgm",
+	"klm",
+	"giga",
+	"prc",
+	"fto",
+	"dmd",
+	"ctico",
+	"redi",
+	"dino",
+	"heli",
+	"heli2x2",
+	"helicv",
+	"crz3a",
+	"sq1",
+	"sq2",
+	"clk",
+	"gear",
+	"mrbl",
+	"15p",
+	"15b",
+	"8p",
+	"8b"
+];
+/** Relays and multi-blind: a grid with one image per scramble. */
+const MULTI_TYPES = /^r(3(ni)?|23\d+w?|mngf)$/;
 /** Whether `getScrambleImage` can draw scrambles of this csTimer scramble type id. */
 function hasScrambleImage(type) {
-	return type === "r3ni" || IMAGE_PUZZLES.includes(tools.puzzleType(type));
+	return MULTI_TYPES.test(type) || IMAGE_PUZZLES.includes(tools.puzzleType(type));
 }
 /**
 * Draws the scrambled puzzle as an SVG string, the same picture csTimer shows in its
-* "Draw Scramble" tool: an unfolded cube with the U face on top and F in the middle.
+* "Draw Scramble" tool, e.g. an unfolded cube with the U face on top and F in the middle.
 *
 * `type` is the scramble type id the scramble was made for, e.g. `'333'` or `'pll'`.
-* The SVG has a viewBox, so it can be resized with CSS.
+* The SVG has a viewBox, so it can be resized with CSS, and no background.
 *
-* Only 3x3x3 scramble types are supported for now; others throw.
+* Throws for types csTimer has no image for (see `hasScrambleImage`).
 */
 function getScrambleImage(type, scramble) {
-	if (!hasScrambleImage(type)) throw new Error(`No scramble image for "${type}" yet (only 3x3x3 for now)`);
+	if (!hasScrambleImage(type)) throw new Error(`No scramble image for "${type}"`);
 	const svg = image.draw([
 		type,
 		scramble,
