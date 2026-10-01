@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import min2phase from '../src/vendor/cstimer/min2phase.js';
 import mathlib from '../src/vendor/cstimer/mathlib.js';
-import { getScramble, listEvents, setSeed } from '../src/index.js';
+import { getAnyScramble, getScramble, listEvents, setSeed } from '../src/index.js';
 
 const MOVE = /^[URFDLB][2']?$/;
 
@@ -59,5 +59,15 @@ describe('3x3 scrambles', () => {
     expect(lines).toHaveLength(3);
     lines.forEach((line, i) => expect(line.startsWith(`${i + 1}) `)).toBe(true));
     expect(getScramble('r3ni').split('\n')).toHaveLength(5);
+  });
+
+  it('keeps fixed pieces solved with getAnyScramble', () => {
+    // Corners fixed in place: every corner sticker stays on its own face.
+    const f = min2phase.fromScramble(getAnyScramble({ cp: 0x76543210, co: 0 }));
+    for (const face of [0, 9, 18, 27, 36, 45]) {
+      for (const corner of [0, 2, 6, 8]) {
+        expect(f[face + corner]).toBe(f[face + 4]);
+      }
+    }
   });
 });

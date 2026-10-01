@@ -1,28 +1,24 @@
-// csTimer builds some scrambles out of others ("333ni" is "${333}" plus wide
-// moves), so its own '333' scrambler (scramble_333_edit.js) is loaded too.
 import '../../vendor/cstimer/scramble_333_edit.js';
 import '../../vendor/cstimer/megascramble.js';
 import '../../vendor/cstimer/utilscramble.js';
 import { cstimerScramble } from '../../cstimer.js';
 import { registerEvents } from '../../registry.js';
 import type { ScrambleEvent } from '../../types.js';
-import { getAnyScramble } from './state.js';
 import { events333Variants } from './variants.js';
 
 /** WCA 3x3: random-state scramble. */
 function get333Scramble(): string {
-  return getAnyScramble().trim();
+  return cstimerScramble('333');
 }
 
 /** WCA one-handed: the same random-state scramble as 3x3. */
 function get333OhScramble(): string {
-  return get333Scramble();
+  return cstimerScramble('333oh');
 }
 
 /** WCA FMC: random state, wrapped in R' U' F so it cannot start or end with trivial cancellations. */
 function get333FmcScramble(): string {
-  const scramble = getAnyScramble({ firstAxisFilter: 2, lastAxisFilter: 1 });
-  return `R' U' F ${scramble.trim()} R' U' F`;
+  return cstimerScramble('333fm');
 }
 
 /** WCA 3x3 blindfolded: random state plus random wide moves, so the solver can't rely on orientation. */
@@ -37,22 +33,17 @@ function get333MultiBldScramble(cubes = 5): string {
 
 /** Only edges scrambled; corners solved. */
 function get333EdgesScramble(): string {
-  return getAnyScramble({ cp: 0x76543210, co: 0x00000000 }).trim();
+  return cstimerScramble('edges');
 }
 
 /** Only corners scrambled; edges solved. */
 function get333CornersScramble(): string {
-  return getAnyScramble({ ep: 0xba9876543210, eo: 0x000000000000 }).trim();
+  return cstimerScramble('corners');
 }
 
 /** Last layer: first two layers solved, U layer random. */
 function get333LLScramble(): string {
-  return getAnyScramble({
-    ep: 0xba987654ffff,
-    eo: 0x00000000ffff,
-    cp: 0x7654ffff,
-    co: 0x0000ffff,
-  }).trim();
+  return cstimerScramble('ll');
 }
 
 const events333: ScrambleEvent[] = [
