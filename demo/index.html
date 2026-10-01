@@ -65,6 +65,7 @@
           1.5rem/1.6 ui-monospace,
           monospace;
         word-spacing: 0.3em;
+        white-space: pre-wrap;
         min-height: 2em;
       }
       .meta {
@@ -103,7 +104,7 @@
         const scramble = getScramble(select.value);
         const ms = performance.now() - start;
         out.textContent = scramble;
-        info.textContent = `${scramble.split(' ').length} moves, generated in ${ms.toFixed(0)} ms`;
+        info.textContent = `${scramble.split(/\s+/).length} moves, generated in ${ms.toFixed(0)} ms`;
       }
 
       document.getElementById('next').addEventListener('click', next);

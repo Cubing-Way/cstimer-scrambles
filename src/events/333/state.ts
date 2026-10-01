@@ -8,7 +8,7 @@ import min2phase from '../../vendor/cstimer/min2phase.js';
 const { getNPerm, getNParity, rn, rndEl } = mathlib;
 
 /** Move indices as used by mathlib.CubieCube.moveCube (face * 3 + power). */
-export const Move = {
+const Move = {
   U: 0,
   U2: 1,
   Ui: 2,
@@ -33,9 +33,9 @@ export const Move = {
  * A piece mask: either an explicit array (-1 = random) or csTimer's packed form,
  * one hex digit per piece with 0xf meaning random.
  */
-export type PieceMask = number | number[];
+type PieceMask = number | number[];
 
-export interface StateOptions {
+interface StateOptions {
   ep?: PieceMask;
   eo?: PieceMask;
   cp?: PieceMask;
@@ -50,8 +50,8 @@ export interface StateOptions {
   lastAxisFilter?: number;
 }
 
-export const ALL_RANDOM_12 = 0xffffffffffff;
-export const ALL_RANDOM_8 = 0xffffffff;
+const ALL_RANDOM_12 = 0xffffffffffff;
+const ALL_RANDOM_8 = 0xffffffff;
 
 const search = new min2phase.Search();
 
@@ -124,7 +124,7 @@ function parseMask(mask: PieceMask, length: number): number[] {
 const EMPTY: number[][] = [[]];
 
 /** csTimer's getAnyScramble: scramble to a random state matching the given masks. */
-export function getAnyScramble(options: StateOptions = {}): string {
+function getAnyScramble(options: StateOptions = {}): string {
   const { neut, rndApp = EMPTY, rndPre = EMPTY, firstAxisFilter, lastAxisFilter } = options;
   const maskEp = parseMask(options.ep ?? ALL_RANDOM_12, 12);
   const maskEo = parseMask(options.eo ?? ALL_RANDOM_12, 12);
@@ -192,3 +192,6 @@ export function getAnyScramble(options: StateOptions = {}): string {
   } while (solution.length <= 3);
   return solution.replace(/ +/g, ' ');
 }
+
+export { Move, ALL_RANDOM_12, ALL_RANDOM_8, getAnyScramble };
+export type { PieceMask, StateOptions };

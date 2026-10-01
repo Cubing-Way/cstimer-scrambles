@@ -7,7 +7,11 @@ const MOVE = /^[URFDLB][2']?$/;
 
 describe('3x3 scrambles', () => {
   it('registers the 3x3 events', () => {
-    expect(listEvents().map((e) => e.id)).toEqual(['333', '333fm', 'edges', 'corners', 'll']);
+    expect(
+      listEvents()
+        .filter((e) => e.puzzle === '333')
+        .map((e) => e.id),
+    ).toEqual(['333', '333oh', '333fm', '333ni', 'r3ni', 'edges', 'corners', 'll']);
   });
 
   it('produces valid, unsolved random-state scrambles', () => {
@@ -40,5 +44,19 @@ describe('3x3 scrambles', () => {
     const s = getScramble('333fm');
     expect(s.startsWith("R' U' F ")).toBe(true);
     expect(s.endsWith("R' U' F")).toBe(true);
+  });
+
+  it('adds wide moves to blindfolded scrambles', () => {
+    for (let i = 0; i < 10; i++) {
+      const moves = getScramble('333ni').split(' ');
+      expect(moves.every((m) => /^[URFDLB]w?[2']?$/.test(m))).toBe(true);
+    }
+  });
+
+  it('numbers one blindfolded scramble per cube for multi-blind', () => {
+    const lines = getScramble('r3ni', 3).split('\n');
+    expect(lines).toHaveLength(3);
+    lines.forEach((line, i) => expect(line.startsWith(`${i + 1}) `)).toBe(true));
+    expect(getScramble('r3ni').split('\n')).toHaveLength(5);
   });
 });
