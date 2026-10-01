@@ -911,5 +911,4 @@ var sq1 = (function(setNPerm, getNPerm, circle, rn) {
 	};
 
 })(mathlib.setNPerm, mathlib.getNPerm, mathlib.circle, mathlib.rn);
-
 export default sq1;

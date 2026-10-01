@@ -95,8 +95,17 @@
       const out = document.getElementById('scramble');
       const info = document.getElementById('info');
 
+      // One group per puzzle, in registration order.
+      const groups = new Map();
       for (const event of listEvents()) {
-        select.add(new Option(`${event.name} (${event.id})`, event.id));
+        let group = groups.get(event.puzzle);
+        if (!group) {
+          group = document.createElement('optgroup');
+          group.label = event.puzzle;
+          groups.set(event.puzzle, group);
+          select.append(group);
+        }
+        group.append(new Option(`${event.name} (${event.id})`, event.id));
       }
 
       function next() {

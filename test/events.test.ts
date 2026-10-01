@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { getScramble, listEvents, setSeed } from '../src/index.js';
+import { getEvent, getScramble, listEvents, setSeed } from '../src/index.js';
 
 // One pattern per event: what every move of its scramble must look like.
 const MOVES: Record<string, RegExp> = {
@@ -28,6 +28,8 @@ const LENGTHS: Record<string, [number, number]> = {
   skbso: [8, 11],
 };
 
+// Some solvers build lookup tables on first use, so the tests that run every
+// scramble type get a long timeout.
 describe('WCA events', () => {
   it('registers every WCA event csTimer offers, plus FTO', () => {
     const ids = listEvents().map((e) => e.id);
@@ -87,11 +89,43 @@ describe('WCA events', () => {
   });
 
   it('is reproducible with a seed for every event', () => {
-    for (const { id } of listEvents()) {
+    // csTimer's 8-puzzle solver grows its tables between calls, so the same random
+    // state can come out as a different (equally valid) solution.
+    const stateful = ['8prp', '8prap', '8prmp'];
+    for (const { id } of listEvents().filter((e) => !stateful.includes(e.id))) {
       setSeed('cubing-way');
       const a = getScramble(id);
       setSeed('cubing-way');
       expect(getScramble(id)).toBe(a);
     }
+  }, 120_000);
+});
+
+describe('all csTimer scramble types', () => {
+  it("registers every scramble type in csTimer's menu", () => {
+    // csTimer's menu minus its UI-only entries (input, remote, BLD helper,
+    // pattern tool, custom).
+    expect(listEvents()).toHaveLength(206);
+    expect(new Set(listEvents().map((e) => e.id)).size).toBe(206);
+  });
+
+  it('generates a plain-text scramble for every type', () => {
+    for (const { id } of listEvents()) {
+      const scramble = getScramble(id);
+      expect(scramble, id).not.toBe('');
+      expect(scramble, id).not.toMatch(/undefined|NaN|null|ERROR|&\w+;|<\/?span/);
+      expect(scramble, id).toBe(scramble.trim());
+    }
+  }, 120_000);
+
+  it('uses the length for types that have one', () => {
+    expect(getEvent('333o')?.length).toBe(25);
+    expect(getScramble('333o').split(' ')).toHaveLength(25);
+    expect(getScramble('333o', 10).split(' ')).toHaveLength(10);
+    expect(getScramble('r3', 3).split('\n')).toHaveLength(3);
+  });
+
+  it('decodes the HTML entities csTimer uses', () => {
+    expect(getScramble('666s')).toMatch(/[²³]/);
   });
 });

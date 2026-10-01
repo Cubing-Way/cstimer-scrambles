@@ -1,14 +1,13 @@
+// csTimer builds some scrambles out of others ("333ni" is "${333}" plus wide
+// moves), so its own '333' scrambler (scramble_333_edit.js) is loaded too.
+import '../../vendor/cstimer/scramble_333_edit.js';
 import '../../vendor/cstimer/megascramble.js';
 import '../../vendor/cstimer/utilscramble.js';
-import scrMgr from '../../vendor/cstimer/scrmgr.js';
 import { cstimerScramble } from '../../cstimer.js';
 import { registerEvents } from '../../registry.js';
 import type { ScrambleEvent } from '../../types.js';
 import { getAnyScramble } from './state.js';
-
-// csTimer builds some scrambles out of others ("333ni" is "${333}" plus wide
-// moves), so csTimer's scramble manager needs a '333' scrambler too.
-scrMgr.reg('333', () => getAnyScramble());
+import { events333Variants } from './variants.js';
 
 /** WCA 3x3: random-state scramble. */
 function get333Scramble(): string {
@@ -73,7 +72,7 @@ const events333: ScrambleEvent[] = [
   { id: 'll', name: '3x3x3 last layer', puzzle: '333', generate: get333LLScramble },
 ];
 
-registerEvents(...events333);
+registerEvents(...events333, ...events333Variants);
 
 export {
   get333Scramble,
@@ -85,6 +84,7 @@ export {
   get333CornersScramble,
   get333LLScramble,
   events333,
+  events333Variants,
 };
 export { getAnyScramble, Move } from './state.js';
 export type { PieceMask, StateOptions } from './state.js';

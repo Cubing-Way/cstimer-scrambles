@@ -15,3 +15,6 @@ export * from './events/pyram/index.js';
 export * from './events/skewb/index.js';
 export * from './events/sq1/index.js';
 export * from './events/fto/index.js';
+export * from './events/other/index.js';
+export * from './events/relay/index.js';
+export * from './events/joke/index.js';

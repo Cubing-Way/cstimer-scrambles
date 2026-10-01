@@ -1,19 +1,10 @@
 // Vendored from csTimer (src/js/scramble/scramble_444.js) @ 2547d82. GPL-3.0, (c) cs0x7f.
-// Changes: ESM import/export; $.now() -> plain JS; DEBUG disabled; scramble_333.solvFacelet comes from a local min2phase search (same arguments as csTimer).
+// Changes: ESM import/export; $.now() -> plain JS; DEBUG disabled.
 import mathlib from './mathlib.js';
-import min2phase from './min2phase.js';
 import scrMgr from './scrmgr.js';
+import scramble_333 from './scramble_333_edit.js';
 var DEBUG = false;
 "use strict";
-
-var scramble_333 = (function() {
-	var search = new min2phase.Search();
-	return {
-		solvFacelet: function(facelet) {
-			return search.solution(facelet, 21, 1e9, 50, 0);
-		}
-	};
-})();
 
 var scramble_444 = (function(Cnk, circle) {
 
@@ -3097,5 +3088,4 @@ var scramble_444 = (function(Cnk, circle) {
 		testbench: testbench
 	}
 })(mathlib.Cnk, mathlib.circle);
-
 export default scramble_444;
