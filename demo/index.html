@@ -55,6 +55,17 @@
       input[type='number'] {
         width: 5em;
       }
+      input:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+      }
+      .note {
+        color: var(--muted);
+        font-size: 0.85rem;
+      }
+      .note[hidden] {
+        display: none;
+      }
       button {
         background: var(--accent);
         border-color: var(--accent);
@@ -152,7 +163,10 @@
         <select id="puzzle" aria-label="Puzzle"></select>
         <select id="type" aria-label="Scramble type"></select>
         <select id="method" aria-label="Scramble method"></select>
-        <label>Length <input id="length" type="number" min="1" max="999" /></label>
+        <label
+          >Length <input id="length" type="number" min="1" max="999" placeholder="n/a" />
+          <span class="note" id="length-note">set by this scramble type</span></label
+        >
         <label>Size <input id="size" type="range" min="100" max="480" value="300" /></label>
         <select id="view" aria-label="View">
           <option value="2d">2D</option>
@@ -271,10 +285,12 @@
         typeSelect.value = puzzle.getScrambleType();
         // Blank when the type was picked from the list rather than by a method.
         methodSelect.value = puzzle.getScrambleMethod() ?? '';
+        // Random-state and case scrambles are as long as they need to be: the box says
+        // "n/a", greyed out, with the reason next to it.
         const length = puzzle.getScrambleLength();
         lengthInput.disabled = length === undefined;
         lengthInput.value = length ?? '';
-        lengthInput.title = length === undefined ? 'This scramble type has its own length' : '';
+        $('length-note').hidden = length !== undefined;
         draw();
       }
 
