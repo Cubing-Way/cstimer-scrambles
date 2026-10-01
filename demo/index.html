@@ -100,8 +100,6 @@
           monospace;
         word-spacing: 0.3em;
       }
-      /* Shown at the size set with setImageSize, but never wider than the page.
-         The images have no background of their own, so they sit on the page. */
       .views {
         display: flex;
         flex-wrap: wrap;
@@ -109,6 +107,8 @@
         gap: 24px;
         margin: 16px 0;
       }
+      /* Shown at the size set with setImageSize, but never wider than the page.
+         The images have no background of their own, so they sit on the page. */
       #image {
         max-width: 100%;
       }
@@ -124,6 +124,33 @@
         display: block;
         max-width: 100%;
         height: auto;
+      }
+      #event-scramble {
+        margin: 16px 0 8px;
+        padding: 20px;
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        font:
+          1.5rem/1.6 ui-monospace,
+          monospace;
+        word-spacing: 0.3em;
+        white-space: pre-wrap;
+        min-height: 2em;
+      }
+      #event-image svg {
+        display: block;
+        width: 100%;
+        max-width: 480px;
+        height: auto;
+        max-height: 360px;
+      }
+      /* Relays and multi-blind number each puzzle in black; use the page's text color. */
+      #event-image svg > text[text-anchor='start'] {
+        fill: var(--fg) !important;
+      }
+      h2 {
+        margin-top: 48px;
       }
       .meta {
         color: var(--muted);
@@ -150,11 +177,11 @@
       </div>
       <div class="colors" id="colors"></div>
       <label class="moves">
-        <span>Scramble</span>
+        <span id="scramble-label">Scramble</span>
         <textarea id="scramble" rows="2" spellcheck="false"></textarea>
       </label>
       <label class="moves">
-        <span>Solution</span>
+        <span id="solution-label">Solution</span>
         <textarea
           id="solution"
           rows="2"
@@ -167,9 +194,29 @@
         <div id="cube3d" title="Drag to turn the cube"></div>
       </div>
       <p class="meta" id="info"></p>
+
+      <h2>All scramble types</h2>
+      <p class="meta">
+        Every one of csTimer's scramble types, with <code>getScramble(type)</code> and
+        <code>getScrambleImage(type, scramble)</code>.
+      </p>
+      <div class="controls">
+        <select id="event" aria-label="Scramble type"></select>
+        <button id="event-next">New scramble</button>
+      </div>
+      <div id="event-scramble"></div>
+      <div id="event-image"></div>
+      <p class="meta" id="event-info"></p>
     </main>
     <script type="module">
-      import { Puzzle, listPuzzles } from './index.mjs';
+      import {
+        Puzzle,
+        listPuzzles,
+        listEvents,
+        getScramble,
+        getScrambleImage,
+        hasScrambleImage,
+      } from './index.mjs';
 
       // One Puzzle object per puzzle, so each keeps its own settings and scramble.
       const puzzles = new Map(listPuzzles().map((id) => [id, new Puzzle(id)]));
@@ -184,15 +231,26 @@
       const image = $('image');
       const cube3d = $('cube3d');
       const info = $('info');
+      const scrambleLabel = $('scramble-label');
+      const solutionLabel = $('solution-label');
+      // How long each puzzle's last scramble() took, until its scramble is edited.
+      const scrambleTimes = new Map();
       for (const [id, puzzle] of puzzles) puzzleSelect.append(new Option(puzzle.name, id));
 
       const current = () => puzzles.get(puzzleSelect.value);
       // <input type="color"> wants #rrggbb.
       const long = (c) => (c.length === 4 ? '#' + [...c.slice(1)].map((x) => x + x).join('') : c);
 
+      const moves = (n) => `${n} ${n === 1 ? 'move' : 'moves'}`;
+
       function draw() {
         const puzzle = current();
         puzzle.setImageSize(Number(sizeInput.value));
+        const ms = scrambleTimes.get(puzzle.id);
+        scrambleLabel.textContent =
+          `Scramble · ${moves(puzzle.getScrambleMoveCount())}` +
+          (ms === undefined ? '' : ` · generated in ${ms.toFixed(0)} ms`);
+        solutionLabel.textContent = `Solution · ${moves(puzzle.getSolutionMoveCount())}`;
         info.classList.remove('error');
         try {
           image.innerHTML = puzzle.getImage();
@@ -222,7 +280,9 @@
       }
 
       function next() {
+        const start = performance.now();
         current().scramble();
+        scrambleTimes.set(current().id, performance.now() - start);
         showMoves();
       }
 
@@ -244,8 +304,8 @@
           colorsDiv.append(label);
         }
         // Every puzzle starts scrambled.
-        if (!puzzle.getScramble()) puzzle.scramble();
-        showMoves();
+        if (!puzzle.getScramble()) next();
+        else showMoves();
       }
 
       puzzleSelect.addEventListener('change', showPuzzle);
@@ -261,6 +321,7 @@
       sizeInput.addEventListener('input', draw);
       scrambleInput.addEventListener('input', () => {
         current().setScramble(scrambleInput.value);
+        scrambleTimes.delete(current().id);
         draw();
       });
       solutionInput.addEventListener('input', () => {
@@ -276,6 +337,38 @@
       });
       puzzleSelect.value = '333';
       showPuzzle();
+
+      // All scramble types: the plain functions, one group per puzzle in registration order.
+      const eventSelect = $('event');
+      const eventScramble = $('event-scramble');
+      const eventImage = $('event-image');
+      const eventInfo = $('event-info');
+      const groups = new Map();
+      for (const event of listEvents()) {
+        let group = groups.get(event.puzzle);
+        if (!group) {
+          group = document.createElement('optgroup');
+          group.label = event.puzzle;
+          groups.set(event.puzzle, group);
+          eventSelect.append(group);
+        }
+        group.append(new Option(`${event.name} (${event.id})`, event.id));
+      }
+
+      function nextEvent() {
+        const start = performance.now();
+        const scramble = getScramble(eventSelect.value);
+        const ms = performance.now() - start;
+        eventScramble.textContent = scramble;
+        eventInfo.textContent = `${moves(scramble.split(/\s+/).length)}, generated in ${ms.toFixed(0)} ms`;
+        eventImage.innerHTML = hasScrambleImage(eventSelect.value)
+          ? getScrambleImage(eventSelect.value, scramble)
+          : '<p class="meta">No image for this puzzle.</p>';
+      }
+
+      eventSelect.addEventListener('change', nextEvent);
+      $('event-next').addEventListener('click', nextEvent);
+      nextEvent();
     </script>
   </body>
 </html>
