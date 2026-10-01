@@ -65,6 +65,7 @@
           1.5rem/1.6 ui-monospace,
           monospace;
         word-spacing: 0.3em;
+        white-space: pre-wrap;
         min-height: 2em;
       }
       .meta {
@@ -94,8 +95,17 @@
       const out = document.getElementById('scramble');
       const info = document.getElementById('info');
 
+      // One group per puzzle, in registration order.
+      const groups = new Map();
       for (const event of listEvents()) {
-        select.add(new Option(`${event.name} (${event.id})`, event.id));
+        let group = groups.get(event.puzzle);
+        if (!group) {
+          group = document.createElement('optgroup');
+          group.label = event.puzzle;
+          groups.set(event.puzzle, group);
+          select.append(group);
+        }
+        group.append(new Option(`${event.name} (${event.id})`, event.id));
       }
 
       function next() {
@@ -103,7 +113,7 @@
         const scramble = getScramble(select.value);
         const ms = performance.now() - start;
         out.textContent = scramble;
-        info.textContent = `${scramble.split(' ').length} moves, generated in ${ms.toFixed(0)} ms`;
+        info.textContent = `${scramble.split(/\s+/).length} moves, generated in ${ms.toFixed(0)} ms`;
       }
 
       document.getElementById('next').addEventListener('click', next);
