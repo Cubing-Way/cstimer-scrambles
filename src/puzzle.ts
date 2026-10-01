@@ -2,6 +2,8 @@
 
 import { getEvent, getScramble } from './registry.js';
 import { drawImage } from './image.js';
+import { drawCube3D } from './view3d.js';
+import image from './vendor/cstimer/image.js';
 
 /**
  * How `Puzzle.scramble()` makes scrambles:
@@ -21,6 +23,8 @@ interface PuzzleInfo {
   cstimerOrder: readonly string[];
   /** The csTimer scramble type id for each method the puzzle has. */
   methods: { default: string } & Partial<Record<ScrambleMethod, string>>;
+  /** For cubes: how many stickers along each edge, e.g. 3 for 3x3x3. */
+  cubeSize?: number;
 }
 
 function cube(n: number, methods: PuzzleInfo['methods']): PuzzleInfo {
@@ -30,6 +34,7 @@ function cube(n: number, methods: PuzzleInfo['methods']): PuzzleInfo {
     defaultColors: { U: '#fff', R: '#f00', F: '#0d0', D: '#ff0', L: '#fa0', B: '#00f' },
     cstimerOrder: ['D', 'L', 'B', 'U', 'R', 'F'],
     methods,
+    cubeSize: n,
   };
 }
 
@@ -343,6 +348,54 @@ class Puzzle {
   reset(): this {
     this.#scramble = '';
     this.#solution = '';
+    return this;
+  }
+
+  /** Whether `getStickers` and `show3D` work for this puzzle: the cubes, 2x2x2 to 7x7x7. */
+  has3DView(): boolean {
+    return this.#info.cubeSize !== undefined;
+  }
+
+  /**
+   * The color of every sticker of a cube as it is now (after the scramble and then the
+   * solution), by face: `{ U: [...], R: [...], F, D, L, B }`, each with size x size colors.
+   * Each face is read row by row, from the top left, as you see it in `getImage()`'s
+   * unfolded picture: U with its top row next to B, D with its top row next to F, and the
+   * side faces upright. Only for cubes (see `has3DView`).
+   */
+  getStickers(): Record<string, string[]> {
+    const size = this.#info.cubeSize;
+    if (size === undefined) throw new Error(`${this.name} has no 3D view yet, only cubes do`);
+    const moves = [this.#scramble, this.#solution].filter(Boolean).join(' ');
+    // csTimer's stickers: per face (D L B U R F), the face each sticker's color comes from.
+    const posit = image.nnnPosit(size, moves);
+    const order = this.#info.cstimerOrder;
+    const stickers: Record<string, string[]> = {};
+    for (const face of this.getFaces()) {
+      const f = order.indexOf(face);
+      const colors: string[] = [];
+      for (let row = 0; row < size; row++) {
+        for (let col = 0; col < size; col++) {
+          // The same flips as csTimer's unfolded picture: L and B mirrored, D upside down.
+          const x = face === 'L' || face === 'B' ? size - 1 - col : col;
+          const y = face === 'D' ? size - 1 - row : row;
+          colors.push(this.#colors[order[posit[(f * size + y) * size + x]!]!]!);
+        }
+      }
+      stickers[face] = colors;
+    }
+    return stickers;
+  }
+
+  /**
+   * Shows the cube in 3D inside `element` on a web page, as it is now (the same state as
+   * `getImage()`), with this puzzle's colors. It fills the element's width; drag it with
+   * the mouse or a finger to look at every side. Call it again after changing the puzzle
+   * to update the view: the cube keeps the angle it was turned to. Only for cubes (see
+   * `has3DView`), and only in a browser.
+   */
+  show3D(element: HTMLElement): this {
+    drawCube3D(element, this.#info.cubeSize ?? 0, this.getStickers());
     return this;
   }
 

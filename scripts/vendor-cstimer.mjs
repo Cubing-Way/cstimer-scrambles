@@ -146,6 +146,18 @@ const FILES = [
   ],
 ];
 
+// Small additions to csTimer's code, by upstream path: [text to find, replacement, note].
+const EDITS = {
+  // The 3D cube view needs the cube's stickers, which csTimer only keeps inside image.js.
+  'tools/image.js': [
+    [
+      '\t\tdraw: genImage,\n',
+      '\t\tdraw: genImage,\n\t\tnnnPosit: nnnImage.genPosit,\n',
+      'exports nnnImage.genPosit (cube stickers after a scramble)',
+    ],
+  ],
+};
+
 const JQUERY = [
   ['$.now()', 'Date.now()'],
   ['$.noop', 'function() {}'],
@@ -172,6 +184,11 @@ function vendorFile(cstimer, [path, imports, exportName, shims = [], notes = [],
     }
   }
   if (replaced.length) changes.push(`${replaced.join(', ')} -> plain JS`);
+  for (const [from, to, note] of EDITS[path] ?? []) {
+    if (!code.includes(from)) throw new Error(`"${from.trim()}" not found in ${path}`);
+    code = code.replace(from, to);
+    changes.push(note);
+  }
   changes.push('DEBUG disabled', ...notes);
   const parts = [header(path, changes, imports), ...shims.map((s) => SHIMS[s]), code.trimEnd()];
   if (exportName) parts.push(`export default ${exportName};`);

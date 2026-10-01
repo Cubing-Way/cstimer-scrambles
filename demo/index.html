@@ -102,8 +102,23 @@
       }
       /* Shown at the size set with setImageSize, but never wider than the page.
          The images have no background of their own, so they sit on the page. */
-      #image {
+      .views {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 24px;
         margin: 16px 0;
+      }
+      #image {
+        max-width: 100%;
+      }
+      /* The 3D view fills this box's width; drag it to turn the cube. */
+      #cube3d {
+        width: 260px;
+        max-width: 100%;
+      }
+      #cube3d[hidden] {
+        display: none;
       }
       #image svg {
         display: block;
@@ -147,7 +162,10 @@
           placeholder="Type moves here"
         ></textarea>
       </label>
-      <div id="image"></div>
+      <div class="views">
+        <div id="image"></div>
+        <div id="cube3d" title="Drag to turn the cube"></div>
+      </div>
       <p class="meta" id="info"></p>
     </main>
     <script type="module">
@@ -164,6 +182,7 @@
       const scrambleInput = $('scramble');
       const solutionInput = $('solution');
       const image = $('image');
+      const cube3d = $('cube3d');
       const info = $('info');
       for (const [id, puzzle] of puzzles) puzzleSelect.append(new Option(puzzle.name, id));
 
@@ -177,6 +196,9 @@
         info.classList.remove('error');
         try {
           image.innerHTML = puzzle.getImage();
+          // The cubes also get a 3D view, which keeps its angle when redrawn.
+          cube3d.hidden = !puzzle.has3DView();
+          if (puzzle.has3DView()) puzzle.show3D(cube3d);
           info.textContent = `csTimer scramble type: ${puzzle.getScrambleType()}`;
         } catch (e) {
           info.classList.add('error');
