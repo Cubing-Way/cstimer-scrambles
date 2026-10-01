@@ -2586,6 +2586,7 @@ const STYLE = `
   aspect-ratio: 1;
   container-type: size;
   perspective: 300cqmin;
+  max-width: 100%;
   touch-action: none;
   user-select: none;
   cursor: grab;
@@ -2684,14 +2685,16 @@ function createView(element, size, angle) {
 /**
 * Draws a size x size x size cube in `element` (replacing what is in it), with each
 * face's sticker colors in the order U R F D L B, as `Puzzle.getStickers()` gives them.
-* Drawing in the same element again only changes the colors, so the angle is kept.
+* The view is `width` pixels wide and as tall, or fills the element's width without it.
+* Drawing in the same element again only changes the colors and width, so the angle is kept.
 */
-function drawCube3D(element, size, stickers) {
+function drawCube3D(element, size, stickers, width) {
 	let view = views.get(element);
 	if (!view || view.size !== size || !element.contains(view.cube)) {
 		view = createView(element, size, view ? view.angle : { ...START_ANGLE });
 		views.set(element, view);
 	}
+	view.cube.parentElement.style.width = width === void 0 ? "" : `${width}px`;
 	FACES.forEach(([name], i) => {
 		const colors = stickers[name] ?? [];
 		[...view.faces[i].children].forEach((sticker, j) => {
@@ -3103,13 +3106,14 @@ var Puzzle = class {
 	/**
 	* Sets the width of `getImage()`'s SVG in pixels; the height follows the picture's
 	* shape. Without it the SVG keeps csTimer's own size. It can still be resized with CSS.
+	* It also sets the width (and height) of the `show3D` view.
 	*/
 	setImageSize(width) {
 		if (!(width > 0) || !Number.isFinite(width)) throw new Error(`Image size must be a positive number of pixels, not ${width}`);
 		_classPrivateFieldSet2(_imageSize, this, width);
 		return this;
 	}
-	/** The width set with `setImageSize`, or `undefined` for csTimer's own size. */
+	/** The width set with `setImageSize`, or `undefined` for the default sizes. */
 	getImageSize() {
 		return _classPrivateFieldGet2(_imageSize, this);
 	}
@@ -3269,13 +3273,14 @@ var Puzzle = class {
 	}
 	/**
 	* Shows the cube in 3D inside `element` on a web page, as it is now (the same state as
-	* `getImage()`), with this puzzle's colors. It fills the element's width; drag it with
-	* the mouse or a finger to look at every side. Call it again after changing the puzzle
+	* `getImage()`), with this puzzle's colors. It is as wide (and as tall) as the image
+	* size set with `setImageSize`, never wider than the element, or fills the element's
+	* width without one. Drag it with the mouse or a finger to look at every side. Call it again after changing the puzzle
 	* to update the view: the cube keeps the angle it was turned to. Only for cubes (see
 	* `has3DView`), and only in a browser.
 	*/
 	show3D(element) {
-		drawCube3D(element, _classPrivateFieldGet2(_info, this).cubeSize ?? 0, this.getStickers());
+		drawCube3D(element, _classPrivateFieldGet2(_info, this).cubeSize ?? 0, this.getStickers(), _classPrivateFieldGet2(_imageSize, this));
 		return this;
 	}
 	/** Whether `getImage()` can draw the puzzle with its current scramble type. */
