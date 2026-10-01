@@ -2790,6 +2790,29 @@ function toCstimerColor(color) {
 	for (let i = 0; i < 6; i += 2) short += Math.round(parseInt(hex.slice(i, i + 2), 16) / 17).toString(16);
 	return short;
 }
+/**
+* csTimer's Square-1 drawing reads one turn like `(1,0)` between slashes, so turns in a
+* row, e.g. where a scramble ends and a solution starts, are added up into one turn.
+* Anything else is left as it is.
+*/
+function joinSq1Turns(moves) {
+	const tokens = moves.match(/\(\s*-?\d+\s*,\s*-?\d+\s*\)|\/|\S/g) ?? [];
+	if (tokens.some((token) => token !== "/" && !token.startsWith("("))) return moves;
+	const out = [];
+	for (const token of tokens) {
+		const last = out[out.length - 1];
+		if (token === "/") out.push(token);
+		else {
+			const [top, bottom] = token.slice(1, -1).split(",").map(Number);
+			if (Array.isArray(last)) {
+				last[0] += top;
+				last[1] += bottom;
+			} else out.push([top, bottom]);
+		}
+	}
+	const turn = (n) => ((n + 5) % 12 + 12) % 12 - 5;
+	return out.map((token) => typeof token === "string" ? token : ` (${turn(token[0])},${turn(token[1])})`).join("").trim();
+}
 /** Ids of the puzzles `new Puzzle(id)` accepts, e.g. `'333'`, `'pyram'`. */
 function listPuzzles() {
 	return Object.keys(PUZZLES);
@@ -2798,11 +2821,13 @@ var _info = /* @__PURE__ */ new WeakMap();
 var _colors = /* @__PURE__ */ new WeakMap();
 var _imageSize = /* @__PURE__ */ new WeakMap();
 var _method = /* @__PURE__ */ new WeakMap();
+var _length = /* @__PURE__ */ new WeakMap();
 var _scramble = /* @__PURE__ */ new WeakMap();
+var _solution = /* @__PURE__ */ new WeakMap();
 var _scrambleType = /* @__PURE__ */ new WeakMap();
 /**
 * One physical puzzle, e.g. `new Puzzle('333')`. Each puzzle keeps its own settings
-* (colors, image size, scramble method), so two puzzles never affect each other.
+* (colors, image size, scramble method and length), so two puzzles never affect each other.
 *
 * Settings are changed with `set...` methods, which return the puzzle so they can be
 * chained: `new Puzzle('333').setColor('U', '#ff0').setImageSize(200)`.
@@ -2813,7 +2838,9 @@ var Puzzle = class {
 		_classPrivateFieldInitSpec(this, _colors, void 0);
 		_classPrivateFieldInitSpec(this, _imageSize, void 0);
 		_classPrivateFieldInitSpec(this, _method, "default");
+		_classPrivateFieldInitSpec(this, _length, void 0);
 		_classPrivateFieldInitSpec(this, _scramble, "");
+		_classPrivateFieldInitSpec(this, _solution, "");
 		_classPrivateFieldInitSpec(this, _scrambleType, "");
 		const info = PUZZLES[id];
 		if (!info) throw new Error(`Unknown puzzle "${id}". Puzzles: ${listPuzzles().join(", ")}`);
@@ -2886,30 +2913,85 @@ var Puzzle = class {
 		return _classPrivateFieldGet2(_info, this).methods[_classPrivateFieldGet2(_method, this)];
 	}
 	/**
-	* Makes a new scramble with the current method and scrambles the puzzle with it, so
-	* `getImage()` then shows it.
+	* Sets how many moves `scramble()` makes, e.g. `setScrambleLength(30)`. It is used by
+	* methods that make random moves; random-state scrambles are as long as they need to
+	* be, so they ignore it (see `getScrambleLength`). Megaminx rounds it up to whole
+	* lines of 10 moves.
+	*/
+	setScrambleLength(length) {
+		if (!Number.isInteger(length) || length < 1) throw new Error(`Scramble length must be a whole number of moves, at least 1, not ${length}`);
+		_classPrivateFieldSet2(_length, this, length);
+		return this;
+	}
+	/**
+	* How many moves `scramble()` will make with the current method: the length set with
+	* `setScrambleLength`, or csTimer's default for the method. `undefined` when the method
+	* picks its own length (random-state scrambles).
+	*/
+	getScrambleLength() {
+		const defaultLength = getEvent(this.getScrambleType())?.length;
+		return defaultLength === void 0 ? void 0 : _classPrivateFieldGet2(_length, this) ?? defaultLength;
+	}
+	/** Goes back to csTimer's default scramble length. */
+	resetScrambleLength() {
+		_classPrivateFieldSet2(_length, this, void 0);
+		return this;
+	}
+	/**
+	* Makes a new scramble with the current method and length, and scrambles the puzzle
+	* with it (clearing any solution), so `getImage()` then shows it.
 	*/
 	scramble() {
 		_classPrivateFieldSet2(_scrambleType, this, this.getScrambleType());
-		_classPrivateFieldSet2(_scramble, this, getScramble(_classPrivateFieldGet2(_scrambleType, this)));
+		_classPrivateFieldSet2(_scramble, this, getScramble(_classPrivateFieldGet2(_scrambleType, this), this.getScrambleLength()));
+		_classPrivateFieldSet2(_solution, this, "");
 		return _classPrivateFieldGet2(_scramble, this);
+	}
+	/**
+	* Scrambles the puzzle with a scramble of your own, e.g. `setScramble("R U R' U'")`,
+	* written in csTimer's notation for this puzzle. The solution is kept.
+	*/
+	setScramble(scramble) {
+		_classPrivateFieldSet2(_scrambleType, this, this.getScrambleType());
+		_classPrivateFieldSet2(_scramble, this, scramble.trim());
+		return this;
 	}
 	/** The scramble the puzzle was last scrambled with, or `''` when it is solved. */
 	getScramble() {
 		return _classPrivateFieldGet2(_scramble, this);
 	}
-	/** Puts the puzzle back to solved. */
+	/**
+	* Sets the moves done after the scramble, e.g. a solution being typed, so `getImage()`
+	* shows the puzzle after the scramble and then these moves. Same notation as the scramble.
+	*/
+	setSolution(moves) {
+		_classPrivateFieldSet2(_solution, this, moves.trim());
+		return this;
+	}
+	/** The moves set with `setSolution`, or `''`. */
+	getSolution() {
+		return _classPrivateFieldGet2(_solution, this);
+	}
+	/** Puts the puzzle back to solved: no scramble and no solution. */
 	reset() {
 		_classPrivateFieldSet2(_scramble, this, "");
+		_classPrivateFieldSet2(_solution, this, "");
 		return this;
 	}
 	/**
-	* Draws the puzzle as it is now (solved, or after `scramble()`) as an SVG string, with
-	* this puzzle's colors and image size. Same picture as `getScrambleImage`.
+	* Draws the puzzle as it is now (solved, or after the scramble and then the solution)
+	* as an SVG string, with this puzzle's colors and image size. Same picture as
+	* `getScrambleImage`. Throws if csTimer can't read the moves.
 	*/
 	getImage() {
 		const colors = _classPrivateFieldGet2(_info, this).cstimerOrder.map((face) => toCstimerColor(_classPrivateFieldGet2(_colors, this)[face])).join("");
-		return drawImage(_classPrivateFieldGet2(_scramble, this) ? _classPrivateFieldGet2(_scrambleType, this) : this.getScrambleType(), _classPrivateFieldGet2(_scramble, this), { [_classPrivateFieldGet2(_info, this).colorSetting]: colors }, _classPrivateFieldGet2(_imageSize, this));
+		let moves = [_classPrivateFieldGet2(_scramble, this), _classPrivateFieldGet2(_solution, this)].filter(Boolean).join(" ");
+		if (this.id === "sq1") moves = joinSq1Turns(moves);
+		try {
+			return drawImage(_classPrivateFieldGet2(_scramble, this) ? _classPrivateFieldGet2(_scrambleType, this) : this.getScrambleType(), moves, { [_classPrivateFieldGet2(_info, this).colorSetting]: colors }, _classPrivateFieldGet2(_imageSize, this));
+		} catch {
+			throw new Error(`Can't read these moves as ${this.name} moves: "${moves}"`);
+		}
 	}
 };
 //#endregion
@@ -3188,9 +3270,9 @@ const events444 = [
 registerEvents(...events444);
 //#endregion
 //#region src/events/555/index.ts
-/** WCA 5x5: 60 random moves in WCA notation. */
-function get555Scramble() {
-	return cstimerScramble("555wca", 60);
+/** WCA 5x5: 60 random moves (or `length`) in WCA notation. */
+function get555Scramble(length = 60) {
+	return cstimerScramble("555wca", length);
 }
 /** WCA 5x5 blindfolded: 60 random moves plus random wide moves for orientation. */
 function get555BldScramble() {
@@ -3201,6 +3283,7 @@ const events555 = [
 		id: "555wca",
 		name: "5x5x5 WCA",
 		puzzle: "555",
+		length: 60,
 		generate: get555Scramble
 	},
 	{
@@ -3215,15 +3298,16 @@ const events555 = [
 registerEvents(...events555);
 //#endregion
 //#region src/events/666/index.ts
-/** WCA 6x6: 80 random moves in WCA notation. */
-function get666Scramble() {
-	return cstimerScramble("666wca", 80);
+/** WCA 6x6: 80 random moves (or `length`) in WCA notation. */
+function get666Scramble(length = 80) {
+	return cstimerScramble("666wca", length);
 }
 const events666 = [
 	{
 		id: "666wca",
 		name: "6x6x6 WCA",
 		puzzle: "666",
+		length: 80,
 		generate: get666Scramble
 	},
 	cstimerEvent("666si", "6x6x6 SiGN", "666", 80),
@@ -3234,15 +3318,16 @@ const events666 = [
 registerEvents(...events666);
 //#endregion
 //#region src/events/777/index.ts
-/** WCA 7x7: 100 random moves in WCA notation. */
-function get777Scramble() {
-	return cstimerScramble("777wca", 100);
+/** WCA 7x7: 100 random moves (or `length`) in WCA notation. */
+function get777Scramble(length = 100) {
+	return cstimerScramble("777wca", length);
 }
 const events777 = [
 	{
 		id: "777wca",
 		name: "7x7x7 WCA",
 		puzzle: "777",
+		length: 100,
 		generate: get777Scramble
 	},
 	cstimerEvent("777si", "7x7x7 SiGN", "777", 100),
@@ -3274,15 +3359,19 @@ const eventsClock = [
 registerEvents(...eventsClock);
 //#endregion
 //#region src/events/minx/index.ts
-/** WCA Megaminx: 7 lines of Pochmann-style moves (R++ D-- ... U), separated by newlines. */
-function getMegaminxScramble() {
-	return cstimerScramble("mgmp", 70);
+/**
+* WCA Megaminx: 7 lines of Pochmann-style moves (R++ D-- ... U), separated by newlines.
+* Another `length` gives length / 10 lines, rounded up.
+*/
+function getMegaminxScramble(length = 70) {
+	return cstimerScramble("mgmp", length);
 }
 const eventsMinx = [
 	{
 		id: "mgmp",
 		name: "Megaminx WCA",
 		puzzle: "minx",
+		length: 70,
 		generate: getMegaminxScramble
 	},
 	cstimerEvent("mgmc", "Megaminx Carrot", "minx", 70),
