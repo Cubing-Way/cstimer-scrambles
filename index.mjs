@@ -2469,6 +2469,7 @@ var image = (function() {
 	var colre = /#[0-9a-fA-F]{3}/g;
 	return {
 		draw: genImage,
+		nnnPosit: nnnImage.genPosit,
 		llImage,
 		pyrllImage,
 		face3Image,
@@ -2563,6 +2564,142 @@ function round(n) {
 	return parseFloat(n.toFixed(3)).toString();
 }
 //#endregion
+//#region src/view3d.ts
+/** The faces in the order their stickers are given, and where each one sits on the cube. */
+const FACES = [
+	["U", "rotateX(90deg)"],
+	["R", "rotateY(90deg)"],
+	["F", ""],
+	["D", "rotateX(-90deg)"],
+	["L", "rotateY(-90deg)"],
+	["B", "rotateY(180deg)"]
+];
+/** How far the view is turned, in degrees: tilted toward you, then turned sideways. */
+const START_ANGLE = {
+	x: -28,
+	y: -38
+};
+const STYLE = `
+.cstimer-3d {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1;
+  container-type: size;
+  perspective: 300cqmin;
+  touch-action: none;
+  user-select: none;
+  cursor: grab;
+}
+.cstimer-3d:active {
+  cursor: grabbing;
+}
+.cstimer-3d-cube {
+  --side: 52cqmin;
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: var(--side);
+  height: var(--side);
+  transform-style: preserve-3d;
+}
+.cstimer-3d-face {
+  position: absolute;
+  inset: 0;
+  box-sizing: border-box;
+  display: grid;
+  gap: calc(var(--side) * 0.02);
+  padding: calc(var(--side) * 0.025);
+  border-radius: calc(var(--side) * 0.04);
+  background: #111;
+}
+.cstimer-3d-face > div {
+  border-radius: 12%;
+}
+`;
+/** The views already drawn, by the element they are in, so drawing again updates them. */
+const views = /* @__PURE__ */ new WeakMap();
+function addStyle(doc) {
+	if (doc.getElementById("cstimer-3d-style")) return;
+	const style = doc.createElement("style");
+	style.id = "cstimer-3d-style";
+	style.textContent = STYLE;
+	doc.head.append(style);
+}
+function turn(view) {
+	view.cube.style.transform = `rotateX(${view.angle.x}deg) rotateY(${view.angle.y}deg)`;
+}
+/** Turns the view while it is dragged: sideways all the way round, up and down to the top and bottom. */
+function makeDraggable(box, view) {
+	let last;
+	box.addEventListener("pointerdown", (e) => {
+		last = {
+			x: e.clientX,
+			y: e.clientY
+		};
+		box.setPointerCapture(e.pointerId);
+	});
+	box.addEventListener("pointermove", (e) => {
+		if (!last) return;
+		view.angle.y += (e.clientX - last.x) * .5;
+		view.angle.x = Math.max(-90, Math.min(90, view.angle.x - (e.clientY - last.y) * .5));
+		last = {
+			x: e.clientX,
+			y: e.clientY
+		};
+		turn(view);
+	});
+	const stop = () => last = void 0;
+	box.addEventListener("pointerup", stop);
+	box.addEventListener("pointercancel", stop);
+}
+function createView(element, size, angle) {
+	const doc = element.ownerDocument;
+	addStyle(doc);
+	const box = doc.createElement("div");
+	box.className = "cstimer-3d";
+	const cube = doc.createElement("div");
+	cube.className = "cstimer-3d-cube";
+	const faces = FACES.map(([name, place]) => {
+		const face = doc.createElement("div");
+		face.className = "cstimer-3d-face";
+		face.dataset.face = name;
+		face.style.gridTemplate = `repeat(${size}, 1fr) / repeat(${size}, 1fr)`;
+		face.style.transform = `${place} translateZ(calc(var(--side) / 2))`;
+		for (let i = 0; i < size * size; i++) face.append(doc.createElement("div"));
+		cube.append(face);
+		return face;
+	});
+	box.append(cube);
+	element.replaceChildren(box);
+	const view = {
+		cube,
+		faces,
+		size,
+		angle
+	};
+	turn(view);
+	makeDraggable(box, view);
+	return view;
+}
+/**
+* Draws a size x size x size cube in `element` (replacing what is in it), with each
+* face's sticker colors in the order U R F D L B, as `Puzzle.getStickers()` gives them.
+* Drawing in the same element again only changes the colors, so the angle is kept.
+*/
+function drawCube3D(element, size, stickers) {
+	let view = views.get(element);
+	if (!view || view.size !== size || !element.contains(view.cube)) {
+		view = createView(element, size, view ? view.angle : { ...START_ANGLE });
+		views.set(element, view);
+	}
+	FACES.forEach(([name], i) => {
+		const colors = stickers[name] ?? [];
+		[...view.faces[i].children].forEach((sticker, j) => {
+			sticker.style.background = colors[j] ?? "#111";
+		});
+	});
+}
+//#endregion
 //#region \0@oxc-project+runtime@0.152.0/helpers/esm/checkPrivateRedeclaration.js
 function _checkPrivateRedeclaration(e, t) {
 	if (t.has(e)) throw new TypeError("Cannot initialize the same private elements twice on an object");
@@ -2610,7 +2747,8 @@ function cube(n, methods) {
 			"R",
 			"F"
 		],
-		methods
+		methods,
+		cubeSize: n
 	};
 }
 /** The puzzles `Puzzle` supports, by id (the same ids as `ScrambleEvent.puzzle`). */
@@ -2996,6 +3134,47 @@ var Puzzle = class {
 	reset() {
 		_classPrivateFieldSet2(_scramble, this, "");
 		_classPrivateFieldSet2(_solution, this, "");
+		return this;
+	}
+	/** Whether `getStickers` and `show3D` work for this puzzle: the cubes, 2x2x2 to 7x7x7. */
+	has3DView() {
+		return _classPrivateFieldGet2(_info, this).cubeSize !== void 0;
+	}
+	/**
+	* The color of every sticker of a cube as it is now (after the scramble and then the
+	* solution), by face: `{ U: [...], R: [...], F, D, L, B }`, each with size x size colors.
+	* Each face is read row by row, from the top left, as you see it in `getImage()`'s
+	* unfolded picture: U with its top row next to B, D with its top row next to F, and the
+	* side faces upright. Only for cubes (see `has3DView`).
+	*/
+	getStickers() {
+		const size = _classPrivateFieldGet2(_info, this).cubeSize;
+		if (size === void 0) throw new Error(`${this.name} has no 3D view yet, only cubes do`);
+		const moves = [_classPrivateFieldGet2(_scramble, this), _classPrivateFieldGet2(_solution, this)].filter(Boolean).join(" ");
+		const posit = image.nnnPosit(size, moves);
+		const order = _classPrivateFieldGet2(_info, this).cstimerOrder;
+		const stickers = {};
+		for (const face of this.getFaces()) {
+			const f = order.indexOf(face);
+			const colors = [];
+			for (let row = 0; row < size; row++) for (let col = 0; col < size; col++) {
+				const x = face === "L" || face === "B" ? size - 1 - col : col;
+				const y = face === "D" ? size - 1 - row : row;
+				colors.push(_classPrivateFieldGet2(_colors, this)[order[posit[(f * size + y) * size + x]]]);
+			}
+			stickers[face] = colors;
+		}
+		return stickers;
+	}
+	/**
+	* Shows the cube in 3D inside `element` on a web page, as it is now (the same state as
+	* `getImage()`), with this puzzle's colors. It fills the element's width; drag it with
+	* the mouse or a finger to look at every side. Call it again after changing the puzzle
+	* to update the view: the cube keeps the angle it was turned to. Only for cubes (see
+	* `has3DView`), and only in a browser.
+	*/
+	show3D(element) {
+		drawCube3D(element, _classPrivateFieldGet2(_info, this).cubeSize ?? 0, this.getStickers());
 		return this;
 	}
 	/**
