@@ -144,6 +144,16 @@ function joinSq1Turns(moves: string): string {
     .trim();
 }
 
+/**
+ * Counts the moves in `moves`, written in the puzzle's notation: the moves between
+ * spaces, except on Square-1, where each slash `/` is one move (twist metric) and the
+ * turns between them are free.
+ */
+function countMoves(puzzleId: string, moves: string): number {
+  if (puzzleId === 'sq1') return (moves.match(/\//g) ?? []).length;
+  return moves.split(/\s+/).filter(Boolean).length;
+}
+
 /** Ids of the puzzles `new Puzzle(id)` accepts, e.g. `'333'`, `'pyram'`. */
 function listPuzzles(): string[] {
   return Object.keys(PUZZLES);
@@ -337,6 +347,19 @@ class Puzzle {
   /** The moves set with `setSolution`, or `''`. */
   getSolution(): string {
     return this.#solution;
+  }
+
+  /**
+   * How many moves the scramble has. Moves are counted between spaces, except on
+   * Square-1, where each slash is one move (twist metric).
+   */
+  getScrambleMoveCount(): number {
+    return countMoves(this.id, this.#scramble);
+  }
+
+  /** How many moves the solution has, counted like `getScrambleMoveCount`. */
+  getSolutionMoveCount(): number {
+    return countMoves(this.id, this.#solution);
   }
 
   /** Puts the puzzle back to solved: no scramble and no solution. */

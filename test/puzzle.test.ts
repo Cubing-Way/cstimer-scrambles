@@ -258,6 +258,21 @@ describe('Puzzle typed scramble and solution', () => {
     expect([puzzle.getScramble(), puzzle.getSolution()]).toEqual(['', '']);
   });
 
+  it('counts the moves of the scramble and solution', () => {
+    const puzzle = new Puzzle('333').setScrambleMethod('random-move');
+    puzzle.scramble();
+    expect(puzzle.getScrambleMoveCount()).toBe(25);
+    expect(puzzle.getSolutionMoveCount()).toBe(0);
+    expect(puzzle.setSolution(" R  U R'\nU' ").getSolutionMoveCount()).toBe(4);
+    // Square-1 counts slashes.
+    const sq1 = new Puzzle('sq1').setScramble('(1,0)/ (3,3)/ (-1,0)').setSolution('/');
+    expect([sq1.getScrambleMoveCount(), sq1.getSolutionMoveCount()]).toEqual([2, 1]);
+    // Megaminx scrambles: 7 lines of 10 moves and a U turn.
+    const minx = new Puzzle('minx');
+    minx.scramble();
+    expect(minx.getScrambleMoveCount()).toBe(77);
+  });
+
   it('adds up Square-1 turns where the scramble and solution meet', () => {
     const puzzle = new Puzzle('sq1').setScramble('(1,0)/ (3,3)').setSolution('(1,0)/');
     expect(puzzle.getImage()).toBe(getScrambleImage('sqrs', '(1,0)/ (4,3)/'));
