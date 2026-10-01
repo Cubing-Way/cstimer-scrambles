@@ -2911,6 +2911,73 @@ const PUZZLES = {
 		}
 	}
 };
+/** Cubes bigger than 7x7x7: csTimer only has random-move scrambles for them. */
+const BIG_CUBES = Object.fromEntries([
+	8,
+	9,
+	10,
+	11
+].map((n) => {
+	const id = String(n).repeat(3);
+	return [id, cube(n, {
+		default: id,
+		"random-move": id
+	})];
+}));
+/** Names of the other puzzles, by the `puzzle` group of their scramble types. */
+const OTHER_NAMES = {
+	fto: "FTO",
+	"15p": "15 puzzle",
+	"8p": "8 puzzle",
+	"133": "1x3x3 (Floppy Cube)",
+	"223": "2x2x3 (Tower Cube)",
+	"233": "2x3x3 (Domino)",
+	nnn: "NxNxN",
+	mrbl: "Mirror Blocks",
+	gear: "Gear Cube",
+	klm: "Kilominx",
+	giga: "Gigaminx",
+	crz3a: "Crazy 3x3x3",
+	cmetrick: "Cmetrick",
+	heli: "Helicopter Cube",
+	redi: "Redi Cube",
+	dino: "Dino Cube",
+	ivy: "Ivy Cube",
+	mpyr: "Master Pyraminx",
+	prc: "Pyraminx Crystal",
+	sia: "Siamese Cube",
+	sq2: "Square-2",
+	sfl: "Super Floppy",
+	ufo: "UFO",
+	ico: "Icosahedron",
+	bandaged: "Bandaged puzzles",
+	dmd: "Diamond",
+	relay: "Relays",
+	joke: "Joke scrambles"
+};
+/**
+* The puzzle info for an id: a WCA puzzle, a big cube, or any other `puzzle` group of
+* csTimer's scramble types. The others have csTimer's colors only, and their methods
+* come from their types' names ("random state", "random move").
+*/
+function puzzleInfo(id) {
+	const known = PUZZLES[id] ?? BIG_CUBES[id];
+	if (known) return known;
+	const types = listEvents().filter((event) => event.puzzle === id);
+	if (types.length === 0) return void 0;
+	const methods = { default: types[0].id };
+	const state = types.find((type) => /random state/.test(type.name));
+	const move = types.find((type) => /random move/.test(type.name));
+	if (state) methods["random-state"] = state.id;
+	if (move) methods["random-move"] = move.id;
+	return {
+		name: OTHER_NAMES[id] ?? types[0].name,
+		colorSetting: "",
+		defaultColors: {},
+		cstimerOrder: [],
+		methods
+	};
+}
 const METHODS = [
 	"default",
 	"random-state",
@@ -2954,15 +3021,21 @@ function joinSq1Turns(moves) {
 /**
 * Counts the moves in `moves`, written in the puzzle's notation: the moves between
 * spaces, except on Square-1, where each slash `/` is one move (twist metric) and the
-* turns between them are free.
+* turns between them are free. Relay numbers like `2)` are not moves.
 */
 function countMoves(puzzleId, moves) {
 	if (puzzleId === "sq1") return (moves.match(/\//g) ?? []).length;
-	return moves.split(/\s+/).filter(Boolean).length;
+	return moves.split(/\s+/).filter((move) => move && !/^\w+\)$/.test(move)).length;
 }
-/** Ids of the puzzles `new Puzzle(id)` accepts, e.g. `'333'`, `'pyram'`. */
+/**
+* Ids of the puzzles `new Puzzle(id)` accepts, e.g. `'333'`, `'pyram'`: the WCA puzzles
+* first, then every other puzzle csTimer has scrambles for (the `puzzle` groups of
+* `listEvents()`, in the same order).
+*/
 function listPuzzles() {
-	return Object.keys(PUZZLES);
+	const ids = new Set(Object.keys(PUZZLES));
+	for (const event of listEvents()) ids.add(event.puzzle);
+	return [...ids];
 }
 var _info = /* @__PURE__ */ new WeakMap();
 var _colors = /* @__PURE__ */ new WeakMap();
@@ -2972,6 +3045,7 @@ var _length = /* @__PURE__ */ new WeakMap();
 var _scramble = /* @__PURE__ */ new WeakMap();
 var _solution = /* @__PURE__ */ new WeakMap();
 var _scrambleType = /* @__PURE__ */ new WeakMap();
+var _type = /* @__PURE__ */ new WeakMap();
 /**
 * One physical puzzle, e.g. `new Puzzle('333')`. Each puzzle keeps its own settings
 * (colors, image size, scramble method and length), so two puzzles never affect each other.
@@ -2989,7 +3063,8 @@ var Puzzle = class {
 		_classPrivateFieldInitSpec(this, _scramble, "");
 		_classPrivateFieldInitSpec(this, _solution, "");
 		_classPrivateFieldInitSpec(this, _scrambleType, "");
-		const info = PUZZLES[id];
+		_classPrivateFieldInitSpec(this, _type, void 0);
+		const info = puzzleInfo(id);
 		if (!info) throw new Error(`Unknown puzzle "${id}". Puzzles: ${listPuzzles().join(", ")}`);
 		this.id = id;
 		this.name = info.name;
@@ -3045,19 +3120,45 @@ var Puzzle = class {
 	/**
 	* Picks how `scramble()` makes scrambles: `'default'` (the WCA way), `'random-state'`
 	* or `'random-move'`. Throws if csTimer has no such scrambler for this puzzle
-	* (see `getScrambleMethods`).
+	* (see `getScrambleMethods`). It replaces a type picked with `setScrambleType`.
 	*/
 	setScrambleMethod(method) {
 		if (!(method in _classPrivateFieldGet2(_info, this).methods)) throw new Error(`${this.name} has no "${method}" scrambles. Methods: ${this.getScrambleMethods().join(", ")}`);
 		_classPrivateFieldSet2(_method, this, method);
+		_classPrivateFieldSet2(_type, this, void 0);
 		return this;
 	}
+	/** The method `scramble()` uses, or `undefined` when a type was picked with `setScrambleType`. */
 	getScrambleMethod() {
-		return _classPrivateFieldGet2(_method, this);
+		return _classPrivateFieldGet2(_type, this) === void 0 ? _classPrivateFieldGet2(_method, this) : void 0;
 	}
-	/** The csTimer scramble type id the current method uses, e.g. `'333o'`. */
+	/**
+	* The csTimer scramble type `scramble()` uses, e.g. `'333o'`: the one picked with
+	* `setScrambleType`, or else the current method's.
+	*/
 	getScrambleType() {
-		return _classPrivateFieldGet2(_info, this).methods[_classPrivateFieldGet2(_method, this)];
+		return _classPrivateFieldGet2(_type, this) ?? _classPrivateFieldGet2(_info, this).methods[_classPrivateFieldGet2(_method, this)];
+	}
+	/**
+	* Every csTimer scramble type for this puzzle, e.g. for 3x3x3 `{ id: 'pll', name:
+	* '3x3x3 CFOP PLL' }` and 48 more, in csTimer's menu order. Any of them can be picked with
+	* `setScrambleType`.
+	*/
+	getScrambleTypes() {
+		return listEvents().filter((event) => event.puzzle === this.id).map(({ id, name }) => ({
+			id,
+			name
+		}));
+	}
+	/**
+	* Makes `scramble()` use one of csTimer's scramble types for this puzzle, e.g.
+	* `setScrambleType('pll')` for PLL cases (see `getScrambleTypes`), instead of the
+	* method's. `setScrambleMethod` goes back to the methods.
+	*/
+	setScrambleType(type) {
+		if (getEvent(type)?.puzzle !== this.id) throw new Error(`"${type}" is not a ${this.name} scramble type`);
+		_classPrivateFieldSet2(_type, this, type);
+		return this;
 	}
 	/**
 	* Sets how many moves `scramble()` makes, e.g. `setScrambleLength(30)`. It is used by
@@ -3136,7 +3237,7 @@ var Puzzle = class {
 		_classPrivateFieldSet2(_solution, this, "");
 		return this;
 	}
-	/** Whether `getStickers` and `show3D` work for this puzzle: the cubes, 2x2x2 to 7x7x7. */
+	/** Whether `getStickers` and `show3D` work for this puzzle: the cubes, 2x2x2 to 11x11x11. */
 	has3DView() {
 		return _classPrivateFieldGet2(_info, this).cubeSize !== void 0;
 	}
@@ -3177,17 +3278,23 @@ var Puzzle = class {
 		drawCube3D(element, _classPrivateFieldGet2(_info, this).cubeSize ?? 0, this.getStickers());
 		return this;
 	}
+	/** Whether `getImage()` can draw the puzzle with its current scramble type. */
+	hasImage() {
+		return hasScrambleImage(_classPrivateFieldGet2(_scramble, this) ? _classPrivateFieldGet2(_scrambleType, this) : this.getScrambleType());
+	}
 	/**
 	* Draws the puzzle as it is now (solved, or after the scramble and then the solution)
 	* as an SVG string, with this puzzle's colors and image size. Same picture as
 	* `getScrambleImage`. Throws if csTimer can't read the moves.
 	*/
 	getImage() {
+		const type = _classPrivateFieldGet2(_scramble, this) ? _classPrivateFieldGet2(_scrambleType, this) : this.getScrambleType();
+		if (!hasScrambleImage(type)) throw new Error(`csTimer has no picture for "${type}" scrambles`);
 		const colors = _classPrivateFieldGet2(_info, this).cstimerOrder.map((face) => toCstimerColor(_classPrivateFieldGet2(_colors, this)[face])).join("");
 		let moves = [_classPrivateFieldGet2(_scramble, this), _classPrivateFieldGet2(_solution, this)].filter(Boolean).join(" ");
 		if (this.id === "sq1") moves = joinSq1Turns(moves);
 		try {
-			return drawImage(_classPrivateFieldGet2(_scramble, this) ? _classPrivateFieldGet2(_scrambleType, this) : this.getScrambleType(), moves, { [_classPrivateFieldGet2(_info, this).colorSetting]: colors }, _classPrivateFieldGet2(_imageSize, this));
+			return drawImage(type, moves, _classPrivateFieldGet2(_info, this).colorSetting ? { [_classPrivateFieldGet2(_info, this).colorSetting]: colors } : {}, _classPrivateFieldGet2(_imageSize, this));
 		} catch {
 			throw new Error(`Can't read these moves as ${this.name} moves: "${moves}"`);
 		}

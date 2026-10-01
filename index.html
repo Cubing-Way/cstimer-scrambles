@@ -125,32 +125,12 @@
         max-width: 100%;
         height: auto;
       }
-      #event-scramble {
-        margin: 16px 0 8px;
-        padding: 20px;
-        background: var(--card);
-        border: 1px solid var(--border);
-        border-radius: 8px;
-        font:
-          1.5rem/1.6 ui-monospace,
-          monospace;
-        word-spacing: 0.3em;
-        white-space: pre-wrap;
-        min-height: 2em;
-      }
-      #event-image svg {
-        display: block;
-        width: 100%;
-        max-width: 480px;
-        height: auto;
-        max-height: 360px;
-      }
       /* Relays and multi-blind number each puzzle in black; use the page's text color. */
-      #event-image svg > text[text-anchor='start'] {
+      #image svg > text[text-anchor='start'] {
         fill: var(--fg) !important;
       }
-      h2 {
-        margin-top: 48px;
+      #image[hidden] {
+        display: none;
       }
       .meta {
         color: var(--muted);
@@ -170,9 +150,14 @@
       </p>
       <div class="controls">
         <select id="puzzle" aria-label="Puzzle"></select>
+        <select id="type" aria-label="Scramble type"></select>
         <select id="method" aria-label="Scramble method"></select>
         <label>Length <input id="length" type="number" min="1" max="999" /></label>
         <label>Size <input id="size" type="range" min="100" max="480" value="300" /></label>
+        <select id="view" aria-label="View">
+          <option value="2d">2D</option>
+          <option value="3d">3D</option>
+        </select>
         <button id="next">New scramble</button>
       </div>
       <div class="colors" id="colors"></div>
@@ -194,37 +179,19 @@
         <div id="cube3d" title="Drag to turn the cube"></div>
       </div>
       <p class="meta" id="info"></p>
-
-      <h2>All scramble types</h2>
-      <p class="meta">
-        Every one of csTimer's scramble types, with <code>getScramble(type)</code> and
-        <code>getScrambleImage(type, scramble)</code>.
-      </p>
-      <div class="controls">
-        <select id="event" aria-label="Scramble type"></select>
-        <button id="event-next">New scramble</button>
-      </div>
-      <div id="event-scramble"></div>
-      <div id="event-image"></div>
-      <p class="meta" id="event-info"></p>
     </main>
     <script type="module">
-      import {
-        Puzzle,
-        listPuzzles,
-        listEvents,
-        getScramble,
-        getScrambleImage,
-        hasScrambleImage,
-      } from './index.mjs';
+      import { Puzzle, listPuzzles } from './index.mjs';
 
       // One Puzzle object per puzzle, so each keeps its own settings and scramble.
       const puzzles = new Map(listPuzzles().map((id) => [id, new Puzzle(id)]));
       const $ = (id) => document.getElementById(id);
       const puzzleSelect = $('puzzle');
+      const typeSelect = $('type');
       const methodSelect = $('method');
       const lengthInput = $('length');
       const sizeInput = $('size');
+      const viewSelect = $('view');
       const colorsDiv = $('colors');
       const scrambleInput = $('scramble');
       const solutionInput = $('solution');
@@ -235,12 +202,35 @@
       const solutionLabel = $('solution-label');
       // How long each puzzle's last scramble() took, until its scramble is edited.
       const scrambleTimes = new Map();
-      for (const [id, puzzle] of puzzles) puzzleSelect.append(new Option(puzzle.name, id));
+
+      // The WCA puzzles, then every other puzzle csTimer has scrambles for.
+      const WCA = [
+        '222',
+        '333',
+        '444',
+        '555',
+        '666',
+        '777',
+        'clock',
+        'minx',
+        'pyram',
+        'skewb',
+        'sq1',
+      ];
+      const wca = document.createElement('optgroup');
+      wca.label = 'WCA';
+      const other = document.createElement('optgroup');
+      other.label = 'Other puzzles';
+      for (const [id, puzzle] of puzzles) {
+        (WCA.includes(id) ? wca : other).append(new Option(puzzle.name, id));
+      }
+      puzzleSelect.append(wca, other);
 
       const current = () => puzzles.get(puzzleSelect.value);
       // <input type="color"> wants #rrggbb.
       const long = (c) => (c.length === 4 ? '#' + [...c.slice(1)].map((x) => x + x).join('') : c);
 
+      let view = '2d';
       const moves = (n) => `${n} ${n === 1 ? 'move' : 'moves'}`;
 
       function draw() {
@@ -251,32 +241,47 @@
           `Scramble · ${moves(puzzle.getScrambleMoveCount())}` +
           (ms === undefined ? '' : ` · generated in ${ms.toFixed(0)} ms`);
         solutionLabel.textContent = `Solution · ${moves(puzzle.getSolutionMoveCount())}`;
+        // 3D only for the cubes; the other puzzles are shown in 2D, and the cubes go back
+        // to the view picked last.
+        viewSelect.options[1].disabled = !puzzle.has3DView();
+        const in3D = view === '3d' && puzzle.has3DView();
+        viewSelect.value = in3D ? '3d' : '2d';
+        image.hidden = in3D;
+        cube3d.hidden = !in3D;
         info.classList.remove('error');
+        info.textContent = `csTimer scramble type: ${puzzle.getScrambleType()}`;
         try {
-          image.innerHTML = puzzle.getImage();
-          // The cubes also get a 3D view, which keeps its angle when redrawn.
-          cube3d.hidden = !puzzle.has3DView();
-          if (puzzle.has3DView()) puzzle.show3D(cube3d);
-          info.textContent = `csTimer scramble type: ${puzzle.getScrambleType()}`;
+          // The 3D view keeps its angle when redrawn.
+          if (in3D) puzzle.show3D(cube3d);
+          else if (puzzle.hasImage()) image.innerHTML = puzzle.getImage();
+          else
+            image.innerHTML = '<p class="meta">csTimer has no picture for this scramble type.</p>';
         } catch (e) {
           info.classList.add('error');
           info.textContent = e.message;
         }
       }
 
-      // Shows the puzzle's scramble, solution and length in the inputs.
+      // Shows the puzzle's scramble, solution, type, method and length in the inputs.
       function showMoves() {
         const puzzle = current();
         scrambleInput.value = puzzle.getScramble();
-        // Megaminx scrambles are 7 lines.
-        scrambleInput.rows = Math.max(2, scrambleInput.value.split('\n').length);
+        fit(scrambleInput);
         solutionInput.value = puzzle.getSolution();
+        typeSelect.value = puzzle.getScrambleType();
+        // Blank when the type was picked from the list rather than by a method.
+        methodSelect.value = puzzle.getScrambleMethod() ?? '';
         const length = puzzle.getScrambleLength();
         lengthInput.disabled = length === undefined;
         lengthInput.value = length ?? '';
-        lengthInput.title =
-          length === undefined ? 'Random-state scrambles are as long as they need to be' : '';
+        lengthInput.title = length === undefined ? 'This scramble type has its own length' : '';
         draw();
+      }
+
+      // Grows a box to show all its lines (megaminx scrambles and relays are several).
+      function fit(textarea) {
+        textarea.style.height = 'auto';
+        textarea.style.height = `${textarea.scrollHeight + 2}px`;
       }
 
       function next() {
@@ -288,8 +293,14 @@
 
       function showPuzzle() {
         const puzzle = current();
-        methodSelect.replaceChildren(...puzzle.getScrambleMethods().map((m) => new Option(m, m)));
-        methodSelect.value = puzzle.getScrambleMethod();
+        typeSelect.replaceChildren(
+          ...puzzle.getScrambleTypes().map((t) => new Option(`${t.name} (${t.id})`, t.id)),
+        );
+        methodSelect.replaceChildren(
+          new Option('(type from the list)', '', false, false),
+          ...puzzle.getScrambleMethods().map((m) => new Option(m, m)),
+        );
+        methodSelect.options[0].hidden = true;
         colorsDiv.replaceChildren();
         for (const [face, color] of Object.entries(puzzle.getColors())) {
           const label = document.createElement('label');
@@ -309,6 +320,10 @@
       }
 
       puzzleSelect.addEventListener('change', showPuzzle);
+      typeSelect.addEventListener('change', () => {
+        current().setScrambleType(typeSelect.value);
+        next();
+      });
       methodSelect.addEventListener('change', () => {
         current().setScrambleMethod(methodSelect.value);
         next();
@@ -319,9 +334,14 @@
         next();
       });
       sizeInput.addEventListener('input', draw);
+      viewSelect.addEventListener('change', () => {
+        view = viewSelect.value;
+        draw();
+      });
       scrambleInput.addEventListener('input', () => {
         current().setScramble(scrambleInput.value);
         scrambleTimes.delete(current().id);
+        fit(scrambleInput);
         draw();
       });
       solutionInput.addEventListener('input', () => {
@@ -337,38 +357,6 @@
       });
       puzzleSelect.value = '333';
       showPuzzle();
-
-      // All scramble types: the plain functions, one group per puzzle in registration order.
-      const eventSelect = $('event');
-      const eventScramble = $('event-scramble');
-      const eventImage = $('event-image');
-      const eventInfo = $('event-info');
-      const groups = new Map();
-      for (const event of listEvents()) {
-        let group = groups.get(event.puzzle);
-        if (!group) {
-          group = document.createElement('optgroup');
-          group.label = event.puzzle;
-          groups.set(event.puzzle, group);
-          eventSelect.append(group);
-        }
-        group.append(new Option(`${event.name} (${event.id})`, event.id));
-      }
-
-      function nextEvent() {
-        const start = performance.now();
-        const scramble = getScramble(eventSelect.value);
-        const ms = performance.now() - start;
-        eventScramble.textContent = scramble;
-        eventInfo.textContent = `${moves(scramble.split(/\s+/).length)}, generated in ${ms.toFixed(0)} ms`;
-        eventImage.innerHTML = hasScrambleImage(eventSelect.value)
-          ? getScrambleImage(eventSelect.value, scramble)
-          : '<p class="meta">No image for this puzzle.</p>';
-      }
-
-      eventSelect.addEventListener('change', nextEvent);
-      $('event-next').addEventListener('click', nextEvent);
-      nextEvent();
     </script>
   </body>
 </html>
