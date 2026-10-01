@@ -62,10 +62,11 @@ Puzzles: `listPuzzles()` gives their ids, the WCA puzzles for now: `222` to `777
 - **Scramble method**: `'default'` (the WCA scramble), `'random-state'` or `'random-move'`, each one of csTimer's scramble types (`getScrambleType()` says which). Not every puzzle has all three (csTimer has no random-state 5x5x5 to 7x7x7, nor random-move clock); `getScrambleMethods()` lists the ones it has and `setScrambleMethod` throws for the others.
 - **Scramble length**: `setScrambleLength(moves)` for methods that make random moves (megaminx rounds it up to whole lines of 10). Random-state scrambles are as long as they need to be, so for them `getScrambleLength()` is `undefined` and the length waits until the method changes. `resetScrambleLength()` goes back to csTimer's default.
 - **Typed moves**: `setScramble(moves)` scrambles the puzzle with your own moves, and `setSolution(moves)` sets moves done after the scramble, both in csTimer's notation for the puzzle. `scramble()` clears the solution, `reset()` clears both, and `getImage()` throws if csTimer can't read the moves.
+- **Move counts**: `getScrambleMoveCount()` and `getSolutionMoveCount()`. Moves are counted between spaces, except on Square-1, where each slash is one move (twist metric).
 
 ## Supported events
 
-All 206 scramble types in csTimer's menu are supported, with csTimer's ids (everything except its UI-only entries: input, remote, BLD helper, pattern tool and custom). `listEvents()` returns them all with a name and a `puzzle` group.
+All 206 scramble types in csTimer's menu are supported, with csTimer's ids (everything except its UI-only entries: input, remote, BLD helper, pattern tool and custom). `listEvents()` returns them all with a name and a `puzzle` group; the [demo page](https://cubing-way.github.io/cstimer-scrambles/) lists them too.
 
 The WCA events:
 
