@@ -2585,7 +2585,6 @@ const STYLE = `
   width: 100%;
   aspect-ratio: 1;
   container-type: size;
-  perspective: 300cqmin;
   max-width: 100%;
   touch-action: none;
   user-select: none;
@@ -2593,6 +2592,13 @@ const STYLE = `
 }
 .cstimer-3d:active {
   cursor: grabbing;
+}
+/* The camera. Its distance is in cqmin, which only follows the box from inside it (on the
+   box itself it would follow the window), so the camera moves back as the cube grows. */
+.cstimer-3d-scene {
+  position: absolute;
+  inset: 0;
+  perspective: 300cqmin;
 }
 .cstimer-3d-cube {
   --side: 52cqmin;
@@ -2670,9 +2676,13 @@ function createView(element, size, angle) {
 		cube.append(face);
 		return face;
 	});
-	box.append(cube);
+	const scene = doc.createElement("div");
+	scene.className = "cstimer-3d-scene";
+	scene.append(cube);
+	box.append(scene);
 	element.replaceChildren(box);
 	const view = {
+		box,
 		cube,
 		faces,
 		size,
@@ -2694,7 +2704,7 @@ function drawCube3D(element, size, stickers, width) {
 		view = createView(element, size, view ? view.angle : { ...START_ANGLE });
 		views.set(element, view);
 	}
-	view.cube.parentElement.style.width = width === void 0 ? "" : `${width}px`;
+	view.box.style.width = width === void 0 ? "" : `${width}px`;
 	FACES.forEach(([name], i) => {
 		const colors = stickers[name] ?? [];
 		[...view.faces[i].children].forEach((sticker, j) => {
