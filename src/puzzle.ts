@@ -313,6 +313,7 @@ class Puzzle {
   /**
    * Sets the width of `getImage()`'s SVG in pixels; the height follows the picture's
    * shape. Without it the SVG keeps csTimer's own size. It can still be resized with CSS.
+   * It also sets the width (and height) of the `show3D` view.
    */
   setImageSize(width: number): this {
     if (!(width > 0) || !Number.isFinite(width)) {
@@ -322,7 +323,7 @@ class Puzzle {
     return this;
   }
 
-  /** The width set with `setImageSize`, or `undefined` for csTimer's own size. */
+  /** The width set with `setImageSize`, or `undefined` for the default sizes. */
   getImageSize(): number | undefined {
     return this.#imageSize;
   }
@@ -513,13 +514,14 @@ class Puzzle {
 
   /**
    * Shows the cube in 3D inside `element` on a web page, as it is now (the same state as
-   * `getImage()`), with this puzzle's colors. It fills the element's width; drag it with
-   * the mouse or a finger to look at every side. Call it again after changing the puzzle
+   * `getImage()`), with this puzzle's colors. It is as wide (and as tall) as the image
+   * size set with `setImageSize`, never wider than the element, or fills the element's
+   * width without one. Drag it with the mouse or a finger to look at every side. Call it again after changing the puzzle
    * to update the view: the cube keeps the angle it was turned to. Only for cubes (see
    * `has3DView`), and only in a browser.
    */
   show3D(element: HTMLElement): this {
-    drawCube3D(element, this.#info.cubeSize ?? 0, this.getStickers());
+    drawCube3D(element, this.#info.cubeSize ?? 0, this.getStickers(), this.#imageSize);
     return this;
   }
 

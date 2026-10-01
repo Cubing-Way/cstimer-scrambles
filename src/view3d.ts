@@ -21,6 +21,7 @@ const STYLE = `
   aspect-ratio: 1;
   container-type: size;
   perspective: 300cqmin;
+  max-width: 100%;
   touch-action: none;
   user-select: none;
   cursor: grab;
@@ -122,14 +123,21 @@ function createView(element: HTMLElement, size: number, angle: View['angle']): V
 /**
  * Draws a size x size x size cube in `element` (replacing what is in it), with each
  * face's sticker colors in the order U R F D L B, as `Puzzle.getStickers()` gives them.
- * Drawing in the same element again only changes the colors, so the angle is kept.
+ * The view is `width` pixels wide and as tall, or fills the element's width without it.
+ * Drawing in the same element again only changes the colors and width, so the angle is kept.
  */
-function drawCube3D(element: HTMLElement, size: number, stickers: Record<string, string[]>): void {
+function drawCube3D(
+  element: HTMLElement,
+  size: number,
+  stickers: Record<string, string[]>,
+  width?: number,
+): void {
   let view = views.get(element);
   if (!view || view.size !== size || !element.contains(view.cube)) {
     view = createView(element, size, view ? view.angle : { ...START_ANGLE });
     views.set(element, view);
   }
+  view.cube.parentElement!.style.width = width === undefined ? '' : `${width}px`;
   FACES.forEach(([name], i) => {
     const colors = stickers[name] ?? [];
     [...view.faces[i]!.children].forEach((sticker, j) => {
