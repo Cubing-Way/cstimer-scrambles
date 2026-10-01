@@ -1,4 +1,4 @@
-import { n as scrMgr, r as mathlib, t as min2phase } from "./redi-89Vgp74P.mjs";
+import { n as scrMgr, r as mathlib, t as scramble_333 } from "./redi-De5YeI_P.mjs";
 //#region src/registry.ts
 const events = /* @__PURE__ */ new Map();
 /** Adds scramble events to the registry. Each puzzle module calls this once. */
@@ -72,171 +72,6 @@ function cstimerEvent(id, name, puzzle, length) {
 	};
 }
 //#endregion
-//#region src/events/333/state.ts
-const { getNPerm, getNParity, rn, rndEl } = mathlib;
-/** Move indices as used by mathlib.CubieCube.moveCube (face * 3 + power). */
-const Move = {
-	U: 0,
-	U2: 1,
-	Ui: 2,
-	R: 3,
-	R2: 4,
-	Ri: 5,
-	F: 6,
-	F2: 7,
-	Fi: 8,
-	D: 9,
-	D2: 10,
-	Di: 11,
-	L: 12,
-	L2: 13,
-	Li: 14,
-	B: 15,
-	B2: 16,
-	Bi: 17
-};
-const search = new min2phase.Search();
-function countUnknown(arr) {
-	return arr.filter((v) => v === -1).length;
-}
-function fixOri(arr, unknown, base) {
-	let sum = 0;
-	let idx = 0;
-	for (const v of arr) if (v !== -1) sum += v;
-	sum %= base;
-	for (let i = 0; i < arr.length - 1; i++) {
-		if (arr[i] === -1) {
-			if (unknown-- === 1) arr[i] = ((base << 4) - sum) % base;
-			else {
-				arr[i] = rn(base);
-				sum += arr[i];
-			}
-		}
-		idx *= base;
-		idx += arr[i];
-	}
-	if (unknown === 1) arr.splice(-1, 1, ((base << 4) - sum) % base);
-	return idx;
-}
-function fixPerm(arr, unknown, parity) {
-	const val = [
-		0,
-		1,
-		2,
-		3,
-		4,
-		5,
-		6,
-		7,
-		8,
-		9,
-		10,
-		11
-	];
-	for (const v of arr) if (v !== -1) val[v] = -1;
-	for (let i = 0, j = 0; i < val.length; i++) if (val[i] !== -1) val[j++] = val[i];
-	let last = 0;
-	let i = 0;
-	for (; i < arr.length && unknown > 0; i++) if (arr[i] === -1) {
-		const r = rn(unknown);
-		arr[i] = val[r];
-		for (let j = r; j < 11; j++) val[j] = val[j + 1];
-		if (unknown-- === 2) last = i;
-	}
-	if (getNParity(getNPerm(arr, arr.length), arr.length) === 1 - parity) {
-		const temp = arr[i - 1];
-		arr[i - 1] = arr[last];
-		arr[last] = temp;
-	}
-	return getNPerm(arr, arr.length);
-}
-function parseMask(mask, length) {
-	if (typeof mask !== "number") return mask;
-	const ret = [];
-	for (let i = 0; i < length; i++) {
-		const val = mask % 16;
-		ret[i] = val === 15 ? -1 : val;
-		mask = Math.floor(mask / 16);
-	}
-	return ret;
-}
-const EMPTY = [[]];
-/** csTimer's getAnyScramble: scramble to a random state matching the given masks. */
-function getAnyScramble(options = {}) {
-	const { neut, rndApp = EMPTY, rndPre = EMPTY, firstAxisFilter, lastAxisFilter } = options;
-	const maskEp = parseMask(options.ep ?? 0xffffffffffff, 12);
-	const maskEo = parseMask(options.eo ?? 0xffffffffffff, 12);
-	const maskCp = parseMask(options.cp ?? 4294967295, 8);
-	const maskCo = parseMask(options.co ?? 4294967295, 8);
-	let solution = "";
-	do {
-		const eo = maskEo.slice();
-		const ep = maskEp.slice();
-		const co = maskCo.slice();
-		const cp = maskCp.slice();
-		const neo = fixOri(eo, countUnknown(eo), 2);
-		const nco = fixOri(co, countUnknown(co), 3);
-		let nep;
-		let ncp;
-		let ue = countUnknown(ep);
-		let uc = countUnknown(cp);
-		if (ue === 1) {
-			fixPerm(ep, ue, -1);
-			ue = 0;
-		}
-		if (uc === 1) {
-			fixPerm(cp, uc, -1);
-			uc = 0;
-		}
-		if (ue === 0 && uc === 0) {
-			nep = getNPerm(ep, 12);
-			ncp = getNPerm(cp, 8);
-		} else if (ue !== 0 && uc === 0) {
-			ncp = getNPerm(cp, 8);
-			nep = fixPerm(ep, ue, getNParity(ncp, 8));
-		} else if (ue === 0 && uc !== 0) {
-			nep = getNPerm(ep, 12);
-			ncp = fixPerm(cp, uc, getNParity(nep, 12));
-		} else {
-			nep = fixPerm(ep, ue, -1);
-			ncp = fixPerm(cp, uc, getNParity(nep, 12));
-		}
-		if (ncp + nco + nep + neo === 0) continue;
-		const pre = rndEl(rndPre);
-		const app = rndEl(rndApp);
-		const { CubieCube } = mathlib;
-		const cc = new CubieCube();
-		const cd = new CubieCube();
-		for (let i = 0; i < 12; i++) {
-			cc.ea[i] = ep[i] << 1 | eo[i];
-			if (i < 8) cc.ca[i] = co[i] << 3 | cp[i];
-		}
-		for (const m of pre) {
-			CubieCube.CubeMult(CubieCube.moveCube[m], cc, cd);
-			cc.init(cd.ca, cd.ea);
-		}
-		for (const m of app) {
-			CubieCube.CubeMult(cc, CubieCube.moveCube[m], cd);
-			cc.init(cd.ca, cd.ea);
-		}
-		if (neut) {
-			cc.ori = rn([
-				1,
-				4,
-				8,
-				1,
-				1,
-				1,
-				24
-			][neut]);
-			cc.selfConj();
-			cc.ori = 0;
-		}
-		solution = search.solution(cc.toFaceCube(), 21, 1e9, 50, 2, lastAxisFilter, firstAxisFilter);
-	} while (solution.length <= 3);
-	return solution.replace(/ +/g, " ");
-}
-//#endregion
 //#region src/events/333/variants.ts
 /**
 * csTimer's other 3x3x3 scramble types: random move, CFOP / Roux / Mehta training cases and move subsets.
@@ -286,21 +121,48 @@ const events333Variants = [
 	cstimerEvent("lsll", "3x3x3 subsets last slot + last layer (old)", "333", 15)
 ];
 //#endregion
+//#region src/events/333/state.ts
+/** Move indices for `rndApp` / `rndPre`, as used by csTimer (face * 3 + power). */
+const Move = {
+	U: 0,
+	U2: 1,
+	Ui: 2,
+	R: 3,
+	R2: 4,
+	Ri: 5,
+	F: 6,
+	F2: 7,
+	Fi: 8,
+	D: 9,
+	D2: 10,
+	Di: 11,
+	L: 12,
+	L2: 13,
+	Li: 14,
+	B: 15,
+	B2: 16,
+	Bi: 17
+};
+/**
+* Scramble to a random state where the pieces in the masks are fixed, e.g.
+* `getAnyScramble({ cp: 0x76543210, co: 0 })` for edges only. Unset masks are random.
+*/
+function getAnyScramble(options = {}) {
+	return cleanScramble(scramble_333.getAnyScramble(options.ep ?? 0xffffffffffff, options.eo ?? 0xffffffffffff, options.cp ?? 4294967295, options.co ?? 4294967295, options.neut, options.rndApp, options.rndPre, options.firstAxisFilter, options.lastAxisFilter));
+}
+//#endregion
 //#region src/events/333/index.ts
 /** WCA 3x3: random-state scramble. */
 function get333Scramble() {
-	return getAnyScramble().trim();
+	return cstimerScramble("333");
 }
 /** WCA one-handed: the same random-state scramble as 3x3. */
 function get333OhScramble() {
-	return get333Scramble();
+	return cstimerScramble("333oh");
 }
 /** WCA FMC: random state, wrapped in R' U' F so it cannot start or end with trivial cancellations. */
 function get333FmcScramble() {
-	return `R' U' F ${getAnyScramble({
-		firstAxisFilter: 2,
-		lastAxisFilter: 1
-	}).trim()} R' U' F`;
+	return cstimerScramble("333fm");
 }
 /** WCA 3x3 blindfolded: random state plus random wide moves, so the solver can't rely on orientation. */
 function get333BldScramble() {
@@ -312,26 +174,15 @@ function get333MultiBldScramble(cubes = 5) {
 }
 /** Only edges scrambled; corners solved. */
 function get333EdgesScramble() {
-	return getAnyScramble({
-		cp: 1985229328,
-		co: 0
-	}).trim();
+	return cstimerScramble("edges");
 }
 /** Only corners scrambled; edges solved. */
 function get333CornersScramble() {
-	return getAnyScramble({
-		ep: 0xba9876543210,
-		eo: 0
-	}).trim();
+	return cstimerScramble("corners");
 }
 /** Last layer: first two layers solved, U layer random. */
 function get333LLScramble() {
-	return getAnyScramble({
-		ep: 0xba987654ffff,
-		eo: 65535,
-		cp: 1985282047,
-		co: 65535
-	}).trim();
+	return cstimerScramble("ll");
 }
 const events333 = [
 	{
