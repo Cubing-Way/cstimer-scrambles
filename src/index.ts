@@ -2,6 +2,8 @@ export type { ScrambleEvent, ScrambleGenerator } from './types.js';
 export { getScramble, getEvent, listEvents, registerEvents } from './registry.js';
 export { setSeed, getSeed } from './random.js';
 export { getScrambleImage, hasScrambleImage } from './image.js';
+export { Puzzle, listPuzzles } from './puzzle.js';
+export type { ScrambleMethod } from './puzzle.js';
 
 // Each puzzle module registers its events when it loads; this order is listEvents()'s order.
 export * from './events/333/index.js';

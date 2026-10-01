@@ -40,19 +40,9 @@ const SHIMS = {
 	['turn the front face', 'turn the back face']
 ];
 var SCRAMBLE_NOOBSS = ' clockwise by 90 degrees,| counterclockwise by 90 degrees,| by 180 degrees,';`,
-  // poly3dlib reads puzzle colors (only used for drawing) and a regexp from csTimer's
-  // jQuery helpers (src/js/lib/utillib.js). Colors are csTimer's defaults.
-  poly3d: `var kernel = {
-	getProp: function(key) {
-		return {
-			colcube: '#ff0#fa0#00f#fff#f00#0d0',
-			colpyr: '#0f0#f00#00f#ff0',
-			colmgm: '#fff#d00#060#81f#fc0#00b#ffb#8df#f83#7e0#f9f#999',
-			colfto: '#fff#808#0d0#f00#00f#bbb#ff0#fa0',
-			colico: '#fff#084#b36#a85#088#811#e71#b9b#05a#ed1#888#6a3#e8b#a52#6cb#c10#fa0#536#49c#ec9'
-		}[key];
-	}
-};
+  // poly3dlib reads puzzle colors (only used for drawing) from csTimer's settings, and a
+  // regexp from csTimer's jQuery helpers (src/js/lib/utillib.js).
+  poly3d: `import kernel from './kernel.js';
 var $ = {
 	col2std: function(col, faceMap) {
 		var ret = [];
@@ -65,8 +55,14 @@ var $ = {
 	},
 	UDPOLY_RE: "skb|m?pyr|prc|heli(?:2x2|cv)?|crz3a|giga|mgm|klm|redi|dino|fto|dmd|ctico"
 };`,
-  // csTimer's settings (src/js/kernel.js) that the image code reads, with their default values.
-  kernel: `var kernel = {
+  // csTimer's settings, shared with src/image.ts so it can draw with other colors.
+  kernel: "import kernel from './kernel.js';",
+};
+
+// csTimer's settings (src/js/kernel.js) that the image code reads, with their default values.
+const KERNEL = `// Stand-in for csTimer's settings (src/js/kernel.js): the ones its image code reads,
+// with csTimer's default values. Written by scripts/vendor-cstimer.mjs.
+var kernel = {
 	props: {
 		'col-font': '#000000',
 		'col-board': '#ffdddd',
@@ -87,8 +83,9 @@ var $ = {
 	getProp: function(key, def) {
 		return key in this.props ? this.props[key] : def;
 	}
-};`,
 };
+export default kernel;
+`;
 
 const FILES = [
   // [upstream path, imports, default export, shims, extra notes, file name here]
@@ -101,7 +98,7 @@ const FILES = [
     ['toolsutil'],
     'poly3d',
     ['poly3d'],
-    ['kernel and $ shims give default colors'],
+    ['kernel shim (csTimer settings) and $ shim'],
   ],
   ['solver/ftocta.js', ['mathlib'], 'ftosolver'],
   [
@@ -145,7 +142,7 @@ const FILES = [
     ['mathlib', 'svglib', 'poly3dlib', 'scramble_sq1_new', 'clock', 'cubeutil', 'toolsutil'],
     'image',
     ['noUi', 'kernel'],
-    ['ISCSTIMER = false skips its UI part', 'kernel shim gives default colors'],
+    ['ISCSTIMER = false skips its UI part', 'kernel shim (csTimer settings)'],
   ],
 ];
 
@@ -277,6 +274,8 @@ if (!cstimer) {
   process.exit(1);
 }
 vendorScrMgr(cstimer);
+writeFileSync('src/vendor/cstimer/kernel.js', KERNEL);
+console.log('wrote kernel.js');
 console.log('vendored', vendorSvgLib(cstimer));
 console.log('vendored', vendorToolsUtil(cstimer));
 for (const file of FILES) console.log('vendored', vendorFile(cstimer, file));
