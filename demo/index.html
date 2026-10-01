@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>cstimer-scrambles demo</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        --bg: #fafafa;
+        --fg: #1a1a1a;
+        --muted: #666;
+        --card: #fff;
+        --border: #ddd;
+        --accent: #2563eb;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #121212;
+          --fg: #eee;
+          --muted: #999;
+          --card: #1e1e1e;
+          --border: #333;
+          --accent: #60a5fa;
+        }
+      }
+      body {
+        margin: 0;
+        padding: 32px 16px;
+        background: var(--bg);
+        color: var(--fg);
+        font-family: system-ui, sans-serif;
+      }
+      main {
+        max-width: 720px;
+        margin: 0 auto;
+      }
+      .controls {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+      select,
+      button {
+        font: inherit;
+        padding: 8px 12px;
+        border-radius: 6px;
+        border: 1px solid var(--border);
+        background: var(--card);
+        color: var(--fg);
+      }
+      button {
+        background: var(--accent);
+        border-color: var(--accent);
+        color: #fff;
+        cursor: pointer;
+      }
+      #scramble {
+        margin: 24px 0 8px;
+        padding: 20px;
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        font:
+          1.5rem/1.6 ui-monospace,
+          monospace;
+        word-spacing: 0.3em;
+        min-height: 2em;
+      }
+      .meta {
+        color: var(--muted);
+        font-size: 0.9rem;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>cstimer-scrambles</h1>
+      <p class="meta">
+        csTimer's scramble generators running in your browser.
+        <a href="https://github.com/Cubing-Way/cstimer-scrambles">Source on GitHub</a>
+      </p>
+      <div class="controls">
+        <select id="event" aria-label="Scramble type"></select>
+        <button id="next">New scramble</button>
+      </div>
+      <div id="scramble"></div>
+      <p class="meta" id="info"></p>
+    </main>
+    <script type="module">
+      import { listEvents, getScramble } from './index.mjs';
+
+      const select = document.getElementById('event');
+      const out = document.getElementById('scramble');
+      const info = document.getElementById('info');
+
+      for (const event of listEvents()) {
+        select.add(new Option(`${event.name} (${event.id})`, event.id));
+      }
+
+      function next() {
+        const start = performance.now();
+        const scramble = getScramble(select.value);
+        const ms = performance.now() - start;
+        out.textContent = scramble;
+        info.textContent = `${scramble.split(' ').length} moves, generated in ${ms.toFixed(0)} ms`;
+      }
+
+      document.getElementById('next').addEventListener('click', next);
+      select.addEventListener('change', next);
+      document.addEventListener('keydown', (e) => {
+        if (e.code === 'Space' && e.target === document.body) {
+          e.preventDefault();
+          next();
+        }
+      });
+      next();
+    </script>
+  </body>
+</html>

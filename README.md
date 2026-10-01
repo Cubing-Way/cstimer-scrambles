@@ -4,6 +4,10 @@ csTimer's scramble generators as a typed, tree-shakeable ESM/CJS library.
 
 The scrambling logic comes from [csTimer](https://github.com/cs0x7f/cstimer) by Shuang Chen (cs0x7f), including the min2phase two-phase solver. This package is therefore licensed **GPL-3.0**, like csTimer.
 
+## Try it
+
+Open the [demo page](https://cubing-way.github.io/cstimer-scrambles/) to generate scrambles in your browser. It's rebuilt from `demo/index.html` on every push to `main`.
+
 ## Usage
 
 ```ts
