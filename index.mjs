@@ -2616,7 +2616,15 @@ const STYLE = `
   display: grid;
   gap: calc(var(--side) * 0.02);
   padding: calc(var(--side) * 0.025);
-  border-radius: calc(var(--side) * 0.04);
+  background: #111;
+  /* Square corners and no back side, so nothing inside the cube shows through. */
+  backface-visibility: hidden;
+}
+/* A black cube just inside the faces. Where two faces meet, the browser blends their edges
+   with what is behind them, and this makes that black instead of the far side's colors. */
+.cstimer-3d-core {
+  position: absolute;
+  inset: calc(var(--side) * 0.02);
   background: #111;
 }
 .cstimer-3d-face > div {
@@ -2676,6 +2684,12 @@ function createView(element, size, angle) {
 		cube.append(face);
 		return face;
 	});
+	for (const [, place] of FACES) {
+		const core = doc.createElement("div");
+		core.className = "cstimer-3d-core";
+		core.style.transform = `${place} translateZ(calc(var(--side) * 0.48))`;
+		cube.append(core);
+	}
 	const scene = doc.createElement("div");
 	scene.className = "cstimer-3d-scene";
 	scene.append(cube);
