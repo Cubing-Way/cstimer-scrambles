@@ -69,8 +69,7 @@ src/
   registry.ts          event id -> generator
   random.ts            seeding (ISAAC, as in csTimer)
   cstimer.ts           runs a vendored csTimer scrambler by its type id
-  events/333/          3x3 scramble types (TypeScript port)
-  events/<puzzle>/     other puzzles: typed wrappers around csTimer's scramblers
+  events/<puzzle>/     typed wrappers around csTimer's scramblers, one module per puzzle
   vendor/cstimer/      csTimer files kept close to upstream, with .d.ts typings
 ```
 
