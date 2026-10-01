@@ -21,6 +21,20 @@ setSeed('my-seed'); // reproducible scrambles
 
 Scramble type ids match csTimer's, so `getScramble('333fm')` is what csTimer calls "333fm".
 
+## Scramble images
+
+`getScrambleImage(type, scramble)` draws the scrambled puzzle as an SVG string, the same picture csTimer's "Draw Scramble" tool shows (an unfolded cube, U on top, F in the middle, csTimer's default colors). It works in browsers and in Node.
+
+```ts
+import { getScramble, getScrambleImage, hasScrambleImage } from '@cubing-way/cstimer-scrambles';
+
+const scramble = getScramble('333');
+const svg = getScrambleImage('333', scramble); // '<svg viewBox="0 0 396 296" ...>...</svg>'
+document.getElementById('cube').innerHTML = svg;
+```
+
+Pass the scramble type the scramble was made for. For now only 3x3x3 types are drawn (`333`, `333oh`, `333fm`, `333ni`, multi-blind as a grid, and the 3x3x3 training types); `hasScrambleImage(type)` tells you whether a type has one, and other types throw. The other puzzles come next.
+
 ## Supported events
 
 All 206 scramble types in csTimer's menu are supported, with csTimer's ids (everything except its UI-only entries: input, remote, BLD helper, pattern tool and custom). `listEvents()` returns them all with a name and a `puzzle` group; the [demo page](https://cubing-way.github.io/cstimer-scrambles/) lists them too.
@@ -69,11 +83,12 @@ src/
   registry.ts          event id -> generator
   random.ts            seeding (ISAAC, as in csTimer)
   cstimer.ts           runs a vendored csTimer scrambler by its type id
+  image.ts             scramble images, drawn by csTimer's image code
   events/<puzzle>/     typed wrappers around csTimer's scramblers, one module per puzzle
   vendor/cstimer/      csTimer files kept close to upstream, with .d.ts typings
 ```
 
-`src/vendor/cstimer` holds csTimer files from commit `2547d82`: its libraries (`mathlib.js`, `min2phase.js`, `isaac.js`, `grouplib.js`, `pat3x3.js`, `poly3dlib.js`), solvers (`ftocta.js`, `mgmsolver.js`, `cross.js`), the scramble manager (`scrmgr.js`, the non-UI part of `scramble.js`) and every file from csTimer's `src/js/scramble`. They are changed only to run as ES modules outside csTimer's web page (imports/exports, no jQuery, csTimer's UI parts skipped); each file's first lines list its changes, so they stay easy to compare with upstream.
+`src/vendor/cstimer` holds csTimer files from commit `2547d82`: its libraries (`mathlib.js`, `min2phase.js`, `isaac.js`, `grouplib.js`, `pat3x3.js`, `poly3dlib.js`), solvers (`ftocta.js`, `mgmsolver.js`, `cross.js`), the scramble manager (`scrmgr.js`, the non-UI part of `scramble.js`), every file from csTimer's `src/js/scramble`, and for images `image.js` (from `src/js/tools`), `cubeutil.js`, `svglib.js` (csTimer's SVG helpers from `utillib.js`) and `toolsutil.js` (its puzzle type helpers from `tools.js`). They are changed only to run as ES modules outside csTimer's web page (imports/exports, no jQuery, csTimer's UI parts skipped); each file's first lines list its changes, so they stay easy to compare with upstream.
 
 To update them from a newer csTimer, run `node scripts/vendor-cstimer.mjs <path to a csTimer checkout>` (it does the same edits again; `mathlib.js`, `min2phase.js` and `isaac.js` are updated by hand).
 

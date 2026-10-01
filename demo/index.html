@@ -68,6 +68,20 @@
         white-space: pre-wrap;
         min-height: 2em;
       }
+      #image {
+        margin: 16px 0;
+      }
+      #image svg {
+        display: block;
+        width: 100%;
+        max-width: 400px;
+        height: auto;
+        /* csTimer draws for a light background (black outlines and numbers). */
+        background: #fff;
+        border-radius: 8px;
+        padding: 8px;
+        box-sizing: border-box;
+      }
       .meta {
         color: var(--muted);
         font-size: 0.9rem;
@@ -86,14 +100,16 @@
         <button id="next">New scramble</button>
       </div>
       <div id="scramble"></div>
+      <div id="image"></div>
       <p class="meta" id="info"></p>
     </main>
     <script type="module">
-      import { listEvents, getScramble } from './index.mjs';
+      import { listEvents, getScramble, getScrambleImage, hasScrambleImage } from './index.mjs';
 
       const select = document.getElementById('event');
       const out = document.getElementById('scramble');
       const info = document.getElementById('info');
+      const image = document.getElementById('image');
 
       // One group per puzzle, in registration order.
       const groups = new Map();
@@ -114,6 +130,10 @@
         const ms = performance.now() - start;
         out.textContent = scramble;
         info.textContent = `${scramble.split(/\s+/).length} moves, generated in ${ms.toFixed(0)} ms`;
+        // Scramble images: 3x3x3 only for now.
+        image.innerHTML = hasScrambleImage(select.value)
+          ? getScrambleImage(select.value, scramble)
+          : '';
       }
 
       document.getElementById('next').addEventListener('click', next);
