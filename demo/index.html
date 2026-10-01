@@ -55,6 +55,13 @@
       input[type='number'] {
         width: 5em;
       }
+      /* Size changes only on Enter or Apply, not while typing. */
+      .size {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        margin: 0;
+      }
       input:disabled {
         opacity: 0.6;
         cursor: not-allowed;
@@ -191,7 +198,13 @@
           >Length <input id="length" type="number" min="1" max="999" placeholder="n/a" />
           <span class="note" id="length-note">set by this scramble type</span></label
         >
-        <label>Size <input id="size" type="range" min="100" max="480" value="300" /></label>
+        <form id="size-form" class="size" novalidate>
+          <label
+            >Size
+            <input id="size" type="number" min="100" max="480" step="10" value="300" /> px</label
+          >
+          <button type="submit">Apply</button>
+        </form>
         <div class="toggle" role="group" aria-label="View">
           <button type="button" id="view-2d" aria-pressed="true">2D</button>
           <button type="button" id="view-3d" aria-pressed="false">3D</button>
@@ -229,6 +242,8 @@
       const methodSelect = $('method');
       const lengthInput = $('length');
       const sizeInput = $('size');
+      // The size in use: the box's value only counts once applied.
+      let imageSize = Number(sizeInput.value);
       const view2D = $('view-2d');
       const view3D = $('view-3d');
       const colorsDiv = $('colors');
@@ -274,7 +289,7 @@
 
       function draw() {
         const puzzle = current();
-        puzzle.setImageSize(Number(sizeInput.value));
+        puzzle.setImageSize(imageSize);
         const ms = scrambleTimes.get(puzzle.id);
         scrambleLabel.textContent =
           `Scramble · ${moves(puzzle.getScrambleMoveCount())}` +
@@ -376,7 +391,14 @@
         if (Number.isInteger(length) && length >= 1) current().setScrambleLength(length);
         next();
       });
-      sizeInput.addEventListener('input', draw);
+      $('size-form').addEventListener('submit', (e) => {
+        e.preventDefault();
+        // Kept between the box's min and max, in whole pixels.
+        const value = Math.round(Number(sizeInput.value));
+        imageSize = Math.min(480, Math.max(100, Number.isFinite(value) && value > 0 ? value : 300));
+        sizeInput.value = imageSize;
+        draw();
+      });
       for (const [button, value] of [
         [view2D, '2d'],
         [view3D, '3d'],
