@@ -22,6 +22,10 @@ const NAMES = {
   scramble_333_edit: 'scramble_333',
   cross: 'cross',
   mgmsolver: 'mgmsolver',
+  scramble_sq1_new: 'sq1',
+  svglib: '$',
+  toolsutil: 'tools',
+  cubeutil: 'cubeutil',
 };
 
 // Shims for the few csTimer globals some files read. Values copied from csTimer.
@@ -59,6 +63,29 @@ var $ = {
 		return ret;
 	},
 	UDPOLY_RE: "skb|m?pyr|prc|heli(?:2x2|cv)?|crz3a|giga|mgm|klm|redi|dino|fto|dmd|ctico"
+};`,
+  // csTimer's settings (src/js/kernel.js) that the image code reads, with their default values.
+  kernel: `var kernel = {
+	props: {
+		'col-font': '#000000',
+		'col-board': '#ffdddd',
+		colcube: '#ff0#fa0#00f#fff#f00#0d0',
+		colpyr: '#0f0#f00#00f#ff0',
+		colskb: '#fff#00f#f00#ff0#0f0#f80',
+		colmgm: '#fff#d00#060#81f#fc0#00b#ffb#8df#f83#7e0#f9f#999',
+		colsq1: '#ff0#f80#0f0#fff#f00#00f',
+		colclk: '#f00#37b#5cf#ff0#850',
+		col15p: '#f99#9f9#99f#fff',
+		colfto: '#fff#808#0d0#f00#00f#bbb#ff0#fa0',
+		colico: '#fff#084#b36#a85#088#811#e71#b9b#05a#ed1#888#6a3#e8b#a52#6cb#c10#fa0#536#49c#ec9',
+		imgSize: 15,
+		imgRep: false,
+		preScr: '',
+		preScrT: ''
+	},
+	getProp: function(key, def) {
+		return key in this.props ? this.props[key] : def;
+	}
 };`,
 };
 
@@ -98,6 +125,21 @@ const FILES = [
   ['scramble/mgmlsll.js', ['mathlib', 'scrmgr']],
   ['scramble/redi.js', ['mathlib', 'scrmgr'], 'redi'],
   ['scramble/slide.js', ['mathlib', 'scrmgr'], 'slideCube'],
+  // Scramble images.
+  [
+    'lib/cubeutil.js',
+    ['mathlib', 'toolsutil'],
+    'cubeutil',
+    ['kernel'],
+    ['kernel shim: no pre-scramble'],
+  ],
+  [
+    'tools/image.js',
+    ['mathlib', 'svglib', 'poly3dlib', 'scramble_sq1_new', 'cubeutil', 'toolsutil'],
+    'image',
+    ['noUi', 'kernel'],
+    ['ISCSTIMER = false skips its UI part', 'kernel shim gives default colors'],
+  ],
 ];
 
 const JQUERY = [
@@ -164,10 +206,70 @@ function vendorScrMgr(cstimer) {
   );
 }
 
+// Copies the part of a csTimer file between two markers (both included) into its own module.
+function vendorSlice(cstimer, { path, start, end, name, changes, before = [], after = [] }) {
+  const code = readFileSync(join(cstimer, 'src/js', path), 'utf8');
+  const from = code.indexOf(start);
+  const to = code.indexOf(end, from);
+  if (from < 0 || to < 0) throw new Error(`markers not found in ${path}`);
+  writeFileSync(
+    join('src/vendor/cstimer', name),
+    [
+      `// Vendored from csTimer (src/js/${path}, part only) @ ${UPSTREAM_COMMIT}. GPL-3.0, (c) cs0x7f.`,
+      `// Changes: ${['ESM export', ...changes].join('; ')}.`,
+      ...before,
+      code.slice(from, to + end.length),
+      ...after,
+      '',
+    ].join('\n'),
+  );
+  return name;
+}
+
+// csTimer's SVG drawing helpers ($.svg, $.ctxDrawPolygon, ...) from its jQuery extensions.
+function vendorSvgLib(cstimer) {
+  return vendorSlice(cstimer, {
+    path: 'lib/utillib.js',
+    start: '\t$.svg = (function() {',
+    // Up to the end of $.col2std, the last helper the image code uses.
+    end: "replace('#', '0x')));\n\t\t}\n\t\treturn ret;\n\t};",
+    name: 'svglib.js',
+    changes: ['only the SVG and canvas helpers, on a plain object instead of jQuery'],
+    before: ['var $ = {};'],
+    after: ['export default $;'],
+  });
+}
+
+// csTimer's functions that tell which puzzle a scramble type is for, from its tools panel.
+function vendorToolsUtil(cstimer) {
+  return vendorSlice(cstimer, {
+    path: 'tools/tools.js',
+    start: '\tfunction scrambleType(scramble) {',
+    end: '\t\t\treturn scrambleType;\n\t\t}\n\t}',
+    name: 'toolsutil.js',
+    changes: ['only the puzzle type helpers, without the tools panel'],
+    before: ["var curScramble = ['-', '', 0];"],
+    after: [
+      'var tools = {',
+      '\tscrambleType: scrambleType,',
+      '\tpuzzleType: puzzleType,',
+      '\tisPuzzle: isPuzzle,',
+      '\tcarrot2poch: carrot2poch,',
+      '\tisCurTrainScramble: function() {',
+      '\t\treturn false;',
+      '\t}',
+      '};',
+      'export default tools;',
+    ],
+  });
+}
+
 const cstimer = process.argv[2];
 if (!cstimer) {
   console.error('Usage: node scripts/vendor-cstimer.mjs <path to a csTimer checkout>');
   process.exit(1);
 }
 vendorScrMgr(cstimer);
+console.log('vendored', vendorSvgLib(cstimer));
+console.log('vendored', vendorToolsUtil(cstimer));
 for (const file of FILES) console.log('vendored', vendorFile(cstimer, file));
