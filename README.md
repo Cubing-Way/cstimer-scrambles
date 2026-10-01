@@ -55,19 +55,20 @@ cube.setScramble("R U R' U'"); // or scramble it with moves of your own
 cube.reset(); // back to solved: no scramble, no solution
 ```
 
-Puzzles: `listPuzzles()` gives their ids, the WCA puzzles for now: `222` to `777`, `clock`, `minx`, `pyram`, `skewb` and `sq1`.
+Puzzles: `listPuzzles()` gives their ids: first the WCA puzzles (`222` to `777`, `clock`, `minx`, `pyram`, `skewb` and `sq1`), then every other puzzle csTimer has scrambles for, named after the `puzzle` groups of `listEvents()` (`fto`, `888` to `111111`, `gear`, `relay`, `joke`, ...). Puzzles outside the WCA keep csTimer's colors for now (`getFaces()` is empty), except the big cubes, which have the cube faces.
 
 - **Colors**: `getFaces()` lists the names `setColor(face, color)` takes (`U R F D L B` for cubes, skewb and square-1; `F L R D` for pyraminx; `U F R L BR BL DR DL DBR DBL B D` for megaminx; `front back hand handOutline pin` for clock). Colors are hex, `#rgb` or `#rrggbb`; csTimer draws with `#rgb` colors, so `#rrggbb` is rounded to the nearest one. `getColors()` and `resetColors()` read them and go back to csTimer's defaults.
 - **Image size**: `setImageSize(width)` in pixels. Without it the SVG keeps csTimer's size; it can always be resized with CSS too.
 - **Scramble method**: `'default'` (the WCA scramble), `'random-state'` or `'random-move'`, each one of csTimer's scramble types (`getScrambleType()` says which). Not every puzzle has all three (csTimer has no random-state 5x5x5 to 7x7x7, nor random-move clock); `getScrambleMethods()` lists the ones it has and `setScrambleMethod` throws for the others.
+- **Scramble type**: any of csTimer's scramble types for the puzzle, e.g. `setScrambleType('pll')` on a 3x3x3. `getScrambleTypes()` lists them (`{ id, name }`, in csTimer's menu order); all 206 are spread over the puzzles. A picked type is used instead of the method until `setScrambleMethod` is called again, and meanwhile `getScrambleMethod()` is `undefined`. Some types have no picture in csTimer (Ivy, cuboids, ...): `hasImage()` says whether `getImage()` can draw it.
 - **Scramble length**: `setScrambleLength(moves)` for methods that make random moves (megaminx rounds it up to whole lines of 10). Random-state scrambles are as long as they need to be, so for them `getScrambleLength()` is `undefined` and the length waits until the method changes. `resetScrambleLength()` goes back to csTimer's default.
 - **Typed moves**: `setScramble(moves)` scrambles the puzzle with your own moves, and `setSolution(moves)` sets moves done after the scramble, both in csTimer's notation for the puzzle. `scramble()` clears the solution, `reset()` clears both, and `getImage()` throws if csTimer can't read the moves.
-- **Move counts**: `getScrambleMoveCount()` and `getSolutionMoveCount()`. Moves are counted between spaces, except on Square-1, where each slash is one move (twist metric).
-- **3D view** (cubes, 2x2x2 to 7x7x7; `has3DView()` says if a puzzle has one): `show3D(element)` shows the cube in 3D inside an element of a web page, in the same state as `getImage()` and with the puzzle's colors. It can be dragged with the mouse or a finger to look at every side; call it again after a change to update it (the angle is kept). It is built from plain HTML elements turned by CSS, so it needs no 3D library. `getStickers()` gives the colors behind it: `{ U: [...], R, F, D, L, B }`, each face read row by row as in the unfolded picture.
+- **Move counts**: `getScrambleMoveCount()` and `getSolutionMoveCount()`. Moves are counted between spaces, except on Square-1, where each slash is one move (twist metric). Relay numbers like `2)` are not counted.
+- **3D view** (cubes, 2x2x2 to 11x11x11; `has3DView()` says if a puzzle has one): `show3D(element)` shows the cube in 3D inside an element of a web page, in the same state as `getImage()` and with the puzzle's colors. It can be dragged with the mouse or a finger to look at every side; call it again after a change to update it (the angle is kept). It is built from plain HTML elements turned by CSS, so it needs no 3D library. `getStickers()` gives the colors behind it: `{ U: [...], R, F, D, L, B }`, each face read row by row as in the unfolded picture.
 
 ## Supported events
 
-All 206 scramble types in csTimer's menu are supported, with csTimer's ids (everything except its UI-only entries: input, remote, BLD helper, pattern tool and custom). `listEvents()` returns them all with a name and a `puzzle` group; the [demo page](https://cubing-way.github.io/cstimer-scrambles/) lists them too.
+All 206 scramble types in csTimer's menu are supported, with csTimer's ids (everything except its UI-only entries: input, remote, BLD helper, pattern tool and custom). `listEvents()` returns them all with a name and a `puzzle` group; the [demo page](https://cubing-way.github.io/cstimer-scrambles/) has them all, picked by puzzle and then type.
 
 The WCA events:
 

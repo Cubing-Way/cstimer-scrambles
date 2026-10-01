@@ -7,8 +7,8 @@ function fills(svg: string): string[] {
 }
 
 describe('Puzzle', () => {
-  it('covers the WCA puzzles', () => {
-    expect(listPuzzles()).toEqual([
+  it('covers the WCA puzzles first, then every other puzzle', () => {
+    expect(listPuzzles().slice(0, 11)).toEqual([
       '222',
       '333',
       '444',
@@ -21,6 +21,9 @@ describe('Puzzle', () => {
       'skewb',
       'sq1',
     ]);
+    expect(listPuzzles()).toEqual(
+      expect.arrayContaining(['fto', '888', '111111', 'gear', 'relay', 'joke']),
+    );
   });
 
   it('throws for unknown puzzles', () => {
@@ -29,7 +32,7 @@ describe('Puzzle', () => {
 
   // Scrambles for every puzzle and method; the first 4x4x4 and megaminx random-state
   // scrambles build solver tables, which can be slow on a busy CI runner.
-  it.each(listPuzzles())(
+  it.each(listPuzzles().slice(0, 11))(
     '%s scrambles and draws with every method',
     (id) => {
       const puzzle = new Puzzle(id);
@@ -271,6 +274,9 @@ describe('Puzzle typed scramble and solution', () => {
     const minx = new Puzzle('minx');
     minx.scramble();
     expect(minx.getScrambleMoveCount()).toBe(77);
+    // Relays number each puzzle's scramble.
+    const relay = new Puzzle('relay').setScramble("1) R U\n2) R U R' U'");
+    expect(relay.getScrambleMoveCount()).toBe(6);
   });
 
   it('adds up Square-1 turns where the scramble and solution meet', () => {
@@ -283,5 +289,56 @@ describe('Puzzle typed scramble and solution', () => {
   it('throws a clear error for moves csTimer can’t read', () => {
     const puzzle = new Puzzle('sq1').setScramble('hello');
     expect(() => puzzle.getImage()).toThrow('Can\'t read these moves as Square-1 moves: "hello"');
+  });
+});
+
+describe('Puzzle scramble types', () => {
+  it('lists every csTimer type for the puzzle', () => {
+    const puzzle = new Puzzle('333');
+    const types = puzzle.getScrambleTypes();
+    expect(types).toHaveLength(49);
+    expect(types).toContainEqual({ id: 'pll', name: '3x3x3 CFOP PLL' });
+  });
+
+  it('covers all of csTimer’s scramble types across the puzzles', () => {
+    const ids = listPuzzles().flatMap((id) => new Puzzle(id).getScrambleTypes().map((t) => t.id));
+    expect(ids).toHaveLength(206);
+  });
+
+  it('scrambles with a picked type until a method is picked again', () => {
+    const puzzle = new Puzzle('333').setScrambleType('pll');
+    expect(puzzle.getScrambleType()).toBe('pll');
+    expect(puzzle.getScrambleMethod()).toBeUndefined();
+    const scramble = puzzle.scramble();
+    expect(puzzle.getImage()).toBe(getScrambleImage('pll', scramble));
+    puzzle.setScrambleMethod('random-move');
+    expect([puzzle.getScrambleType(), puzzle.getScrambleMethod()]).toEqual(['333o', 'random-move']);
+  });
+
+  it('rejects types of other puzzles', () => {
+    expect(() => new Puzzle('333').setScrambleType('pyrso')).toThrow(
+      '"pyrso" is not a 3x3x3 scramble type',
+    );
+  });
+
+  it('says when csTimer has no picture for a type', () => {
+    const puzzle = new Puzzle('ivy');
+    expect(puzzle.name).toBe('Ivy Cube');
+    puzzle.scramble();
+    expect(puzzle.hasImage()).toBe(false);
+    expect(() => puzzle.getImage()).toThrow('csTimer has no picture for "ivyso" scrambles');
+  });
+
+  it('works for puzzles outside the WCA, with methods from their type names', () => {
+    const fto = new Puzzle('fto');
+    expect(fto.name).toBe('FTO');
+    expect(fto.getScrambleMethods()).toEqual(['default', 'random-state', 'random-move']);
+    expect(fto.getFaces()).toEqual([]);
+    expect(fto.getImage()).toBe(getScrambleImage('ftoso', ''));
+    const big = new Puzzle('999');
+    expect(big.name).toBe('9x9x9');
+    expect(big.has3DView()).toBe(true);
+    big.scramble();
+    expect(big.getStickers().U).toHaveLength(81);
   });
 });
