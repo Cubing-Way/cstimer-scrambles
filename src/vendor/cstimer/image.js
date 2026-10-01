@@ -4,6 +4,7 @@ import mathlib from './mathlib.js';
 import $ from './svglib.js';
 import poly3d from './poly3dlib.js';
 import sq1 from './scramble_sq1_new.js';
+import clock from './clock.js';
 import cubeutil from './cubeutil.js';
 import tools from './toolsutil.js';
 var DEBUG = false;

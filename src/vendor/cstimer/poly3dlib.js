@@ -1,5 +1,6 @@
 // Vendored from csTimer (src/js/lib/poly3dlib.js) @ 2547d82. GPL-3.0, (c) cs0x7f.
 // Changes: ESM import/export; DEBUG disabled; kernel and $ shims give default colors.
+import tools from './toolsutil.js';
 var DEBUG = false;
 var kernel = {
 	getProp: function(key) {

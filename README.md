@@ -23,7 +23,7 @@ Scramble type ids match csTimer's, so `getScramble('333fm')` is what csTimer cal
 
 ## Scramble images
 
-`getScrambleImage(type, scramble)` draws the scrambled puzzle as an SVG string, the same picture csTimer's "Draw Scramble" tool shows (an unfolded cube, U on top, F in the middle, csTimer's default colors). It works in browsers and in Node.
+`getScrambleImage(type, scramble)` draws the scrambled puzzle as an SVG string, the same picture csTimer's "Draw Scramble" tool shows (for cubes an unfolded net with U on top and F in the middle; csTimer's default colors). The SVG has no background of its own, so it takes the color of whatever it's placed on. It works in browsers and in Node.
 
 ```ts
 import { getScramble, getScrambleImage, hasScrambleImage } from '@cubing-way/cstimer-scrambles';
@@ -33,7 +33,7 @@ const svg = getScrambleImage('333', scramble); // '<svg viewBox="0 0 396 296" ..
 document.getElementById('cube').innerHTML = svg;
 ```
 
-Pass the scramble type the scramble was made for. For now only 3x3x3 types are drawn (`333`, `333oh`, `333fm`, `333ni`, multi-blind as a grid, and the 3x3x3 training types); `hasScrambleImage(type)` tells you whether a type has one, and other types throw. The other puzzles come next.
+Pass the scramble type the scramble was made for. Every puzzle csTimer can draw has images: cubes from 2x2x2 to 11x11x11, megaminx, kilominx, gigaminx, pyraminx, master pyraminx, skewb, square-1, square-2, clock, FTO, the 15 and 8 puzzles, and the other shape-mods and curvy puzzles (Redi, Dino, Helicopter, Gear, ...). Relays and multi-blind are drawn as a grid, one picture per puzzle. `hasScrambleImage(type)` tells you whether a type has one; the types csTimer can't draw (Ivy, cuboids, the "noob" text scrambles, ...) throw.
 
 ## Supported events
 

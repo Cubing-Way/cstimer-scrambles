@@ -3,27 +3,71 @@
 import image from './vendor/cstimer/image.js';
 import tools from './vendor/cstimer/toolsutil.js';
 
-/** Puzzles that have images so far. 3x3x3 is the trial; the other puzzles come next. */
-const IMAGE_PUZZLES = ['333'];
+/**
+ * Puzzles csTimer's image code can draw, as csTimer's puzzle type ids (what
+ * `tools.puzzleType(type)` returns). Mirrors `renderSVG` in csTimer's image.js.
+ */
+const IMAGE_PUZZLES = [
+  // Cubes, 2x2x2 up to 11x11x11, as an unfolded net.
+  '222',
+  '333',
+  '444',
+  '555',
+  '666',
+  '777',
+  '888',
+  '999',
+  '101010',
+  '111111',
+  // Puzzles drawn from a 3D model, unfolded.
+  'pyr',
+  'mpyr',
+  'skb',
+  'mgm',
+  'klm',
+  'giga',
+  'prc',
+  'fto',
+  'dmd',
+  'ctico',
+  'redi',
+  'dino',
+  'heli',
+  'heli2x2',
+  'helicv',
+  'crz3a',
+  // Puzzles with their own drawing code.
+  'sq1',
+  'sq2',
+  'clk',
+  'gear',
+  'mrbl',
+  '15p',
+  '15b',
+  '8p',
+  '8b',
+];
+
+/** Relays and multi-blind: a grid with one image per scramble. */
+const MULTI_TYPES = /^r(3(ni)?|23\d+w?|mngf)$/;
 
 /** Whether `getScrambleImage` can draw scrambles of this csTimer scramble type id. */
 function hasScrambleImage(type: string): boolean {
-  // Multi-blind ("r3ni") is a grid of 3x3x3 images, one per cube.
-  return type === 'r3ni' || IMAGE_PUZZLES.includes(tools.puzzleType(type));
+  return MULTI_TYPES.test(type) || IMAGE_PUZZLES.includes(tools.puzzleType(type));
 }
 
 /**
  * Draws the scrambled puzzle as an SVG string, the same picture csTimer shows in its
- * "Draw Scramble" tool: an unfolded cube with the U face on top and F in the middle.
+ * "Draw Scramble" tool, e.g. an unfolded cube with the U face on top and F in the middle.
  *
  * `type` is the scramble type id the scramble was made for, e.g. `'333'` or `'pll'`.
- * The SVG has a viewBox, so it can be resized with CSS.
+ * The SVG has a viewBox, so it can be resized with CSS, and no background.
  *
- * Only 3x3x3 scramble types are supported for now; others throw.
+ * Throws for types csTimer has no image for (see `hasScrambleImage`).
  */
 function getScrambleImage(type: string, scramble: string): string {
   if (!hasScrambleImage(type)) {
-    throw new Error(`No scramble image for "${type}" yet (only 3x3x3 for now)`);
+    throw new Error(`No scramble image for "${type}"`);
   }
   const svg = image.draw([type, scramble, 0]);
   if (!svg) {
