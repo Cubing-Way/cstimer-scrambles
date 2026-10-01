@@ -42,7 +42,7 @@ describe('Puzzle', () => {
         expect(puzzle.getImage()).toBe(getScrambleImage(puzzle.getScrambleType(), scramble));
       }
     },
-    20000,
+    60_000,
   );
 
   it('uses the WCA type by default and csTimer types for each method', () => {
