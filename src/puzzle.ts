@@ -1,7 +1,7 @@
 // The Puzzle class: one physical puzzle with its own colors, image size and scramble method.
 
-import { getEvent, getScramble } from './registry.js';
-import { drawImage } from './image.js';
+import { getEvent, getScramble, listEvents } from './registry.js';
+import { drawImage, hasScrambleImage } from './image.js';
 import { drawCube3D } from './view3d.js';
 import image from './vendor/cstimer/image.js';
 
@@ -101,6 +101,70 @@ const PUZZLES: Record<string, PuzzleInfo> = {
   },
 };
 
+/** Cubes bigger than 7x7x7: csTimer only has random-move scrambles for them. */
+const BIG_CUBES: Record<string, PuzzleInfo> = Object.fromEntries(
+  [8, 9, 10, 11].map((n) => {
+    const id = String(n).repeat(3);
+    return [id, cube(n, { default: id, 'random-move': id })];
+  }),
+);
+
+/** Names of the other puzzles, by the `puzzle` group of their scramble types. */
+const OTHER_NAMES: Record<string, string> = {
+  fto: 'FTO',
+  '15p': '15 puzzle',
+  '8p': '8 puzzle',
+  '133': '1x3x3 (Floppy Cube)',
+  '223': '2x2x3 (Tower Cube)',
+  '233': '2x3x3 (Domino)',
+  nnn: 'NxNxN',
+  mrbl: 'Mirror Blocks',
+  gear: 'Gear Cube',
+  klm: 'Kilominx',
+  giga: 'Gigaminx',
+  crz3a: 'Crazy 3x3x3',
+  cmetrick: 'Cmetrick',
+  heli: 'Helicopter Cube',
+  redi: 'Redi Cube',
+  dino: 'Dino Cube',
+  ivy: 'Ivy Cube',
+  mpyr: 'Master Pyraminx',
+  prc: 'Pyraminx Crystal',
+  sia: 'Siamese Cube',
+  sq2: 'Square-2',
+  sfl: 'Super Floppy',
+  ufo: 'UFO',
+  ico: 'Icosahedron',
+  bandaged: 'Bandaged puzzles',
+  dmd: 'Diamond',
+  relay: 'Relays',
+  joke: 'Joke scrambles',
+};
+
+/**
+ * The puzzle info for an id: a WCA puzzle, a big cube, or any other `puzzle` group of
+ * csTimer's scramble types. The others have csTimer's colors only, and their methods
+ * come from their types' names ("random state", "random move").
+ */
+function puzzleInfo(id: string): PuzzleInfo | undefined {
+  const known = PUZZLES[id] ?? BIG_CUBES[id];
+  if (known) return known;
+  const types = listEvents().filter((event) => event.puzzle === id);
+  if (types.length === 0) return undefined;
+  const methods: PuzzleInfo['methods'] = { default: types[0]!.id };
+  const state = types.find((type) => /random state/.test(type.name));
+  const move = types.find((type) => /random move/.test(type.name));
+  if (state) methods['random-state'] = state.id;
+  if (move) methods['random-move'] = move.id;
+  return {
+    name: OTHER_NAMES[id] ?? types[0]!.name,
+    colorSetting: '',
+    defaultColors: {},
+    cstimerOrder: [],
+    methods,
+  };
+}
+
 const METHODS: readonly ScrambleMethod[] = ['default', 'random-state', 'random-move'];
 const HEX_COLOR = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i;
 
@@ -152,16 +216,22 @@ function joinSq1Turns(moves: string): string {
 /**
  * Counts the moves in `moves`, written in the puzzle's notation: the moves between
  * spaces, except on Square-1, where each slash `/` is one move (twist metric) and the
- * turns between them are free.
+ * turns between them are free. Relay numbers like `2)` are not moves.
  */
 function countMoves(puzzleId: string, moves: string): number {
   if (puzzleId === 'sq1') return (moves.match(/\//g) ?? []).length;
-  return moves.split(/\s+/).filter(Boolean).length;
+  return moves.split(/\s+/).filter((move) => move && !/^\w+\)$/.test(move)).length;
 }
 
-/** Ids of the puzzles `new Puzzle(id)` accepts, e.g. `'333'`, `'pyram'`. */
+/**
+ * Ids of the puzzles `new Puzzle(id)` accepts, e.g. `'333'`, `'pyram'`: the WCA puzzles
+ * first, then every other puzzle csTimer has scrambles for (the `puzzle` groups of
+ * `listEvents()`, in the same order).
+ */
 function listPuzzles(): string[] {
-  return Object.keys(PUZZLES);
+  const ids = new Set(Object.keys(PUZZLES));
+  for (const event of listEvents()) ids.add(event.puzzle);
+  return [...ids];
 }
 
 /**
@@ -186,9 +256,11 @@ class Puzzle {
   #solution = '';
   /** The scramble type `#scramble` was made with, which is the one to draw it with. */
   #scrambleType = '';
+  /** A scramble type picked with `setScrambleType`, used instead of the method's. */
+  #type: string | undefined;
 
   constructor(id: string) {
-    const info = PUZZLES[id];
+    const info = puzzleInfo(id);
     if (!info) {
       throw new Error(`Unknown puzzle "${id}". Puzzles: ${listPuzzles().join(', ')}`);
     }
@@ -263,7 +335,7 @@ class Puzzle {
   /**
    * Picks how `scramble()` makes scrambles: `'default'` (the WCA way), `'random-state'`
    * or `'random-move'`. Throws if csTimer has no such scrambler for this puzzle
-   * (see `getScrambleMethods`).
+   * (see `getScrambleMethods`). It replaces a type picked with `setScrambleType`.
    */
   setScrambleMethod(method: ScrambleMethod): this {
     if (!(method in this.#info.methods)) {
@@ -272,16 +344,45 @@ class Puzzle {
       );
     }
     this.#method = method;
+    this.#type = undefined;
     return this;
   }
 
-  getScrambleMethod(): ScrambleMethod {
-    return this.#method;
+  /** The method `scramble()` uses, or `undefined` when a type was picked with `setScrambleType`. */
+  getScrambleMethod(): ScrambleMethod | undefined {
+    return this.#type === undefined ? this.#method : undefined;
   }
 
-  /** The csTimer scramble type id the current method uses, e.g. `'333o'`. */
+  /**
+   * The csTimer scramble type `scramble()` uses, e.g. `'333o'`: the one picked with
+   * `setScrambleType`, or else the current method's.
+   */
   getScrambleType(): string {
-    return this.#info.methods[this.#method]!;
+    return this.#type ?? this.#info.methods[this.#method]!;
+  }
+
+  /**
+   * Every csTimer scramble type for this puzzle, e.g. for 3x3x3 `{ id: 'pll', name:
+   * '3x3x3 CFOP PLL' }` and 48 more, in csTimer's menu order. Any of them can be picked with
+   * `setScrambleType`.
+   */
+  getScrambleTypes(): { id: string; name: string }[] {
+    return listEvents()
+      .filter((event) => event.puzzle === this.id)
+      .map(({ id, name }) => ({ id, name }));
+  }
+
+  /**
+   * Makes `scramble()` use one of csTimer's scramble types for this puzzle, e.g.
+   * `setScrambleType('pll')` for PLL cases (see `getScrambleTypes`), instead of the
+   * method's. `setScrambleMethod` goes back to the methods.
+   */
+  setScrambleType(type: string): this {
+    if (getEvent(type)?.puzzle !== this.id) {
+      throw new Error(`"${type}" is not a ${this.name} scramble type`);
+    }
+    this.#type = type;
+    return this;
   }
 
   /**
@@ -374,7 +475,7 @@ class Puzzle {
     return this;
   }
 
-  /** Whether `getStickers` and `show3D` work for this puzzle: the cubes, 2x2x2 to 7x7x7. */
+  /** Whether `getStickers` and `show3D` work for this puzzle: the cubes, 2x2x2 to 11x11x11. */
   has3DView(): boolean {
     return this.#info.cubeSize !== undefined;
   }
@@ -422,12 +523,21 @@ class Puzzle {
     return this;
   }
 
+  /** Whether `getImage()` can draw the puzzle with its current scramble type. */
+  hasImage(): boolean {
+    return hasScrambleImage(this.#scramble ? this.#scrambleType : this.getScrambleType());
+  }
+
   /**
    * Draws the puzzle as it is now (solved, or after the scramble and then the solution)
    * as an SVG string, with this puzzle's colors and image size. Same picture as
    * `getScrambleImage`. Throws if csTimer can't read the moves.
    */
   getImage(): string {
+    const type = this.#scramble ? this.#scrambleType : this.getScrambleType();
+    if (!hasScrambleImage(type)) {
+      throw new Error(`csTimer has no picture for "${type}" scrambles`);
+    }
     const colors = this.#info.cstimerOrder
       .map((face) => toCstimerColor(this.#colors[face]!))
       .join('');
@@ -435,9 +545,9 @@ class Puzzle {
     if (this.id === 'sq1') moves = joinSq1Turns(moves);
     try {
       return drawImage(
-        this.#scramble ? this.#scrambleType : this.getScrambleType(),
+        type,
         moves,
-        { [this.#info.colorSetting]: colors },
+        this.#info.colorSetting ? { [this.#info.colorSetting]: colors } : {},
         this.#imageSize,
       );
     } catch {
