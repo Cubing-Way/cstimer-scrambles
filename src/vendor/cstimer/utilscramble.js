@@ -1,8 +1,16 @@
 // Vendored from csTimer (src/js/scramble/utilscramble.js) @ 2547d82. GPL-3.0, (c) cs0x7f.
-// Changes: ESM import/export; DEBUG disabled; dmdso (needs poly3d/grouplib) and 333noob (needs translated strings) are not wired up yet.
+// Changes: ESM import/export; DEBUG disabled; SCRAMBLE_NOOB* strings from en-us.js.
 import mathlib from './mathlib.js';
 import scrMgr from './scrmgr.js';
+import grouplib from './grouplib.js';
+import poly3d from './poly3dlib.js';
 var DEBUG = false;
+var SCRAMBLE_NOOBST = [
+	['turn the top face', 'turn the bottom face'],
+	['turn the right face', 'turn the left face'],
+	['turn the front face', 'turn the back face']
+];
+var SCRAMBLE_NOOBSS = ' clockwise by 90 degrees,| counterclockwise by 90 degrees,| by 180 degrees,';
 "use strict";
 
 (function(rn, rndEl, mega) {

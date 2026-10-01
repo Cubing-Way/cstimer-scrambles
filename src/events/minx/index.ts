@@ -1,5 +1,8 @@
 import '../../vendor/cstimer/utilscramble.js';
-import { cstimerScramble } from '../../cstimer.js';
+import '../../vendor/cstimer/megascramble.js';
+import '../../vendor/cstimer/megaminx.js';
+import '../../vendor/cstimer/mgmlsll.js';
+import { cstimerEvent, cstimerScramble } from '../../cstimer.js';
 import { registerEvents } from '../../registry.js';
 import type { ScrambleEvent } from '../../types.js';
 
@@ -10,6 +13,15 @@ function getMegaminxScramble(): string {
 
 const eventsMinx: ScrambleEvent[] = [
   { id: 'mgmp', name: 'Megaminx WCA', puzzle: 'minx', generate: getMegaminxScramble },
+  // Other csTimer scramble types for this puzzle, in csTimer's menu order.
+  cstimerEvent('mgmc', 'Megaminx Carrot', 'minx', 70),
+  cstimerEvent('mgmo', 'Megaminx old style', 'minx', 70),
+  cstimerEvent('minx2g', 'Megaminx 2-generator R,U', 'minx', 30),
+  cstimerEvent('mlsll', 'Megaminx last slot + last layer', 'minx'),
+  cstimerEvent('mgmso', 'Megaminx random state', 'minx'),
+  cstimerEvent('mgmpll', 'Megaminx PLL', 'minx'),
+  cstimerEvent('mgmll', 'Megaminx Last Layer', 'minx'),
+  cstimerEvent('mgms2l', 'Megaminx S2L', 'minx', 48),
 ];
 
 registerEvents(...eventsMinx);

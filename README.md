@@ -23,6 +23,10 @@ Scramble type ids match csTimer's, so `getScramble('333fm')` is what csTimer cal
 
 ## Supported events
 
+All 206 scramble types in csTimer's menu are supported, with csTimer's ids (everything except its UI-only entries: input, remote, BLD helper, pattern tool and custom). `listEvents()` returns them all with a name and a `puzzle` group; the [demo page](https://cubing-way.github.io/cstimer-scrambles/) lists them too.
+
+The WCA events:
+
 | id        | description                    |
 | --------- | ------------------------------ |
 | `333`     | 3x3x3 random state             |
@@ -49,11 +53,13 @@ Scramble type ids match csTimer's, so `getScramble('333fm')` is what csTimer cal
 
 Some events take a length: `getScramble('r3ni', 3)` gives three multi-blind scrambles. `getEvent(id).length` is the default, and events without one ignore it.
 
-The 4x4x4 and FTO solvers build lookup tables on first use, so the first scramble takes a second or two.
+Other types include random-move and SiGN notation for every cube size, 3x3x3 training cases (PLL, OLL, ZBLL, CMLL, Mehta steps, 2-gen and other subsets), 2x2x2 EG/TCLL, 4x4x4 Yau/Hoya steps, the other clock, megaminx, pyraminx, skewb, square-1 and FTO variants, non-WCA puzzles (15 puzzle, Kilominx, Gigaminx, Redi, Dino, Ivy, Helicopter, Gear, cuboids up to 11x11x11, ...), relays and csTimer's joke types.
 
-Every puzzle module also exports named functions (`get222Scramble`, `getSkewbScramble`, ...) if you'd rather not go through ids.
+Some solvers (4x4x4, FTO, megaminx random state, ...) build lookup tables on first use, so their first scramble takes a second or two.
 
-More puzzles are added as modules under `src/events/<puzzle>/`, each calling `registerEvents(...)`.
+The WCA puzzle modules also export named functions (`get222Scramble`, `getSkewbScramble`, ...) if you'd rather not go through ids.
+
+Puzzles live in modules under `src/events/<puzzle>/`, each calling `registerEvents(...)`.
 
 ## Layout
 
@@ -68,7 +74,9 @@ src/
   vendor/cstimer/      csTimer files kept close to upstream, with .d.ts typings
 ```
 
-`src/vendor/cstimer` holds csTimer files from commit `2547d82`: the libraries (`mathlib.js`, `min2phase.js`, `isaac.js`), the scramble manager (`scrmgr.js`, the non-UI part of `scramble.js`), the FTO solver (`ftocta.js`) and the scramble files themselves (`2x2x2.js`, `scramble_444.js`, `megascramble.js`, `utilscramble.js`, `pyraminx.js`, `skewb.js`, `scramble_sq1_new.js`, `scramble_fto.js`). They are changed only to use ESM imports/exports and to drop the jQuery dependency; each file's first lines list its changes, so they stay easy to compare with upstream.
+`src/vendor/cstimer` holds csTimer files from commit `2547d82`: its libraries (`mathlib.js`, `min2phase.js`, `isaac.js`, `grouplib.js`, `pat3x3.js`, `poly3dlib.js`), solvers (`ftocta.js`, `mgmsolver.js`, `cross.js`), the scramble manager (`scrmgr.js`, the non-UI part of `scramble.js`) and every file from csTimer's `src/js/scramble`. They are changed only to run as ES modules outside csTimer's web page (imports/exports, no jQuery, csTimer's UI parts skipped); each file's first lines list its changes, so they stay easy to compare with upstream.
+
+To update them from a newer csTimer, run `node scripts/vendor-cstimer.mjs <path to a csTimer checkout>` (it does the same edits again; `mathlib.js`, `min2phase.js` and `isaac.js` are updated by hand).
 
 Code style: modules declare everything first and list their exports in one `export { ... }` block at the bottom.
 

@@ -930,5 +930,4 @@ var ftosolver = (function() {
 		testbench: DEBUG && testbench
 	};
 })();
-
 export default ftosolver;
