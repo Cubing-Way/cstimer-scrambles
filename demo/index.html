@@ -123,10 +123,34 @@
       #image {
         max-width: 100%;
       }
-      /* The 3D view fills this box's width; drag it to turn the cube. */
+      /* The 3D view is as wide as the Size slider says; drag it to turn the cube. */
       #cube3d {
-        width: 260px;
         max-width: 100%;
+      }
+      /* 2D or 3D: two buttons, the one in use filled in. */
+      .toggle {
+        display: inline-flex;
+      }
+      .toggle button {
+        background: var(--card);
+        border-color: var(--border);
+        color: var(--fg);
+      }
+      .toggle button:first-child {
+        border-radius: 6px 0 0 6px;
+      }
+      .toggle button:last-child {
+        border-radius: 0 6px 6px 0;
+        margin-left: -1px;
+      }
+      .toggle button[aria-pressed='true'] {
+        background: var(--accent);
+        border-color: var(--accent);
+        color: #fff;
+      }
+      .toggle button:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
       }
       #cube3d[hidden] {
         display: none;
@@ -168,10 +192,10 @@
           <span class="note" id="length-note">set by this scramble type</span></label
         >
         <label>Size <input id="size" type="range" min="100" max="480" value="300" /></label>
-        <select id="view" aria-label="View">
-          <option value="2d">2D</option>
-          <option value="3d">3D</option>
-        </select>
+        <div class="toggle" role="group" aria-label="View">
+          <button type="button" id="view-2d" aria-pressed="true">2D</button>
+          <button type="button" id="view-3d" aria-pressed="false">3D</button>
+        </div>
         <button id="next">New scramble</button>
       </div>
       <div class="colors" id="colors"></div>
@@ -205,7 +229,8 @@
       const methodSelect = $('method');
       const lengthInput = $('length');
       const sizeInput = $('size');
-      const viewSelect = $('view');
+      const view2D = $('view-2d');
+      const view3D = $('view-3d');
       const colorsDiv = $('colors');
       const scrambleInput = $('scramble');
       const solutionInput = $('solution');
@@ -257,9 +282,11 @@
         solutionLabel.textContent = `Solution · ${moves(puzzle.getSolutionMoveCount())}`;
         // 3D only for the cubes; the other puzzles are shown in 2D, and the cubes go back
         // to the view picked last.
-        viewSelect.options[1].disabled = !puzzle.has3DView();
+        view3D.disabled = !puzzle.has3DView();
+        view3D.title = puzzle.has3DView() ? '' : 'Only the cubes have a 3D view for now';
         const in3D = view === '3d' && puzzle.has3DView();
-        viewSelect.value = in3D ? '3d' : '2d';
+        view2D.setAttribute('aria-pressed', String(!in3D));
+        view3D.setAttribute('aria-pressed', String(in3D));
         image.hidden = in3D;
         cube3d.hidden = !in3D;
         info.classList.remove('error');
@@ -350,10 +377,15 @@
         next();
       });
       sizeInput.addEventListener('input', draw);
-      viewSelect.addEventListener('change', () => {
-        view = viewSelect.value;
-        draw();
-      });
+      for (const [button, value] of [
+        [view2D, '2d'],
+        [view3D, '3d'],
+      ]) {
+        button.addEventListener('click', () => {
+          view = value;
+          draw();
+        });
+      }
       scrambleInput.addEventListener('input', () => {
         current().setScramble(scrambleInput.value);
         scrambleTimes.delete(current().id);
