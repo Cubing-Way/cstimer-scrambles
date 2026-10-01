@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import min2phase from '../src/vendor/cstimer/min2phase.js';
-import { getScramble, getScrambleImage, hasScrambleImage } from '../src/index.js';
+import { getScramble, getScrambleImage, hasScrambleImage, listEvents } from '../src/index.js';
 
 // csTimer's default colors, as the face each one belongs to.
 const FACE_OF_COLOR: Record<string, string> = {
@@ -81,11 +81,31 @@ describe('scramble images', () => {
   });
 
   it('says which types have images', () => {
-    expect(hasScrambleImage('333')).toBe(true);
-    expect(hasScrambleImage('pll')).toBe(true);
-    expect(hasScrambleImage('r3ni')).toBe(true);
-    expect(hasScrambleImage('444wca')).toBe(false);
-    expect(hasScrambleImage('333noob')).toBe(false);
-    expect(() => getScrambleImage('444wca', 'R')).toThrow(/only 3x3x3/);
+    for (const type of ['333', 'pll', 'r3ni', '444wca', 'pyrso', 'sqrs', 'clkwca', 'r2345']) {
+      expect(hasScrambleImage(type), type).toBe(true);
+    }
+    // csTimer draws nothing for these.
+    for (const type of ['333noob', 'ivy', '223', 'cubennn']) {
+      expect(hasScrambleImage(type), type).toBe(false);
+    }
+    expect(() => getScrambleImage('ivy', 'R')).toThrow(/No scramble image/);
+  });
+
+  it('draws every type that has an image', () => {
+    const types = listEvents()
+      .map((event) => event.id)
+      .filter(hasScrambleImage);
+    expect(types.length).toBeGreaterThan(170);
+    for (const type of types) {
+      const svg = getScrambleImage(type, getScramble(type));
+      expect(svg.startsWith('<svg viewBox="0 0 '), type).toBe(true);
+      expect(svg, type).toMatch(/<(polygon|path|circle|rect)/);
+    }
+  }, 60_000);
+
+  it('draws the scramble, not a solved puzzle', () => {
+    for (const type of ['222so', '444wca', 'mgmp', 'pyrso', 'skbso', 'sqrs', 'clkwca', 'ftoso']) {
+      expect(getScrambleImage(type, getScramble(type)), type).not.toBe(getScrambleImage(type, ''));
+    }
   });
 });

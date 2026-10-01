@@ -71,16 +71,17 @@
       #image {
         margin: 16px 0;
       }
+      /* The images have no background of their own, so they sit on the page. */
       #image svg {
         display: block;
         width: 100%;
-        max-width: 400px;
+        max-width: 480px;
         height: auto;
-        /* csTimer draws for a light background (black outlines and numbers). */
-        background: #fff;
-        border-radius: 8px;
-        padding: 8px;
-        box-sizing: border-box;
+        max-height: 360px;
+      }
+      /* Relays and multi-blind number each puzzle in black; use the page's text color. */
+      #image svg > text[text-anchor='start'] {
+        fill: var(--fg) !important;
       }
       .meta {
         color: var(--muted);
@@ -130,10 +131,9 @@
         const ms = performance.now() - start;
         out.textContent = scramble;
         info.textContent = `${scramble.split(/\s+/).length} moves, generated in ${ms.toFixed(0)} ms`;
-        // Scramble images: 3x3x3 only for now.
         image.innerHTML = hasScrambleImage(select.value)
           ? getScrambleImage(select.value, scramble)
-          : '';
+          : '<p class="meta">No image for this puzzle.</p>';
       }
 
       document.getElementById('next').addEventListener('click', next);

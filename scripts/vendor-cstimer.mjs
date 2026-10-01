@@ -26,6 +26,7 @@ const NAMES = {
   svglib: '$',
   toolsutil: 'tools',
   cubeutil: 'cubeutil',
+  clock: 'clock',
 };
 
 // Shims for the few csTimer globals some files read. Values copied from csTimer.
@@ -95,7 +96,13 @@ const FILES = [
   ['tools/cross.js', ['mathlib'], 'cross', ['noUi'], ['ISCSTIMER = false skips its UI part']],
   ['solver/megaminx.js', ['mathlib'], 'mgmsolver', [], ['renamed to mgmsolver.js'], 'mgmsolver.js'],
   ['lib/pat3x3.js', ['mathlib', 'grouplib'], 'pat3x3'],
-  ['lib/poly3dlib.js', [], 'poly3d', ['poly3d'], ['kernel and $ shims give default colors']],
+  [
+    'lib/poly3dlib.js',
+    ['toolsutil'],
+    'poly3d',
+    ['poly3d'],
+    ['kernel and $ shims give default colors'],
+  ],
   ['solver/ftocta.js', ['mathlib'], 'ftosolver'],
   [
     'scramble/scramble_333_edit.js',
@@ -135,7 +142,7 @@ const FILES = [
   ],
   [
     'tools/image.js',
-    ['mathlib', 'svglib', 'poly3dlib', 'scramble_sq1_new', 'cubeutil', 'toolsutil'],
+    ['mathlib', 'svglib', 'poly3dlib', 'scramble_sq1_new', 'clock', 'cubeutil', 'toolsutil'],
     'image',
     ['noUi', 'kernel'],
     ['ISCSTIMER = false skips its UI part', 'kernel shim gives default colors'],
