@@ -27,7 +27,8 @@ describe('Puzzle', () => {
     expect(() => new Puzzle('nope')).toThrow('Unknown puzzle "nope"');
   });
 
-  // Scrambles for every puzzle and method; random-state 4x4x4 builds tables first.
+  // Scrambles for every puzzle and method; the first 4x4x4 and megaminx random-state
+  // scrambles build solver tables, which can be slow on a busy CI runner.
   it.each(listPuzzles())(
     '%s scrambles and draws with every method',
     (id) => {
