@@ -2691,40 +2691,17 @@ const CAMERA = 5.8;
 /**
 * How wide the view is, in cube sides: room for the cube from any angle, and with floating
 * faces room for the copies around it too. With a width set, a face is `width / 4` pixels,
-* as in the flat picture, so the view with floating faces is a little wider than `width`.
+* as in the flat picture, so the view with floating faces is `width` pixels wide.
 */
 const VIEW_SIDES = {
 	hidden: 2.4,
-	floating: 4.5
+	floating: 4
 };
 /**
-* Where the floating copies of the three faces at the back go, in cube sides, as x (to the
-* right, toward R), y (down, toward D) and z (toward you, toward F). Each copy keeps its
-* face's angle and moves from its face by this much, so that one of its corners touches a
-* corner of the cube: L's touches U L F, D's touches D R F and B's touches U R B.
+* The camera angle the view starts at: the U R F corner in the middle, pointing straight
+* at the camera.
 */
-const COPY_SHIFT = {
-	L: [
-		0,
-		-1,
-		1
-	],
-	D: [
-		1,
-		0,
-		1
-	],
-	B: [
-		1,
-		-1,
-		0
-	]
-};
-/**
-* How far the view is turned, in degrees: tilted toward you, then turned sideways. This
-* puts the U R F corner in the middle, pointing straight at the camera.
-*/
-const START_ANGLE = {
+const DEFAULT_CAMERA_ANGLE = {
 	x: -(Math.atan(Math.SQRT1_2) * 180) / Math.PI,
 	y: -45
 };
@@ -2742,7 +2719,7 @@ const STYLE = `
 .cstimer-3d:active {
   cursor: grabbing;
 }
-.cstimer-3d.cstimer-3d-floating {
+.cstimer-3d.cstimer-3d-fixed {
   cursor: auto;
 }
 /* The camera. Its distance is in cqmin, which only follows the box from inside it (on the
@@ -2785,21 +2762,100 @@ const STYLE = `
 .cstimer-3d-floating .cstimer-3d-scene {
   --side: ${100 / VIEW_SIDES.floating}cqmin;
 }
-/* A copy of a face at the back, next to the cube and seen from behind, so it shows the face
-   as it would look through a glass cube (shown by placeCopies). */
+/* A copy of a face at the back, a little way out from it and seen from behind, so it shows
+   the face as it would look through a glass cube (shown by placeCopies). */
 .cstimer-3d-copy {
   backface-visibility: visible;
   display: none;
 }
 `;
+/** The turn CSS's `rotateX` or `rotateY` makes, as a matrix (y points down, z at you). */
+function rotation(axis, degrees) {
+	const a = degrees * Math.PI / 180;
+	const c = Math.cos(a);
+	const s = Math.sin(a);
+	return axis === "x" ? [
+		[
+			1,
+			0,
+			0
+		],
+		[
+			0,
+			c,
+			-s
+		],
+		[
+			0,
+			s,
+			c
+		]
+	] : [
+		[
+			c,
+			0,
+			s
+		],
+		[
+			0,
+			1,
+			0
+		],
+		[
+			-s,
+			0,
+			c
+		]
+	];
+}
+function multiply(a, b) {
+	const cell = (i, j) => a[i][0] * b[0][j] + a[i][1] * b[1][j] + a[i][2] * b[2][j];
+	return [
+		0,
+		1,
+		2
+	].map((i) => [
+		cell(i, 0),
+		cell(i, 1),
+		cell(i, 2)
+	]);
+}
+/** Column `j` of a matrix: where it sends the x (0), y (1) or z (2) direction. */
+function column(m, j) {
+	return [
+		m[0][j],
+		m[1][j],
+		m[2][j]
+	];
+}
 /**
-* With floating faces, shows the copies of the faces at the back, and turns the view to the
-* U R F corner.
+* With floating faces, shows the copies of the faces at the back: those whose plane the
+* camera is behind.
 */
 function placeCopies(view) {
-	if (view.floating) Object.assign(view.angle, START_ANGLE);
-	FACES.forEach(([name], i) => {
-		view.copies[i].style.display = view.floating && name in COPY_SHIFT ? "grid" : "none";
+	const turned = multiply(rotation("x", view.angle.x), rotation("y", view.angle.y));
+	FACES.forEach(([, axis, degrees], i) => {
+		const out = column(multiply(turned, rotation(axis, degrees)), 2);
+		const back = view.floating && out[2] < .5 / CAMERA;
+		view.copies[i].style.display = back ? "grid" : "none";
+	});
+}
+/**
+* Puts each floating copy a little way out from its face, then moves and turns it by its
+* offset. CSS's y points down, so the offset's y (toward U) and its turn about y flip.
+*/
+function moveCopies(view, offsets) {
+	FACES.forEach(([name, axis, degrees], i) => {
+		const offset = offsets[name];
+		const [x, y, z] = column(rotation(axis, degrees), 2).map((n) => n * 1.5);
+		const center = [
+			x + (offset?.x ?? 0),
+			y - (offset?.y ?? 0),
+			z + (offset?.z ?? 0)
+		];
+		const turns = offset ? `rotateZ(${offset.rotateZ}deg) rotateY(${-offset.rotateY}deg) rotateX(${offset.rotateX}deg) ` : "";
+		const [cx, cy, cz] = center.map((n) => `calc(var(--side) * ${n})`);
+		view.copies[i].style.transform = `translate3d(${cx}, ${cy}, ${cz}) ${turns}${place(axis, degrees)}`;
 	});
 }
 /** The views already drawn, by the element they are in, so drawing again updates them. */
@@ -2812,12 +2868,12 @@ function addStyle(doc) {
 	doc.head.append(style);
 }
 function turn(view) {
-	placeCopies(view);
 	view.cube.style.transform = `rotateX(${view.angle.x}deg) rotateY(${view.angle.y}deg)`;
+	placeCopies(view);
 }
 /**
 * Turns the view while it is dragged: sideways all the way round, up and down to the top
-* and bottom. Not with floating faces, where the view stays on the U R F corner.
+* and bottom. Not with a fixed camera.
 */
 function makeDraggable(box, view) {
 	let last;
@@ -2829,7 +2885,7 @@ function makeDraggable(box, view) {
 		box.setPointerCapture(e.pointerId);
 	});
 	box.addEventListener("pointermove", (e) => {
-		if (!last || view.floating) return;
+		if (!last || view.fixed) return;
 		view.angle.y += (e.clientX - last.x) * .5;
 		view.angle.x = Math.max(-90, Math.min(90, view.angle.x - (e.clientY - last.y) * .5));
 		last = {
@@ -2842,7 +2898,7 @@ function makeDraggable(box, view) {
 	box.addEventListener("pointerup", stop);
 	box.addEventListener("pointercancel", stop);
 }
-function createView(element, size, angle) {
+function createView(element, size, angle, setAngle) {
 	const doc = element.ownerDocument;
 	addStyle(doc);
 	const box = doc.createElement("div");
@@ -2869,14 +2925,8 @@ function createView(element, size, angle) {
 		core.style.transform = `${place(axis, degrees)} translateZ(calc(var(--side) * 0.48))`;
 		cube.append(core);
 	}
-	const copies = FACES.map(([name, axis, degrees]) => {
+	const copies = FACES.map(([name]) => {
 		const copy = makeFace(name, "cstimer-3d-face cstimer-3d-copy");
-		const [x, y, z] = (COPY_SHIFT[name] ?? [
-			0,
-			0,
-			0
-		]).map((n) => `calc(var(--side) * ${n})`);
-		copy.style.transform = `translate3d(${x}, ${y}, ${z}) ${place(axis, degrees)} translateZ(calc(var(--side) / 2))`;
 		cube.append(copy);
 		return copy;
 	});
@@ -2891,8 +2941,10 @@ function createView(element, size, angle) {
 		faces,
 		copies,
 		floating: false,
+		fixed: false,
 		size,
-		angle
+		angle,
+		setAngle
 	};
 	turn(view);
 	makeDraggable(box, view);
@@ -2902,22 +2954,33 @@ function createView(element, size, angle) {
 * Draws a size x size x size cube in `element` (replacing what is in it), with each
 * face's sticker colors in the order U R F D L B, as `Puzzle.getStickers()` gives them.
 * With a `width`, a face is `width / 4` pixels wide, as in the flat picture (the view is
-* square and a little wider than `width` with floating faces, a bit over half that without);
-* without it the view fills the element's width.
-* `hidden` says whether the faces at the back float around the cube (see `HiddenFaces`).
-* Drawing in the same element again only changes the colors, width and mode, so the
-* angle is kept.
+* square and `width` pixels wide with floating faces, a bit over half that without).
+* Drawing in the same element again only changes the colors and options, so the angle
+* the cube was dragged to is kept, unless the camera is fixed or its angle changed.
 */
-function drawCube3D(element, size, stickers, width, hidden = "hidden") {
+function drawCube3D(element, size, stickers, options = {}) {
+	const { width, hidden = "hidden", camera = "mouse", offsets = {} } = options;
+	const angle = options.angle ?? DEFAULT_CAMERA_ANGLE;
+	const angleKey = `${angle.x} ${angle.y}`;
 	let view = views.get(element);
 	if (!view || view.size !== size || !element.contains(view.cube)) {
-		view = createView(element, size, view ? view.angle : { ...START_ANGLE });
+		view = view ? createView(element, size, view.angle, view.setAngle) : createView(element, size, { ...angle }, angleKey);
 		views.set(element, view);
+	}
+	view.fixed = camera === "fixed";
+	if (view.fixed || view.setAngle !== angleKey) {
+		view.angle = {
+			x: angle.x,
+			y: angle.y
+		};
+		view.setAngle = angleKey;
 	}
 	view.floating = hidden === "floating";
 	const sides = VIEW_SIDES[view.floating ? "floating" : "hidden"];
 	view.box.style.width = width === void 0 ? "" : `${width / 4 * sides}px`;
 	view.box.classList.toggle("cstimer-3d-floating", view.floating);
+	view.box.classList.toggle("cstimer-3d-fixed", view.fixed);
+	moveCopies(view, offsets);
 	turn(view);
 	FACES.forEach(([name], i) => {
 		const colors = stickers[name] ?? [];
@@ -2960,6 +3023,23 @@ const IMAGE_STYLES = [
 	"cstimer"
 ];
 const HIDDEN_FACES = ["hidden", "floating"];
+const CAMERA_MODES = ["mouse", "fixed"];
+const CUBE_FACES = [
+	"U",
+	"R",
+	"F",
+	"D",
+	"L",
+	"B"
+];
+const NO_OFFSET = {
+	x: 0,
+	y: 0,
+	z: 0,
+	rotateX: 0,
+	rotateY: 0,
+	rotateZ: 0
+};
 function cube(n, methods) {
 	return {
 		name: `${n}x${n}x${n}`,
@@ -3275,6 +3355,9 @@ var _colors = /* @__PURE__ */ new WeakMap();
 var _imageSize = /* @__PURE__ */ new WeakMap();
 var _imageStyle = /* @__PURE__ */ new WeakMap();
 var _hiddenFaces = /* @__PURE__ */ new WeakMap();
+var _cameraMode = /* @__PURE__ */ new WeakMap();
+var _cameraAngle = /* @__PURE__ */ new WeakMap();
+var _faceOffsets = /* @__PURE__ */ new WeakMap();
 var _method = /* @__PURE__ */ new WeakMap();
 var _length = /* @__PURE__ */ new WeakMap();
 var _scramble = /* @__PURE__ */ new WeakMap();
@@ -3295,6 +3378,9 @@ var Puzzle = class {
 		_classPrivateFieldInitSpec(this, _imageSize, void 0);
 		_classPrivateFieldInitSpec(this, _imageStyle, "separated");
 		_classPrivateFieldInitSpec(this, _hiddenFaces, "hidden");
+		_classPrivateFieldInitSpec(this, _cameraMode, "mouse");
+		_classPrivateFieldInitSpec(this, _cameraAngle, { ...DEFAULT_CAMERA_ANGLE });
+		_classPrivateFieldInitSpec(this, _faceOffsets, {});
 		_classPrivateFieldInitSpec(this, _method, "default");
 		_classPrivateFieldInitSpec(this, _length, void 0);
 		_classPrivateFieldInitSpec(this, _scramble, "");
@@ -3341,9 +3427,9 @@ var Puzzle = class {
 	* Sets the width of `getImage()`'s SVG in pixels; the height follows the picture's
 	* shape. Without it the SVG keeps csTimer's own size. It can still be resized with CSS.
 	* For cubes it sets the size of a face, `width / 4` pixels, the same in the picture (with
-	* any style but `'cstimer'`) and in the `show3D` view: the joined picture is `width`
-	* pixels wide, the separated picture and the 3D view with floating faces a little wider,
-	* and the 3D view with hidden faces a little over half as wide.
+	* any style but `'cstimer'`) and in the `show3D` view: the joined picture and the 3D view
+	* with floating faces are `width` pixels wide, the separated picture a little wider for
+	* its gaps and the 3D view with hidden faces a little over half as wide.
 	*/
 	setImageSize(width) {
 		if (!(width > 0) || !Number.isFinite(width)) throw new Error(`Image size must be a positive number of pixels, not ${width}`);
@@ -3371,9 +3457,11 @@ var Puzzle = class {
 	/**
 	* Picks what `show3D` does with the faces you can't see from where you look:
 	* - `'hidden'` (the default): they are hidden behind the cube, as on a real one.
-	* - `'floating'`: the view stays on the U R F corner and can't be turned, and a copy of
-	*   each face at the back (L, D, B), as big as the face, sits next to the cube with a
-	*   corner touching it, seen as through a glass cube, so every face can be seen at once.
+	* - `'floating'`: a copy of each of them, as big as the face, floats one cube side out
+	*   from it, seen as through a glass cube, so every face can be seen at once. A face
+	*   pointing straight away from you can still have its copy partly behind the cube.
+	*   Turning the cube swaps which faces float. `setFloatingFaceOffset` moves and turns
+	*   the copies.
 	*/
 	setHiddenFaces(mode) {
 		if (!HIDDEN_FACES.includes(mode)) throw new Error(`Unknown hidden faces mode "${mode}". Modes: ${HIDDEN_FACES.join(", ")}`);
@@ -3383,6 +3471,75 @@ var Puzzle = class {
 	/** The mode set with `setHiddenFaces`, `'hidden'` by default. */
 	getHiddenFaces() {
 		return _classPrivateFieldGet2(_hiddenFaces, this);
+	}
+	/**
+	* Moves and turns the floating copy of one face of the `show3D` view (with
+	* `setHiddenFaces('floating')`) from where it floats by default, e.g.
+	* `setFloatingFaceOffset('L', { x: 1, rotateY: 45 })`. Positions are in face widths and
+	* turns in degrees, in the cube's directions: x toward R, y toward U, z toward F (see
+	* `FaceOffset`). Values left out are 0, and it replaces the face's earlier offset.
+	* Only for cubes (see `has3DView`).
+	*/
+	setFloatingFaceOffset(face, offset) {
+		if (!this.has3DView()) throw new Error(`${this.name} has no 3D view yet, only cubes do`);
+		if (!CUBE_FACES.includes(face)) throw new Error(`${this.name} has no face "${face}". Faces: ${CUBE_FACES.join(", ")}`);
+		const full = {
+			...NO_OFFSET,
+			...offset
+		};
+		for (const [key, value] of Object.entries(full)) {
+			if (!(key in NO_OFFSET)) throw new Error(`Unknown offset "${key}". Offsets: ${Object.keys(NO_OFFSET).join(", ")}`);
+			if (typeof value !== "number" || !Number.isFinite(value)) throw new Error(`Offset ${key} must be a number, not ${value}`);
+		}
+		_classPrivateFieldGet2(_faceOffsets, this)[face] = full;
+		return this;
+	}
+	/** The offset set with `setFloatingFaceOffset` for one face, all 0 by default. */
+	getFloatingFaceOffset(face) {
+		return { ..._classPrivateFieldGet2(_faceOffsets, this)[face] ?? NO_OFFSET };
+	}
+	/** Puts every floating face back where it floats by default. */
+	resetFloatingFaceOffsets() {
+		_classPrivateFieldSet2(_faceOffsets, this, {});
+		return this;
+	}
+	/**
+	* Picks how the camera of the `show3D` view moves: `'mouse'` (the default) lets the
+	* cube be dragged with the mouse or a finger to look at every side, `'fixed'` keeps it
+	* at the camera angle (see `setCameraAngle`).
+	*/
+	setCameraMode(mode) {
+		if (!CAMERA_MODES.includes(mode)) throw new Error(`Unknown camera mode "${mode}". Modes: ${CAMERA_MODES.join(", ")}`);
+		_classPrivateFieldSet2(_cameraMode, this, mode);
+		return this;
+	}
+	/** The mode set with `setCameraMode`, `'mouse'` by default. */
+	getCameraMode() {
+		return _classPrivateFieldGet2(_cameraMode, this);
+	}
+	/**
+	* Sets where the camera of the `show3D` view looks from, in degrees: `x` tilts the cube
+	* (negative shows its top), then `y` turns it sideways (negative shows its right side).
+	* By default the U R F corner is in the middle, pointing straight at the camera
+	* (`{ x: -35.26..., y: -45 }`). With the `'mouse'` camera the view goes there the next
+	* time `show3D` is called, and can then be dragged away from it.
+	*/
+	setCameraAngle(angle) {
+		for (const value of [angle.x, angle.y]) if (typeof value !== "number" || !Number.isFinite(value)) throw new Error(`Camera angles must be numbers of degrees, not ${value}`);
+		_classPrivateFieldSet2(_cameraAngle, this, {
+			x: angle.x,
+			y: angle.y
+		});
+		return this;
+	}
+	/** The angle set with `setCameraAngle`, the U R F corner by default. */
+	getCameraAngle() {
+		return { ..._classPrivateFieldGet2(_cameraAngle, this) };
+	}
+	/** Goes back to the default camera angle, the U R F corner. */
+	resetCameraAngle() {
+		_classPrivateFieldSet2(_cameraAngle, this, { ...DEFAULT_CAMERA_ANGLE });
+		return this;
 	}
 	/** Which methods `setScrambleMethod` accepts for this puzzle. */
 	getScrambleMethods() {
@@ -3542,13 +3699,21 @@ var Puzzle = class {
 	* Shows the cube in 3D inside `element` on a web page, as it is now (the same state as
 	* `getImage()`), with this puzzle's colors. Its faces are as big as in `getImage()` at the
 	* size set with `setImageSize` (see there), never wider than the element, or it fills
-	* the element's width without one. It starts on the U R F corner; drag it with the mouse
-	* or a finger to look at every side (not with floating faces). Call it again after changing the puzzle to update the view: the cube keeps the angle it was turned to. Only for cubes (see
-	* `has3DView`), and only in a browser. `setHiddenFaces('floating')` also shows the faces
-	* at the back.
+	* the element's width without one. It starts at the camera angle (see `setCameraAngle`,
+	* the U R F corner by default); drag it with the mouse or a finger to look at every side,
+	* unless the camera is fixed (see `setCameraMode`). Call it again after changing the
+	* puzzle to update the view: the cube keeps the angle it was dragged to. Only for cubes
+	* (see `has3DView`), and only in a browser. `setHiddenFaces('floating')` also shows the
+	* faces at the back, and `setFloatingFaceOffset` moves them.
 	*/
 	show3D(element) {
-		drawCube3D(element, _classPrivateFieldGet2(_info, this).cubeSize ?? 0, this.getStickers(), _classPrivateFieldGet2(_imageSize, this), _classPrivateFieldGet2(_hiddenFaces, this));
+		drawCube3D(element, _classPrivateFieldGet2(_info, this).cubeSize ?? 0, this.getStickers(), {
+			width: _classPrivateFieldGet2(_imageSize, this),
+			hidden: _classPrivateFieldGet2(_hiddenFaces, this),
+			camera: _classPrivateFieldGet2(_cameraMode, this),
+			angle: _classPrivateFieldGet2(_cameraAngle, this),
+			offsets: _classPrivateFieldGet2(_faceOffsets, this)
+		});
 		return this;
 	}
 	/** Whether `getImage()` can draw the puzzle with its current scramble type. */
