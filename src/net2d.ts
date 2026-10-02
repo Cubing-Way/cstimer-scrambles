@@ -36,8 +36,9 @@ function round(n: number): string {
 
 /**
  * Draws a size x size x size cube unfolded, as an SVG string, with each face's sticker
- * colors in the order `Puzzle.getStickers()` gives them. `width` sets the SVG's width in
- * pixels (the height follows); without it a face is 100 pixels wide.
+ * colors in the order `Puzzle.getStickers()` gives them. A face is `width / 4` pixels wide,
+ * the same as in the 3D view, so the joined faces are `width` pixels wide and the separated
+ * ones a little wider for the gaps; without it a face is 100 pixels wide.
  */
 function drawCubeNet(
   size: number,
@@ -75,7 +76,7 @@ function drawCubeNet(
       );
     }
   }
-  const pxWidth = width ?? w;
+  const pxWidth = width === undefined ? w : (width / 4) * (w / SIDE);
   return (
     `<svg viewBox="0 0 ${w} ${h}" width="${round(pxWidth)}" height="${round((pxWidth * h) / w)}"` +
     ` xmlns="http://www.w3.org/2000/svg">${parts.join('')}</svg>`

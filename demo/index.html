@@ -31,8 +31,9 @@
         color: var(--fg);
         font-family: system-ui, sans-serif;
       }
+      /* Between the old side-by-side panels and the full 1280px. */
       main {
-        max-width: 1280px;
+        max-width: 1000px;
         margin: 0 auto;
       }
       h1 {
@@ -337,6 +338,7 @@
                   px
                   <button type="submit">Apply</button>
                 </div>
+                <span class="note" id="face-size"></span>
               </form>
               <div class="option" id="colors-option">
                 <span>Colors</span>
@@ -415,7 +417,12 @@
       function draw() {
         const puzzle = current();
         puzzle.setImageSize(imageSize);
-        $('stage').style.width = `${imageSize}px`;
+        // Wide enough for the widest picture: the cube's separated faces, a face being a
+        // quarter of the size in 2D and 3D alike.
+        $('stage').style.width = `${Math.ceil(imageSize * 1.045)}px`;
+        $('face-size').textContent = puzzle.has3DView()
+          ? `One face: ${imageSize / 4} px in 2D and 3D`
+          : '';
         const ms = scrambleTimes.get(puzzle.id);
         scrambleLabel.textContent =
           `Scramble · ${moves(puzzle.getScrambleMoveCount())}` +

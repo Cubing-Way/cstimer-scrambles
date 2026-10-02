@@ -43,6 +43,16 @@ describe('Puzzle image styles', () => {
     expect(svg).toMatch(/^<svg viewBox="0 0 400 300" width="200" height="150"/);
   });
 
+  it('keeps a face a quarter of the size, joined or separated', () => {
+    const face = (svg: string) => {
+      const [, w, px] = svg.match(/viewBox="0 0 (\d+) \d+" width="([\d.]+)"/)!;
+      return (Number(px) / Number(w)) * 100;
+    };
+    const cube = new Puzzle('333').setImageSize(300);
+    expect(face(cube.setImageStyle('separated').getImage())).toBeCloseTo(75);
+    expect(face(cube.setImageStyle('joined').getImage())).toBeCloseTo(75);
+  });
+
   it('gives other puzzles thick black borders, joined or not', () => {
     const pyram = new Puzzle('pyram');
     const scramble = pyram.scramble();
