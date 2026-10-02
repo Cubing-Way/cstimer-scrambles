@@ -10,8 +10,9 @@
  * - `'stickered-round'`: the same, a little rounder, and corner tiles also round their
  *   corner toward the face's center.
  * - `'stickerless'`, `'stickerless-round'`: the same tile shapes with the tiles filling the
- *   whole face, with no black border; a thin black line marks where two pieces meet, and
- *   the space left by the round corners shows the black too.
+ *   whole face and touching, with no black border or black lines; only the space left by
+ *   the round corners shows the face's black. A thin line in a slightly darker color marks
+ *   where two pieces meet.
  *
  * On bigger cubes, corner tiles are the four in the face's corners, edge tiles the rest of
  * the face's border, and center tiles everything inside it.
@@ -34,13 +35,47 @@ const CLASSIC_RADIUS = 0.12;
 const RADIUS = 0.25;
 const ROUND_RADIUS = 0.32;
 /**
- * How wide the dark line between two stickerless tiles is, as a part of the space one tile
- * takes on the face. It is the black of the face showing through a gap between the tiles,
- * like the plastic between the pieces of a real stickerless cube, so two touching tiles
- * share one line. Along the face's border the line is half as wide, so where two faces meet
- * it adds up to the same width.
+ * How wide the line between two stickerless tiles is, as a part of a tile's width. Each of
+ * the two tiles paints its half, in the same color, so the line is one crisp color rather
+ * than two faint shades side by side. Along the face's border a tile paints only its half.
  */
-const SEAM = 0.07;
+const SEAM = 0.06;
+/** How much darker that line is than the tiles it sits between. */
+const SEAM_DARKNESS = 0.3;
+
+/** A hex or `rgb()` color as red, green and blue, or undefined for any other CSS color. */
+function parseColor(color: string): number[] | undefined {
+  const hex = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(color.trim());
+  if (hex) {
+    const digits = hex[1]!.length === 3 ? [...hex[1]!].map((d) => d + d) : hex[1]!.match(/../g)!;
+    return digits.map((d) => parseInt(d, 16));
+  }
+  const fn = /^rgb\(\s*(\d+)[\s,]+(\d+)[\s,]+(\d+)\s*\)$/i.exec(color.trim());
+  return fn ? fn.slice(1, 4).map((c) => Math.min(Number(c), 255)) : undefined;
+}
+
+/**
+ * The color of the line between two stickerless tiles: the two colors mixed, then a little
+ * darker, so a line between two tiles of the same color is a darker shade of that color.
+ * Hex and `rgb()` colors are worked out here, so the picture looks the same anywhere; any
+ * other CSS color is left to the browser with `color-mix`.
+ */
+function seamColor(a: string, b: string = a): string {
+  const ca = parseColor(a);
+  const cb = parseColor(b);
+  const keep = 1 - SEAM_DARKNESS;
+  if (!ca || !cb) {
+    const mixed = a === b ? a : `color-mix(in srgb, ${a}, ${b})`;
+    return `color-mix(in srgb, ${mixed} ${Math.round(keep * 100)}%, #000)`;
+  }
+  return `#${ca
+    .map((c, i) =>
+      Math.round(((c + cb[i]!) / 2) * keep)
+        .toString(16)
+        .padStart(2, '0'),
+    )
+    .join('')}`;
+}
 
 function isStickerless(style: CubeStyle): boolean {
   return style.startsWith('stickerless');
@@ -66,5 +101,5 @@ function tileCorners(style: CubeStyle, size: number, index: number): Corners {
   return [inner(top || left), inner(top || right), inner(bottom || right), inner(bottom || left)];
 }
 
-export { CUBE_STYLES, SEAM, tileCorners, isStickerless };
+export { CUBE_STYLES, SEAM, tileCorners, isStickerless, seamColor };
 export type { CubeStyle, Corners };
