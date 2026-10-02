@@ -2637,6 +2637,51 @@ function round$1(n) {
 	return parseFloat(n.toFixed(3)).toString();
 }
 //#endregion
+//#region src/cubestyle.ts
+const CUBE_STYLES = [
+	"classic",
+	"stickered",
+	"stickered-round",
+	"stickerless",
+	"stickerless-round"
+];
+/** How round the rounded corners are, as a part of a tile's width. */
+const CLASSIC_RADIUS = .12;
+const RADIUS = .25;
+const ROUND_RADIUS = .4;
+function isStickerless(style) {
+	return style.startsWith("stickerless");
+}
+/**
+* How round each corner of tile `index` is (counted row by row from the top left) on a
+* face `size` tiles wide. A corner is rounded when it points into the face, away from all
+* its borders; corner tiles keep that one square except in the round styles.
+*/
+function tileCorners(style, size, index) {
+	if (style === "classic") return [
+		CLASSIC_RADIUS,
+		CLASSIC_RADIUS,
+		CLASSIC_RADIUS,
+		CLASSIC_RADIUS
+	];
+	const round = style.endsWith("-round");
+	const radius = round ? ROUND_RADIUS : RADIUS;
+	const row = Math.floor(index / size);
+	const col = index % size;
+	const top = row === 0;
+	const bottom = row === size - 1;
+	const left = col === 0;
+	const right = col === size - 1;
+	const cornerTile = (top || bottom) && (left || right);
+	const inner = (onBorder) => onBorder || cornerTile && !round ? 0 : radius;
+	return [
+		inner(top || left),
+		inner(top || right),
+		inner(bottom || right),
+		inner(bottom || left)
+	];
+}
+//#endregion
 //#region src/net2d.ts
 /** Where each face sits in the unfolded cube, as [column, row]: U on top of F, D below. */
 const NET = [
@@ -2684,20 +2729,44 @@ const BLACK = "#111";
 function round(n) {
 	return parseFloat(n.toFixed(3)).toString();
 }
+/** A `w` x `w` square at `x`, `y` with each corner rounded by its own radius, as a path. */
+function roundedSquare(x, y, w, corners) {
+	const [tl = 0, tr = 0, br = 0, bl = 0] = corners;
+	const arc = (r, toX, toY) => r > 0 ? `A${round(r)} ${round(r)} 0 0 1 ${round(toX)} ${round(toY)}` : "";
+	return `M${round(x + tl)} ${round(y)}H${round(x + w - tr)}${arc(tr, x + w, y + tr)}V${round(y + w - br)}${arc(br, x + w - br, y + w)}H${round(x + bl)}${arc(bl, x, y + w - bl)}V${round(y + tl)}${arc(tl, x + tl, y)}Z`;
+}
+/**
+* A soft shadow along the inside of a tile's edges, for the stickerless styles, where the
+* pieces touch (along with a thin, faint outline on the tile). Its id carries the blur, so pictures of different cubes on one page don't
+* pick up each other's.
+*/
+function shadowFilter(blur) {
+	const id = `cstimer-shadow-${round(blur).replace(".", "_")}`;
+	return {
+		id,
+		svg: `<filter id="${id}"><feFlood flood-color="#000" flood-opacity="0.45"/><feComposite in2="SourceAlpha" operator="out"/><feGaussianBlur stdDeviation="${round(blur)}"/><feComposite in2="SourceAlpha" operator="in"/><feMerge><feMergeNode in="SourceGraphic"/><feMergeNode/></feMerge></filter>`
+	};
+}
 /**
 * Draws a size x size x size cube unfolded, as an SVG string, with each face's sticker
 * colors in the order `Puzzle.getStickers()` gives them. A face is `width / 4` pixels wide,
 * the same as in the 3D view, so the joined faces are `width` pixels wide and the separated
 * ones a little wider for the gaps; without it a face is 100 pixels wide. The picture, each
-* face and each tile carry the class names and data attributes of styling.ts.
+* face and each tile carry the class names and data attributes of styling.ts. `style`
+* picks the tiles' look (see `CubeStyle`).
 */
-function drawCubeNet(size, stickers, layout = "separated", width) {
+function drawCubeNet(size, stickers, layout = "separated", width, style = "classic") {
 	const step = SIDE + (layout === "joined" ? 0 : FACE_GAP);
 	const w = 3 * step + SIDE;
 	const h = 2 * step + SIDE;
-	const cell = (SIDE - 2 * PADDING - (size - 1) * GAP) / size;
+	const stickerless = isStickerless(style);
+	const padding = stickerless ? 0 : PADDING;
+	const gap = stickerless ? 0 : GAP;
+	const cell = (SIDE - 2 * padding - (size - 1) * gap) / size;
 	const radius = round(cell * .12);
 	const parts = [];
+	const shadow = stickerless ? shadowFilter(cell * .06) : void 0;
+	if (shadow) parts.push(`<defs>${shadow.svg}</defs>`);
 	if (layout === "joined") parts.push(`<rect class="cstimer-background" x="0" y="${SIDE}" width="${w}" height="${SIDE}" fill="${BLACK}"/>`, `<rect class="cstimer-background" x="${SIDE}" y="0" width="${SIDE}" height="${h}" fill="${BLACK}"/>`);
 	for (const [face, col, row] of NET) {
 		const x0 = col * step;
@@ -2705,8 +2774,13 @@ function drawCubeNet(size, stickers, layout = "separated", width) {
 		parts.push(`<g class="cstimer-face" data-face="${face}" fill="${BLACK}">`, `<rect class="cstimer-face-bg" x="${x0}" y="${y0}" width="${SIDE}" height="${SIDE}"/>`);
 		const colors = stickers[face] ?? [];
 		for (let i = 0; i < size * size; i++) {
-			const x = x0 + PADDING + i % size * (cell + GAP);
-			const y = y0 + PADDING + Math.floor(i / size) * (cell + GAP);
+			const x = x0 + padding + i % size * (cell + gap);
+			const y = y0 + padding + Math.floor(i / size) * (cell + gap);
+			if (style !== "classic") {
+				const corners = tileCorners(style, size, i).map((r) => r * cell);
+				parts.push(`<path class="cstimer-tile" data-face="${face}" data-tile="${i}" d="${roundedSquare(x, y, cell, corners)}" fill="${colors[i] ?? BLACK}"` + (shadow ? ` stroke="#000" stroke-opacity="0.3" stroke-width="${round(SIDE * .012)}"` : "") + (shadow ? ` filter="url(#${shadow.id})"` : "") + "/>");
+				continue;
+			}
 			parts.push(`<rect class="cstimer-tile" data-face="${face}" data-tile="${i}" x="${round(x)}" y="${round(y)}" width="${round(cell)}" height="${round(cell)}" rx="${radius}" fill="${colors[i] ?? BLACK}"/>`);
 		}
 		parts.push("</g>");
@@ -3040,7 +3114,7 @@ function createView(element, size, angle, setAngle) {
 * the cube was dragged to is kept, unless the camera is fixed or its angle changed.
 */
 function drawCube3D(element, size, stickers, options = {}) {
-	const { width, hidden = "hidden", camera = "mouse", offsets = {}, faceOffsets = {}, styles = [] } = options;
+	const { width, hidden = "hidden", camera = "mouse", offsets = {}, faceOffsets = {}, styles = [], cubeStyle = "classic" } = options;
 	const angle = options.angle ?? DEFAULT_CAMERA_ANGLE;
 	const angleKey = `${angle.x} ${angle.y}`;
 	let view = views.get(element);
@@ -3071,11 +3145,21 @@ function drawCube3D(element, size, stickers, options = {}) {
 	moveFaces(view.faces, .5, faceOffsets);
 	moveFaces(view.copies, 1.5, offsets);
 	turn(view);
+	const stickerless = isStickerless(cubeStyle);
+	const shadow = stickerless ? `inset 0 0 0 calc(var(--side) * 0.006) rgba(0, 0, 0, 0.3), inset 0 0 calc(var(--side) * ${.12 / size}) rgba(0, 0, 0, 0.45)` : "";
+	const corners = Array.from({ length: size * size }, (_, j) => tileCorners(cubeStyle, size, j).map((r) => `${parseFloat((r * 100).toFixed(3))}%`).join(" "));
 	FACES.forEach(([name], i) => {
 		const colors = stickers[name] ?? [];
-		for (const face of [view.faces[i], view.copies[i]]) [...face.children].forEach((sticker, j) => {
-			sticker.style.background = colors[j] ?? "#111";
-		});
+		for (const face of [view.faces[i], view.copies[i]]) {
+			face.style.padding = stickerless ? "0" : "";
+			face.style.gap = stickerless ? "0" : "";
+			[...face.children].forEach((sticker, j) => {
+				const tile = sticker;
+				tile.style.background = colors[j] ?? "#111";
+				tile.style.borderRadius = corners[j];
+				tile.style.boxShadow = shadow;
+			});
+		}
 	});
 	if (styles.length > 0) {
 		styleElement(view.box, styles, "image");
@@ -3456,6 +3540,7 @@ var _colors = /* @__PURE__ */ new WeakMap();
 var _imageSize = /* @__PURE__ */ new WeakMap();
 var _imageStyle = /* @__PURE__ */ new WeakMap();
 var _hiddenFaces = /* @__PURE__ */ new WeakMap();
+var _cubeStyle = /* @__PURE__ */ new WeakMap();
 var _cameraMode = /* @__PURE__ */ new WeakMap();
 var _cameraAngle = /* @__PURE__ */ new WeakMap();
 var _floatingOffsets = /* @__PURE__ */ new WeakMap();
@@ -3483,6 +3568,7 @@ var Puzzle = class {
 		_classPrivateFieldInitSpec(this, _imageSize, void 0);
 		_classPrivateFieldInitSpec(this, _imageStyle, "separated");
 		_classPrivateFieldInitSpec(this, _hiddenFaces, "hidden");
+		_classPrivateFieldInitSpec(this, _cubeStyle, "classic");
 		_classPrivateFieldInitSpec(this, _cameraMode, "mouse");
 		_classPrivateFieldInitSpec(this, _cameraAngle, { ...DEFAULT_CAMERA_ANGLE });
 		_classPrivateFieldInitSpec(this, _floatingOffsets, {});
@@ -3560,6 +3646,22 @@ var Puzzle = class {
 	/** The style set with `setImageStyle`, `'separated'` by default. */
 	getImageStyle() {
 		return _classPrivateFieldGet2(_imageStyle, this);
+	}
+	/**
+	* Picks a ready-made look for a cube's tiles, in `getImage()` (with any image style but
+	* `'cstimer'`) and in `show3D` alike: `'classic'` (the default), `'stickered'`,
+	* `'stickered-round'`, `'stickerless'` or `'stickerless-round'` (see `CubeStyle`).
+	* Styles from `setElementStyle` still win over it. Only cubes have it (see `has3DView`);
+	* the other puzzles are drawn as before.
+	*/
+	setCubeStyle(style) {
+		if (!CUBE_STYLES.includes(style)) throw new Error(`Unknown cube style "${style}". Styles: ${CUBE_STYLES.join(", ")}`);
+		_classPrivateFieldSet2(_cubeStyle, this, style);
+		return this;
+	}
+	/** The style set with `setCubeStyle`, `'classic'` by default. */
+	getCubeStyle() {
+		return _classPrivateFieldGet2(_cubeStyle, this);
 	}
 	/**
 	* Picks what `show3D` does with the faces you can't see from where you look:
@@ -3876,7 +3978,8 @@ var Puzzle = class {
 			angle: _classPrivateFieldGet2(_cameraAngle, this),
 			offsets: _classPrivateFieldGet2(_floatingOffsets, this),
 			faceOffsets: _classPrivateFieldGet2(_faceOffsets, this),
-			styles: _classPrivateFieldGet2(_styles, this)
+			styles: _classPrivateFieldGet2(_styles, this),
+			cubeStyle: _classPrivateFieldGet2(_cubeStyle, this)
 		});
 		return this;
 	}
@@ -3895,7 +3998,7 @@ var Puzzle = class {
 		if (!hasScrambleImage(type)) throw new Error(`csTimer has no picture for "${type}" scrambles`);
 		const style = _classPrivateFieldGet2(_imageStyle, this);
 		const size = _classPrivateFieldGet2(_info, this).cubeSize;
-		if (style !== "cstimer" && size !== void 0 && tools.puzzleType(type) === this.id) return styleSvg(drawCubeNet(size, this.getStickers(), style, _classPrivateFieldGet2(_imageSize, this)), _classPrivateFieldGet2(_styles, this));
+		if (style !== "cstimer" && size !== void 0 && tools.puzzleType(type) === this.id) return styleSvg(drawCubeNet(size, this.getStickers(), style, _classPrivateFieldGet2(_imageSize, this), _classPrivateFieldGet2(_cubeStyle, this)), _classPrivateFieldGet2(_styles, this));
 		const colors = _classPrivateFieldGet2(_info, this).cstimerOrder.map((face) => toCstimerColor(_classPrivateFieldGet2(_colors, this)[face])).join("");
 		let moves = [_classPrivateFieldGet2(_scramble, this), _classPrivateFieldGet2(_solution, this)].filter(Boolean).join(" ");
 		if (this.id === "sq1") moves = joinSq1Turns(moves);
