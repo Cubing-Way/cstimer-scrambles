@@ -332,9 +332,9 @@ class Puzzle {
    * Sets the width of `getImage()`'s SVG in pixels; the height follows the picture's
    * shape. Without it the SVG keeps csTimer's own size. It can still be resized with CSS.
    * For cubes it sets the size of a face, `width / 4` pixels, the same in the picture (with
-   * any style but `'cstimer'`) and in the `show3D` view: the joined picture and the 3D view
-   * with floating faces are `width` pixels wide, the separated picture a little wider for
-   * its gaps and the 3D view with hidden faces a little over half as wide.
+   * any style but `'cstimer'`) and in the `show3D` view: the joined picture is `width`
+   * pixels wide, the separated picture and the 3D view with floating faces a little wider,
+   * and the 3D view with hidden faces a little over half as wide.
    */
   setImageSize(width: number): this {
     if (!(width > 0) || !Number.isFinite(width)) {
@@ -370,10 +370,9 @@ class Puzzle {
   /**
    * Picks what `show3D` does with the faces you can't see from where you look:
    * - `'hidden'` (the default): they are hidden behind the cube, as on a real one.
-   * - `'floating'`: a copy of each of them, as big as the face, floats one cube side out
-   *   from it, seen as through a glass cube, so every face can be seen at once. A face
-   *   pointing straight away from you can still have its copy partly behind the cube.
-   *   Turning the cube swaps which faces float.
+   * - `'floating'`: the view stays on the U R F corner and can't be turned, and a copy of
+   *   each face at the back (L, D, B), as big as the face, sits next to the cube with a
+   *   corner touching it, seen as through a glass cube, so every face can be seen at once.
    */
   setHiddenFaces(mode: HiddenFaces): this {
     if (!HIDDEN_FACES.includes(mode)) {
@@ -576,8 +575,8 @@ class Puzzle {
    * Shows the cube in 3D inside `element` on a web page, as it is now (the same state as
    * `getImage()`), with this puzzle's colors. Its faces are as big as in `getImage()` at the
    * size set with `setImageSize` (see there), never wider than the element, or it fills
-   * the element's width without one. Drag it with the mouse or a finger to look at every
-   * side. Call it again after changing the puzzle to update the view: the cube keeps the angle it was turned to. Only for cubes (see
+   * the element's width without one. It starts on the U R F corner; drag it with the mouse
+   * or a finger to look at every side (not with floating faces). Call it again after changing the puzzle to update the view: the cube keeps the angle it was turned to. Only for cubes (see
    * `has3DView`), and only in a browser. `setHiddenFaces('floating')` also shows the faces
    * at the back.
    */
