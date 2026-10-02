@@ -2650,13 +2650,31 @@ const CLASSIC_RADIUS = .12;
 const RADIUS = .25;
 const ROUND_RADIUS = .32;
 /**
-* How wide the dark line between two stickerless tiles is, as a part of the space one tile
-* takes on the face. It is the black of the face showing through a gap between the tiles,
-* like the plastic between the pieces of a real stickerless cube, so two touching tiles
-* share one line. Along the face's border the line is half as wide, so where two faces meet
-* it adds up to the same width.
+* How wide the line between two stickerless tiles is, as a part of a tile's width. Each of
+* the two tiles paints its half, in the same color, so the line is one crisp color rather
+* than two faint shades side by side. Along the face's border a tile paints only its half.
 */
-const SEAM = .07;
+const SEAM = .06;
+/** A hex or `rgb()` color as red, green and blue, or undefined for any other CSS color. */
+function parseColor(color) {
+	const hex = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(color.trim());
+	if (hex) return (hex[1].length === 3 ? [...hex[1]].map((d) => d + d) : hex[1].match(/../g)).map((d) => parseInt(d, 16));
+	const fn = /^rgb\(\s*(\d+)[\s,]+(\d+)[\s,]+(\d+)\s*\)$/i.exec(color.trim());
+	return fn ? fn.slice(1, 4).map((c) => Math.min(Number(c), 255)) : void 0;
+}
+/**
+* The color of the line between two stickerless tiles: the two colors mixed, then a little
+* darker, so a line between two tiles of the same color is a darker shade of that color.
+* Hex and `rgb()` colors are worked out here, so the picture looks the same anywhere; any
+* other CSS color is left to the browser with `color-mix`.
+*/
+function seamColor(a, b = a) {
+	const ca = parseColor(a);
+	const cb = parseColor(b);
+	const keep = .7;
+	if (!ca || !cb) return `color-mix(in srgb, ${a === b ? a : `color-mix(in srgb, ${a}, ${b})`} ${Math.round(keep * 100)}%, #000)`;
+	return `#${ca.map((c, i) => Math.round((c + cb[i]) / 2 * keep).toString(16).padStart(2, "0")).join("")}`;
+}
 function isStickerless(style) {
 	return style.startsWith("stickerless");
 }
@@ -2744,6 +2762,50 @@ function roundedSquare(x, y, w, corners) {
 	return `M${round(x + tl)} ${round(y)}H${round(x + w - tr)}${arc(tr, x + w, y + tr)}V${round(y + w - br)}${arc(br, x + w - br, y + w)}H${round(x + bl)}${arc(bl, x, y + w - bl)}V${round(y + tl)}${arc(tl, x + tl, y)}Z`;
 }
 /**
+* The lines along a stickerless tile's sides, each half as wide as the line between two
+* tiles and inside the tile, in the color `seamColor` gives for it and the tile across that
+* side (its own color along the face's border). They stop where the tile's corners round
+* off. Sides: top, right, bottom, left.
+*/
+function seamStrips(x, y, cell, corners, size, index, colors) {
+	const [tl = 0, tr = 0, br = 0, bl = 0] = corners;
+	const h = cell * SEAM / 2;
+	const row = Math.floor(index / size);
+	const col = index % size;
+	const own = colors[index] ?? BLACK;
+	const across = (onBorder, other) => seamColor(own, onBorder ? own : colors[other] ?? BLACK);
+	return [
+		[
+			x + tl,
+			y,
+			cell - tl - tr,
+			h,
+			across(row === 0, index - size)
+		],
+		[
+			x + cell - h,
+			y + tr,
+			h,
+			cell - tr - br,
+			across(col === size - 1, index + 1)
+		],
+		[
+			x + bl,
+			y + cell - h,
+			cell - bl - br,
+			h,
+			across(row === size - 1, index + size)
+		],
+		[
+			x,
+			y + tl,
+			h,
+			cell - tl - bl,
+			across(col === 0, index - 1)
+		]
+	].map(([sx, sy, sw, sh, color]) => `<rect class="cstimer-seam" x="${round(sx)}" y="${round(sy)}" width="${round(sw)}" height="${round(sh)}" fill="${color}"/>`);
+}
+/**
 * Draws a size x size x size cube unfolded, as an SVG string, with each face's sticker
 * colors in the order `Puzzle.getStickers()` gives them. A face is `width / 4` pixels wide,
 * the same as in the 3D view, so the joined faces are `width` pixels wide and the separated
@@ -2756,8 +2818,8 @@ function drawCubeNet(size, stickers, layout = "separated", width, style = "class
 	const w = 3 * step + SIDE;
 	const h = 2 * step + SIDE;
 	const stickerless = isStickerless(style);
-	const gap = stickerless ? SIDE / size * SEAM : GAP;
-	const padding = stickerless ? gap / 2 : PADDING;
+	const gap = stickerless ? 0 : GAP;
+	const padding = stickerless ? 0 : PADDING;
 	const cell = (SIDE - 2 * padding - (size - 1) * gap) / size;
 	const radius = round(cell * .12);
 	const parts = [];
@@ -2773,6 +2835,7 @@ function drawCubeNet(size, stickers, layout = "separated", width, style = "class
 			if (style !== "classic") {
 				const corners = tileCorners(style, size, i).map((r) => r * cell);
 				parts.push(`<path class="cstimer-tile" data-face="${face}" data-tile="${i}" d="${roundedSquare(x, y, cell, corners)}" fill="${colors[i] ?? BLACK}"/>`);
+				if (stickerless) parts.push(...seamStrips(x, y, cell, corners, size, i, colors));
 				continue;
 			}
 			parts.push(`<rect class="cstimer-tile" data-face="${face}" data-tile="${i}" x="${round(x)}" y="${round(y)}" width="${round(cell)}" height="${round(cell)}" rx="${radius}" fill="${colors[i] ?? BLACK}"/>`);
@@ -3101,6 +3164,24 @@ function createView(element, size, angle, setAngle) {
 	return view;
 }
 /**
+* A stickerless tile's background: its color, with a thin line along each side, half as
+* wide as the line between two tiles, in the color `seamColor` gives for it and the tile
+* across that side (its own color along the face's border).
+*/
+function seamBackground(colors, size, index) {
+	const own = colors[index] ?? "#111";
+	const row = Math.floor(index / size);
+	const col = index % size;
+	const across = (onBorder, other) => seamColor(own, onBorder ? own : colors[other] ?? "#111");
+	const h = `${parseFloat((SEAM / 2 * 100).toFixed(3))}%`;
+	const strip = (to, start, end) => `linear-gradient(to ${to}, ${start} ${h}, transparent ${h}, transparent calc(100% - ${h}), ${end} calc(100% - ${h}))`;
+	return [
+		strip("bottom", across(row === 0, index - size), across(row === size - 1, index + size)),
+		strip("right", across(col === 0, index - 1), across(col === size - 1, index + 1)),
+		own
+	].join(", ");
+}
+/**
 * Draws a size x size x size cube in `element` (replacing what is in it), with each
 * face's sticker colors in the order U R F D L B, as `Puzzle.getStickers()` gives them.
 * With a `width`, a face is `width / 4` pixels wide, as in the flat picture (the view is
@@ -3141,17 +3222,16 @@ function drawCube3D(element, size, stickers, options = {}) {
 	moveFaces(view.copies, 1.5, offsets);
 	turn(view);
 	const stickerless = isStickerless(cubeStyle);
-	const seam = `calc(var(--side) * ${SEAM / size})`;
-	const edge = `calc(var(--side) * ${SEAM / size / 2})`;
 	const corners = Array.from({ length: size * size }, (_, j) => tileCorners(cubeStyle, size, j).map((r) => `${parseFloat((r * 100).toFixed(3))}%`).join(" "));
 	FACES.forEach(([name], i) => {
 		const colors = stickers[name] ?? [];
 		for (const face of [view.faces[i], view.copies[i]]) {
-			face.style.padding = stickerless ? edge : "";
-			face.style.gap = stickerless ? seam : "";
+			face.style.padding = stickerless ? "0" : "";
+			face.style.gap = stickerless ? "0" : "";
 			[...face.children].forEach((sticker, j) => {
 				const tile = sticker;
-				tile.style.background = colors[j] ?? "#111";
+				const color = colors[j] ?? "#111";
+				tile.style.background = stickerless ? seamBackground(colors, size, j) : color;
 				tile.style.borderRadius = corners[j];
 			});
 		}
