@@ -3,7 +3,7 @@
 
 import { styleElement, unstyleElement } from './styling.js';
 import type { ElementStyle } from './styling.js';
-import { isStickerless, tileCorners } from './cubestyle.js';
+import { SEAM, isStickerless, seamColor, tileCorners } from './cubestyle.js';
 import type { CubeStyle } from './cubestyle.js';
 
 type Axis = 'x' | 'y';
@@ -137,6 +137,7 @@ const STYLE = `
   background: #111;
 }
 .cstimer-3d-face > div {
+  box-sizing: border-box;
   border-radius: 12%;
 }
 .cstimer-3d-floating .cstimer-3d-scene {
@@ -391,13 +392,12 @@ function drawCube3D(
   moveFaces(view.faces, 0.5, faceOffsets);
   moveFaces(view.copies, 0.5 + COPY_GAP, offsets);
   turn(view);
-  // Stickerless tiles fill the whole face, with a thin, faint outline and a light shadow
-  // where the pieces meet, as in the flat picture.
+  // Stickerless tiles fill the whole face, with a thin, flat line in a darker shade of
+  // their color along their edges where the pieces meet, as in the flat picture. It is a
+  // border rather than a shadow, which the browser blurs when it turns the faces.
   const stickerless = isStickerless(cubeStyle);
-  const shadow = stickerless
-    ? `inset 0 0 0 calc(var(--side) * 0.006) rgba(0, 0, 0, 0.3),` +
-      ` inset 0 0 calc(var(--side) * ${0.12 / size}) rgba(0, 0, 0, 0.45)`
-    : '';
+  const seam = (color: string) =>
+    stickerless ? `calc(var(--side) * ${SEAM / size}) solid ${seamColor(color)}` : '';
   const corners = Array.from({ length: size * size }, (_, j) =>
     tileCorners(cubeStyle, size, j)
       .map((r) => `${parseFloat((r * 100).toFixed(3))}%`)
@@ -410,9 +410,10 @@ function drawCube3D(
       face.style.gap = stickerless ? '0' : '';
       [...face.children].forEach((sticker, j) => {
         const tile = sticker as HTMLElement;
-        tile.style.background = colors[j] ?? '#111';
+        const color = colors[j] ?? '#111';
+        tile.style.background = color;
         tile.style.borderRadius = corners[j]!;
-        tile.style.boxShadow = shadow;
+        tile.style.border = seam(color);
       });
     }
   });
