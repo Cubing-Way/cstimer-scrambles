@@ -2,7 +2,7 @@
 // and stickers with rounded corners. Cubes get their own drawing; the other puzzles keep
 // csTimer's drawing with thicker black borders.
 
-import { SEAM, isStickerless, seamColor, tileCorners } from './cubestyle.js';
+import { isStickerless, tileCorners } from './cubestyle.js';
 import type { CubeStyle } from './cubestyle.js';
 
 /**
@@ -46,41 +46,6 @@ function roundedSquare(x: number, y: number, w: number, corners: number[]): stri
     `M${round(x + tl)} ${round(y)}H${round(x + w - tr)}${arc(tr, x + w, y + tr)}` +
     `V${round(y + w - br)}${arc(br, x + w - br, y + w)}H${round(x + bl)}${arc(bl, x, y + w - bl)}` +
     `V${round(y + tl)}${arc(tl, x + tl, y)}Z`
-  );
-}
-
-/**
- * The lines along a stickerless tile's sides, each half as wide as the line between two
- * tiles and inside the tile, in the color `seamColor` gives for it and the tile across that
- * side (its own color along the face's border). They stop where the tile's corners round
- * off. Sides: top, right, bottom, left.
- */
-function seamStrips(
-  x: number,
-  y: number,
-  cell: number,
-  corners: number[],
-  size: number,
-  index: number,
-  colors: string[],
-): string[] {
-  const [tl = 0, tr = 0, br = 0, bl = 0] = corners;
-  const h = (cell * SEAM) / 2;
-  const row = Math.floor(index / size);
-  const col = index % size;
-  const own = colors[index] ?? BLACK;
-  const across = (onBorder: boolean, other: number) =>
-    seamColor(own, onBorder ? own : (colors[other] ?? BLACK));
-  const strips: [number, number, number, number, string][] = [
-    [x + tl, y, cell - tl - tr, h, across(row === 0, index - size)],
-    [x + cell - h, y + tr, h, cell - tr - br, across(col === size - 1, index + 1)],
-    [x + bl, y + cell - h, cell - bl - br, h, across(row === size - 1, index + size)],
-    [x, y + tl, h, cell - tl - bl, across(col === 0, index - 1)],
-  ];
-  return strips.map(
-    ([sx, sy, sw, sh, color]) =>
-      `<rect class="cstimer-seam" x="${round(sx)}" y="${round(sy)}" width="${round(sw)}"` +
-      ` height="${round(sh)}" fill="${color}"/>`,
   );
 }
 
@@ -136,7 +101,6 @@ function drawCubeNet(
           `<path class="cstimer-tile" data-face="${face}" data-tile="${i}"` +
             ` d="${roundedSquare(x, y, cell, corners)}" fill="${colors[i] ?? BLACK}"/>`,
         );
-        if (stickerless) parts.push(...seamStrips(x, y, cell, corners, size, i, colors));
         continue;
       }
       parts.push(
