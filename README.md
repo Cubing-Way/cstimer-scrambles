@@ -49,7 +49,7 @@ const cube = new Puzzle('333')
   .setScrambleLength(20);
 
 cube.scramble(); // "R2 F' U ..." (20 random moves), and the puzzle is now scrambled
-cube.getImage(); // '<svg viewBox="0 0 396 296" width="200" ...>...</svg>', the scrambled puzzle
+cube.getImage(); // '<svg viewBox="0 0 418 312" width="200" ...>...</svg>', the scrambled puzzle
 cube.setSolution("R U R'"); // getImage() now shows the scramble followed by these moves
 cube.setScramble("R U R' U'"); // or scramble it with moves of your own
 cube.reset(); // back to solved: no scramble, no solution
@@ -58,13 +58,14 @@ cube.reset(); // back to solved: no scramble, no solution
 Puzzles: `listPuzzles()` gives their ids: first the WCA puzzles (`222` to `777`, `clock`, `minx`, `pyram`, `skewb` and `sq1`), then every other puzzle csTimer has scrambles for, named after the `puzzle` groups of `listEvents()` (`fto`, `888` to `111111`, `gear`, `relay`, `joke`, ...). Puzzles outside the WCA keep csTimer's colors for now (`getFaces()` is empty), except the big cubes, which have the cube faces.
 
 - **Colors**: `getFaces()` lists the names `setColor(face, color)` takes (`U R F D L B` for cubes, skewb and square-1; `F L R D` for pyraminx; `U F R L BR BL DR DL DBR DBL B D` for megaminx; `front back hand handOutline pin` for clock). Colors are hex, `#rgb` or `#rrggbb`; csTimer draws with `#rgb` colors, so `#rrggbb` is rounded to the nearest one. `getColors()` and `resetColors()` read them and go back to csTimer's defaults.
-- **Image size**: `setImageSize(width)` in pixels, for both the picture and the 3D view. Without it the SVG keeps csTimer's size and the 3D view fills its element; both can always be resized with CSS too.
+- **Image size**: `setImageSize(width)` in pixels, for both the picture and the 3D view. Without it the SVG keeps its own size and the 3D view fills its element; both can always be resized with CSS too.
+- **Image style**: `setImageStyle(style)` picks how `getImage()` draws the puzzle. `'separated'` (the default) draws it in the style of the 3D view, with black faces, thick borders and rounded stickers, and a cube is unfolded with a gap between its faces. `'joined'` is the same with a cube's faces touching, as if it were cut open and laid flat (other puzzles look the same as `'separated'`). `'cstimer'` is csTimer's own picture, the same as `getScrambleImage`. Cubes are drawn by this library from `getStickers()`, in exact colors; the other puzzles keep csTimer's drawing with thicker black borders.
 - **Scramble method**: `'default'` (the WCA scramble), `'random-state'` or `'random-move'`, each one of csTimer's scramble types (`getScrambleType()` says which). Not every puzzle has all three (csTimer has no random-state 5x5x5 to 7x7x7, nor random-move clock); `getScrambleMethods()` lists the ones it has and `setScrambleMethod` throws for the others.
 - **Scramble type**: any of csTimer's scramble types for the puzzle, e.g. `setScrambleType('pll')` on a 3x3x3. `getScrambleTypes()` lists them (`{ id, name }`, in csTimer's menu order); all 206 are spread over the puzzles. A picked type is used instead of the method until `setScrambleMethod` is called again, and meanwhile `getScrambleMethod()` is `undefined`. Some types have no picture in csTimer (Ivy, cuboids, ...): `hasImage()` says whether `getImage()` can draw it.
 - **Scramble length**: `setScrambleLength(moves)` for methods that make random moves (megaminx rounds it up to whole lines of 10). Random-state scrambles are as long as they need to be, so for them `getScrambleLength()` is `undefined` and the length waits until the method changes. `resetScrambleLength()` goes back to csTimer's default.
 - **Typed moves**: `setScramble(moves)` scrambles the puzzle with your own moves, and `setSolution(moves)` sets moves done after the scramble, both in csTimer's notation for the puzzle. `scramble()` clears the solution, `reset()` clears both, and `getImage()` throws if csTimer can't read the moves.
 - **Move counts**: `getScrambleMoveCount()` and `getSolutionMoveCount()`. Moves are counted between spaces, except on Square-1, where each slash is one move (twist metric). Relay numbers like `2)` are not counted.
-- **3D view** (cubes, 2x2x2 to 11x11x11; `has3DView()` says if a puzzle has one): `show3D(element)` shows the cube in 3D inside an element of a web page, in the same state as `getImage()` and with the puzzle's colors. It can be dragged with the mouse or a finger to look at every side; call it again after a change to update it (the angle is kept). It is built from plain HTML elements turned by CSS, so it needs no 3D library. `getStickers()` gives the colors behind it: `{ U: [...], R, F, D, L, B }`, each face read row by row as in the unfolded picture.
+- **3D view** (cubes, 2x2x2 to 11x11x11; `has3DView()` says if a puzzle has one): `show3D(element)` shows the cube in 3D inside an element of a web page, in the same state as `getImage()` and with the puzzle's colors. It can be dragged with the mouse or a finger to look at every side; call it again after a change to update it (the angle is kept). It is built from plain HTML elements turned by CSS, so it needs no 3D library. `getStickers()` gives the colors behind it: `{ U: [...], R, F, D, L, B }`, each face read row by row as in the unfolded picture. `setHiddenFaces('floating')` shows a copy of each face you can't see floating behind the cube, so all six faces show at once (turning the cube swaps which faces float); `'hidden'` is the default.
 
 ## Supported events
 
@@ -117,6 +118,7 @@ src/
   image.ts             scramble images, drawn by csTimer's image code
   puzzle.ts            the Puzzle class
   view3d.ts            the 3D cube view (Puzzle.show3D)
+  net2d.ts             flat cube pictures in the 3D view's style (Puzzle.getImage)
   events/<puzzle>/     typed wrappers around csTimer's scramblers, one module per puzzle
   vendor/cstimer/      csTimer files kept close to upstream, with .d.ts typings
 ```

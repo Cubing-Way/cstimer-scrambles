@@ -11,6 +11,13 @@ const FACES: readonly [string, string][] = [
   ['B', 'rotateY(180deg)'],
 ];
 
+/**
+ * What the 3D view does with the faces at the back:
+ * - `'hidden'`: hidden behind the cube, as on a real one.
+ * - `'floating'`: a copy of each floats away from the cube, so all six faces show at once.
+ */
+type HiddenFaces = 'hidden' | 'floating';
+
 /** How far the view is turned, in degrees: tilted toward you, then turned sideways. */
 const START_ANGLE = { x: -28, y: -38 };
 
@@ -65,12 +72,28 @@ const STYLE = `
 .cstimer-3d-face > div {
   border-radius: 12%;
 }
+/* With floating faces the cube is smaller, to leave room around it for the copies. */
+.cstimer-3d-floating .cstimer-3d-cube {
+  --side: 30cqmin;
+}
+/* A copy of each face, further out and turned to face the cube, so it can only be seen
+   when its face is at the back. Its columns run the other way, so each sticker stays
+   next to the same corner of the cube, as if the cube were made of glass. */
+.cstimer-3d-hint {
+  direction: rtl;
+  display: none;
+}
+.cstimer-3d-floating .cstimer-3d-hint {
+  display: grid;
+}
 `;
 
 interface View {
   box: HTMLElement;
   cube: HTMLElement;
   faces: HTMLElement[];
+  /** The floating copies of the faces, in the same order. */
+  hints: HTMLElement[];
   size: number;
   angle: { x: number; y: number };
 }
@@ -117,16 +140,27 @@ function createView(element: HTMLElement, size: number, angle: View['angle']): V
   box.className = 'cstimer-3d';
   const cube = doc.createElement('div');
   cube.className = 'cstimer-3d-cube';
-  const faces = FACES.map(([name, place]) => {
+  const makeFace = (name: string, className: string, transform: string) => {
     const face = doc.createElement('div');
-    face.className = 'cstimer-3d-face';
+    face.className = className;
     face.dataset.face = name;
     face.style.gridTemplate = `repeat(${size}, 1fr) / repeat(${size}, 1fr)`;
-    face.style.transform = `${place} translateZ(calc(var(--side) / 2))`;
+    face.style.transform = transform;
     for (let i = 0; i < size * size; i++) face.append(doc.createElement('div'));
     cube.append(face);
     return face;
-  });
+  };
+  const faces = FACES.map(([name, place]) =>
+    makeFace(name, 'cstimer-3d-face', `${place} translateZ(calc(var(--side) / 2))`),
+  );
+  // One cube side away from the face, turned round to look back at the cube.
+  const hints = FACES.map(([name, place]) =>
+    makeFace(
+      name,
+      'cstimer-3d-face cstimer-3d-hint',
+      `${place} translateZ(calc(var(--side) * 1.5)) rotateY(180deg)`,
+    ),
+  );
   for (const [, place] of FACES) {
     const core = doc.createElement('div');
     core.className = 'cstimer-3d-core';
@@ -138,7 +172,7 @@ function createView(element: HTMLElement, size: number, angle: View['angle']): V
   scene.append(cube);
   box.append(scene);
   element.replaceChildren(box);
-  const view = { box, cube, faces, size, angle };
+  const view = { box, cube, faces, hints, size, angle };
   turn(view);
   makeDraggable(box, view);
   return view;
@@ -148,13 +182,16 @@ function createView(element: HTMLElement, size: number, angle: View['angle']): V
  * Draws a size x size x size cube in `element` (replacing what is in it), with each
  * face's sticker colors in the order U R F D L B, as `Puzzle.getStickers()` gives them.
  * The view is `width` pixels wide and as tall, or fills the element's width without it.
- * Drawing in the same element again only changes the colors and width, so the angle is kept.
+ * `hidden` says whether the faces at the back float around the cube (see `HiddenFaces`).
+ * Drawing in the same element again only changes the colors, width and mode, so the
+ * angle is kept.
  */
 function drawCube3D(
   element: HTMLElement,
   size: number,
   stickers: Record<string, string[]>,
   width?: number,
+  hidden: HiddenFaces = 'hidden',
 ): void {
   let view = views.get(element);
   if (!view || view.size !== size || !element.contains(view.cube)) {
@@ -162,12 +199,16 @@ function drawCube3D(
     views.set(element, view);
   }
   view.box.style.width = width === undefined ? '' : `${width}px`;
+  view.box.classList.toggle('cstimer-3d-floating', hidden === 'floating');
   FACES.forEach(([name], i) => {
     const colors = stickers[name] ?? [];
-    [...view.faces[i]!.children].forEach((sticker, j) => {
-      (sticker as HTMLElement).style.background = colors[j] ?? '#111';
-    });
+    for (const face of [view.faces[i]!, view.hints[i]!]) {
+      [...face.children].forEach((sticker, j) => {
+        (sticker as HTMLElement).style.background = colors[j] ?? '#111';
+      });
+    }
   });
 }
 
 export { drawCube3D };
+export type { HiddenFaces };

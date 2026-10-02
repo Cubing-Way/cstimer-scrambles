@@ -2,8 +2,11 @@
 
 import { getEvent, getScramble, listEvents } from './registry.js';
 import { drawImage, hasScrambleImage } from './image.js';
+import { drawCubeNet, thickenBorders } from './net2d.js';
 import { drawCube3D } from './view3d.js';
+import type { HiddenFaces } from './view3d.js';
 import image from './vendor/cstimer/image.js';
+import tools from './vendor/cstimer/toolsutil.js';
 
 /**
  * How `Puzzle.scramble()` makes scrambles:
@@ -12,6 +15,19 @@ import image from './vendor/cstimer/image.js';
  * - `'random-move'`: a series of random moves.
  */
 type ScrambleMethod = 'default' | 'random-state' | 'random-move';
+
+/**
+ * How `Puzzle.getImage()` draws the puzzle:
+ * - `'separated'`: in the style of the 3D view, with black faces, thick borders and rounded
+ *   stickers; a cube is unfolded with a gap between its faces.
+ * - `'joined'`: the same, with a cube's faces touching, as if it were cut open and laid flat.
+ *   Other puzzles look the same as with `'separated'`.
+ * - `'cstimer'`: csTimer's own picture, the same as `getScrambleImage`.
+ */
+type ImageStyle = 'separated' | 'joined' | 'cstimer';
+
+const IMAGE_STYLES: readonly ImageStyle[] = ['separated', 'joined', 'cstimer'];
+const HIDDEN_FACES: readonly HiddenFaces[] = ['hidden', 'floating'];
 
 interface PuzzleInfo {
   name: string;
@@ -250,6 +266,8 @@ class Puzzle {
   #info: PuzzleInfo;
   #colors: Record<string, string>;
   #imageSize: number | undefined;
+  #imageStyle: ImageStyle = 'separated';
+  #hiddenFaces: HiddenFaces = 'hidden';
   #method: ScrambleMethod = 'default';
   #length: number | undefined;
   #scramble = '';
@@ -326,6 +344,43 @@ class Puzzle {
   /** The width set with `setImageSize`, or `undefined` for the default sizes. */
   getImageSize(): number | undefined {
     return this.#imageSize;
+  }
+
+  /**
+   * Picks how `getImage()` draws the puzzle: `'separated'` (the default), `'joined'` or
+   * `'cstimer'` (see `ImageStyle`). Cubes are drawn by this library in the style of the
+   * 3D view; the other puzzles keep csTimer's drawing, with thicker black borders.
+   */
+  setImageStyle(style: ImageStyle): this {
+    if (!IMAGE_STYLES.includes(style)) {
+      throw new Error(`Unknown image style "${style}". Styles: ${IMAGE_STYLES.join(', ')}`);
+    }
+    this.#imageStyle = style;
+    return this;
+  }
+
+  /** The style set with `setImageStyle`, `'separated'` by default. */
+  getImageStyle(): ImageStyle {
+    return this.#imageStyle;
+  }
+
+  /**
+   * Picks what `show3D` does with the faces you can't see from where you look:
+   * - `'hidden'` (the default): they are hidden behind the cube, as on a real one.
+   * - `'floating'`: a copy of each of them floats a little away from the cube, behind it,
+   *   so every face can be seen at once. Turning the cube swaps which faces float.
+   */
+  setHiddenFaces(mode: HiddenFaces): this {
+    if (!HIDDEN_FACES.includes(mode)) {
+      throw new Error(`Unknown hidden faces mode "${mode}". Modes: ${HIDDEN_FACES.join(', ')}`);
+    }
+    this.#hiddenFaces = mode;
+    return this;
+  }
+
+  /** The mode set with `setHiddenFaces`, `'hidden'` by default. */
+  getHiddenFaces(): HiddenFaces {
+    return this.#hiddenFaces;
   }
 
   /** Which methods `setScrambleMethod` accepts for this puzzle. */
@@ -518,10 +573,17 @@ class Puzzle {
    * size set with `setImageSize`, never wider than the element, or fills the element's
    * width without one. Drag it with the mouse or a finger to look at every side. Call it again after changing the puzzle
    * to update the view: the cube keeps the angle it was turned to. Only for cubes (see
-   * `has3DView`), and only in a browser.
+   * `has3DView`), and only in a browser. `setHiddenFaces('floating')` also shows the faces
+   * at the back.
    */
   show3D(element: HTMLElement): this {
-    drawCube3D(element, this.#info.cubeSize ?? 0, this.getStickers(), this.#imageSize);
+    drawCube3D(
+      element,
+      this.#info.cubeSize ?? 0,
+      this.getStickers(),
+      this.#imageSize,
+      this.#hiddenFaces,
+    );
     return this;
   }
 
@@ -532,7 +594,8 @@ class Puzzle {
 
   /**
    * Draws the puzzle as it is now (solved, or after the scramble and then the solution)
-   * as an SVG string, with this puzzle's colors and image size. Same picture as
+   * as an SVG string, with this puzzle's colors, image size and image style (see
+   * `setImageStyle`). With the `'cstimer'` style it is the same picture as
    * `getScrambleImage`. Throws if csTimer can't read the moves.
    */
   getImage(): string {
@@ -540,18 +603,25 @@ class Puzzle {
     if (!hasScrambleImage(type)) {
       throw new Error(`csTimer has no picture for "${type}" scrambles`);
     }
+    const style = this.#imageStyle;
+    // A cube's own scramble types (not relays of it) are drawn from its stickers.
+    const size = this.#info.cubeSize;
+    if (style !== 'cstimer' && size !== undefined && tools.puzzleType(type) === this.id) {
+      return drawCubeNet(size, this.getStickers(), style, this.#imageSize);
+    }
     const colors = this.#info.cstimerOrder
       .map((face) => toCstimerColor(this.#colors[face]!))
       .join('');
     let moves = [this.#scramble, this.#solution].filter(Boolean).join(' ');
     if (this.id === 'sq1') moves = joinSq1Turns(moves);
     try {
-      return drawImage(
+      const svg = drawImage(
         type,
         moves,
         this.#info.colorSetting ? { [this.#info.colorSetting]: colors } : {},
         this.#imageSize,
       );
+      return style === 'cstimer' ? svg : thickenBorders(svg);
     } catch {
       throw new Error(`Can't read these moves as ${this.name} moves: "${moves}"`);
     }
@@ -559,4 +629,4 @@ class Puzzle {
 }
 
 export { Puzzle, listPuzzles };
-export type { ScrambleMethod };
+export type { ScrambleMethod, ImageStyle, HiddenFaces };

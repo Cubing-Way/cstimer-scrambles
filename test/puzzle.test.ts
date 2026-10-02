@@ -6,6 +6,11 @@ function fills(svg: string): string[] {
   return [...svg.matchAll(/fill:(#\w+)/g)].map((m) => m[1]!);
 }
 
+/** A puzzle drawn with csTimer's own pictures, which these tests compare against. */
+function classic(id: string): Puzzle {
+  return new Puzzle(id).setImageStyle('cstimer');
+}
+
 describe('Puzzle', () => {
   it('covers the WCA puzzles first, then every other puzzle', () => {
     expect(listPuzzles().slice(0, 11)).toEqual([
@@ -27,7 +32,7 @@ describe('Puzzle', () => {
   });
 
   it('throws for unknown puzzles', () => {
-    expect(() => new Puzzle('nope')).toThrow('Unknown puzzle "nope"');
+    expect(() => classic('nope')).toThrow('Unknown puzzle "nope"');
   });
 
   // Scrambles for every puzzle and method; the first 4x4x4 and megaminx random-state
@@ -35,7 +40,7 @@ describe('Puzzle', () => {
   it.each(listPuzzles().slice(0, 11))(
     '%s scrambles and draws with every method',
     (id) => {
-      const puzzle = new Puzzle(id);
+      const puzzle = classic(id);
       expect(puzzle.getScrambleMethods()).toContain('default');
       for (const method of puzzle.getScrambleMethods()) {
         puzzle.setScrambleMethod(method);
@@ -49,7 +54,7 @@ describe('Puzzle', () => {
   );
 
   it('uses the WCA type by default and csTimer types for each method', () => {
-    const puzzle = new Puzzle('333');
+    const puzzle = classic('333');
     expect(puzzle.getScrambleMethod()).toBe('default');
     expect(puzzle.getScrambleType()).toBe('333');
     expect(puzzle.setScrambleMethod('random-move').getScrambleType()).toBe('333o');
@@ -57,7 +62,7 @@ describe('Puzzle', () => {
   });
 
   it('throws for methods a puzzle has no scrambler for', () => {
-    const puzzle = new Puzzle('555');
+    const puzzle = classic('555');
     expect(puzzle.getScrambleMethods()).toEqual(['default', 'random-move']);
     expect(() => puzzle.setScrambleMethod('random-state')).toThrow(
       '5x5x5 has no "random-state" scrambles',
@@ -66,7 +71,7 @@ describe('Puzzle', () => {
   });
 
   it('starts solved and can be reset', () => {
-    const puzzle = new Puzzle('333');
+    const puzzle = classic('333');
     expect(puzzle.getScramble()).toBe('');
     const solved = puzzle.getImage();
     // A solved 3x3x3 shows each default color on 9 stickers.
@@ -81,7 +86,7 @@ describe('Puzzle', () => {
 
 describe('Puzzle colors', () => {
   it('starts with csTimer’s default colors', () => {
-    const puzzle = new Puzzle('333');
+    const puzzle = classic('333');
     expect(puzzle.getFaces()).toEqual(['U', 'R', 'F', 'D', 'L', 'B']);
     expect(puzzle.getColors()).toEqual({
       U: '#fff',
@@ -95,7 +100,7 @@ describe('Puzzle colors', () => {
 
   it('puts cube faces where the picture shows them', () => {
     // Unfolded net: U on top, then L F R B, then D; each face is 100px with its gap.
-    const svg = new Puzzle('333')
+    const svg = classic('333')
       .setColors({ U: '#100', L: '#200', F: '#300', R: '#400', B: '#500', D: '#600' })
       .getImage();
     const where = new Map<string, string>();
@@ -116,7 +121,7 @@ describe('Puzzle colors', () => {
   it('names megaminx faces like csTimer’s move notation', () => {
     // Turning a face moves its own stickers around more than any other face's, so after
     // a few moves to mix things up, turning face X changes face X's color the most.
-    const puzzle = new Puzzle('minx');
+    const puzzle = classic('minx');
     const solved = fills(getScrambleImage('mgmp', ''));
     const mix = "R++ D-- R-- D++ U R-- D++ U'";
     const before = fills(getScrambleImage('mgmp', mix));
@@ -134,7 +139,7 @@ describe('Puzzle colors', () => {
   });
 
   it('draws faces in the colors set', () => {
-    const puzzle = new Puzzle('333').setColors({ U: '#123', D: '#456' });
+    const puzzle = classic('333').setColors({ U: '#123', D: '#456' });
     const colors = fills(puzzle.getImage());
     expect(colors.filter((c) => c === '#123')).toHaveLength(9);
     expect(colors.filter((c) => c === '#456')).toHaveLength(9);
@@ -143,21 +148,21 @@ describe('Puzzle colors', () => {
   });
 
   it('rounds 6-digit colors to the nearest of csTimer’s 3-digit ones', () => {
-    const puzzle = new Puzzle('333').setColor('U', '#FF8000');
+    const puzzle = classic('333').setColor('U', '#FF8000');
     expect(puzzle.getColors().U).toBe('#ff8000');
     expect(fills(puzzle.getImage())).toContain('#f80');
   });
 
   it('keeps colors per puzzle', () => {
-    const custom = new Puzzle('333').setColor('U', '#f0f');
-    const plain = new Puzzle('333');
+    const custom = classic('333').setColor('U', '#f0f');
+    const plain = classic('333');
     expect(fills(custom.getImage())).toContain('#f0f');
     expect(fills(plain.getImage())).not.toContain('#f0f');
     expect(fills(getScrambleImage('333', ''))).not.toContain('#f0f');
   });
 
   it('works for puzzles drawn from a 3D model', () => {
-    const puzzle = new Puzzle('pyram');
+    const puzzle = classic('pyram');
     expect(puzzle.getFaces()).toEqual(['F', 'L', 'R', 'D']);
     const before = getScrambleImage('pyrso', '');
     const after = puzzle.setColor('F', '#f0f').getImage();
@@ -166,12 +171,12 @@ describe('Puzzle colors', () => {
   });
 
   it('can go back to the defaults', () => {
-    const puzzle = new Puzzle('skewb').setColor('U', '#000');
+    const puzzle = classic('skewb').setColor('U', '#000');
     expect(puzzle.resetColors().getImage()).toBe(getScrambleImage('skbso', ''));
   });
 
   it('rejects unknown faces and colors that are not hex', () => {
-    const puzzle = new Puzzle('333');
+    const puzzle = classic('333');
     expect(() => puzzle.setColor('X', '#fff')).toThrow('3x3x3 has no face "X"');
     expect(() => puzzle.setColor('U', 'red')).toThrow('"red" is not a hex color');
   });
@@ -179,25 +184,25 @@ describe('Puzzle colors', () => {
 
 describe('Puzzle image size', () => {
   it('keeps csTimer’s size by default', () => {
-    const puzzle = new Puzzle('333');
+    const puzzle = classic('333');
     expect(puzzle.getImageSize()).toBeUndefined();
     expect(puzzle.getImage()).toMatch(/^<svg viewBox="0 0 396 296" width="396" height="296"/);
   });
 
   it('sets the width and keeps the shape', () => {
-    const svg = new Puzzle('333').setImageSize(198).getImage();
+    const svg = classic('333').setImageSize(198).getImage();
     expect(svg).toMatch(/^<svg viewBox="0 0 396 296" width="198" height="148"/);
   });
 
   it('rejects sizes that are not positive', () => {
-    expect(() => new Puzzle('333').setImageSize(0)).toThrow('positive number');
-    expect(() => new Puzzle('333').setImageSize(NaN)).toThrow('positive number');
+    expect(() => classic('333').setImageSize(0)).toThrow('positive number');
+    expect(() => classic('333').setImageSize(NaN)).toThrow('positive number');
   });
 });
 
 describe('Puzzle scramble length', () => {
   it('uses csTimer’s default length, or the one set', () => {
-    const puzzle = new Puzzle('333').setScrambleMethod('random-move');
+    const puzzle = classic('333').setScrambleMethod('random-move');
     expect(puzzle.getScrambleLength()).toBe(25);
     expect(puzzle.setScrambleLength(12).getScrambleLength()).toBe(12);
     expect(puzzle.scramble().split(' ')).toHaveLength(12);
@@ -205,15 +210,15 @@ describe('Puzzle scramble length', () => {
   });
 
   it('changes the WCA length of big cubes and megaminx', () => {
-    const cube = new Puzzle('555').setScrambleLength(20);
+    const cube = classic('555').setScrambleLength(20);
     expect(cube.scramble().split(' ')).toHaveLength(20);
     // Megaminx scrambles are lines of 10 moves and a U turn.
-    const minx = new Puzzle('minx').setScrambleLength(30);
+    const minx = classic('minx').setScrambleLength(30);
     expect(minx.scramble().split('\n')).toHaveLength(3);
   });
 
   it('is decided by the scrambler for random-state scrambles', () => {
-    const puzzle = new Puzzle('333').setScrambleLength(5);
+    const puzzle = classic('333').setScrambleLength(5);
     expect(puzzle.getScrambleLength()).toBeUndefined();
     expect(puzzle.scramble().split(' ').length).toBeGreaterThan(5);
     // The length is kept for when the method changes.
@@ -221,8 +226,8 @@ describe('Puzzle scramble length', () => {
   });
 
   it('rejects lengths that are not whole numbers of moves', () => {
-    expect(() => new Puzzle('333').setScrambleLength(0)).toThrow('at least 1');
-    expect(() => new Puzzle('333').setScrambleLength(2.5)).toThrow('whole number');
+    expect(() => classic('333').setScrambleLength(0)).toThrow('at least 1');
+    expect(() => classic('333').setScrambleLength(2.5)).toThrow('whole number');
   });
 });
 
@@ -236,13 +241,13 @@ describe('Puzzle typed scramble and solution', () => {
       .join(' ');
 
   it('draws a scramble typed in', () => {
-    const puzzle = new Puzzle('333').setScramble(" R U R' U' ");
+    const puzzle = classic('333').setScramble(" R U R' U' ");
     expect(puzzle.getScramble()).toBe("R U R' U'");
     expect(puzzle.getImage()).toBe(getScrambleImage('333', "R U R' U'"));
   });
 
   it('draws the solution after the scramble', () => {
-    const puzzle = new Puzzle('333');
+    const puzzle = classic('333');
     const solved = puzzle.getImage();
     const scramble = puzzle.scramble();
     puzzle.setSolution("R U'");
@@ -252,7 +257,7 @@ describe('Puzzle typed scramble and solution', () => {
   });
 
   it('clears the solution on a new scramble or reset, not on a typed scramble', () => {
-    const puzzle = new Puzzle('333').setSolution('R');
+    const puzzle = classic('333').setSolution('R');
     puzzle.setScramble('U');
     expect(puzzle.getSolution()).toBe('R');
     puzzle.scramble();
@@ -262,51 +267,55 @@ describe('Puzzle typed scramble and solution', () => {
   });
 
   it('counts the moves of the scramble and solution', () => {
-    const puzzle = new Puzzle('333').setScrambleMethod('random-move');
+    const puzzle = classic('333').setScrambleMethod('random-move');
     puzzle.scramble();
     expect(puzzle.getScrambleMoveCount()).toBe(25);
     expect(puzzle.getSolutionMoveCount()).toBe(0);
     expect(puzzle.setSolution(" R  U R'\nU' ").getSolutionMoveCount()).toBe(4);
     // Square-1 counts slashes.
-    const sq1 = new Puzzle('sq1').setScramble('(1,0)/ (3,3)/ (-1,0)').setSolution('/');
+    const sq1 = classic('sq1').setScramble('(1,0)/ (3,3)/ (-1,0)').setSolution('/');
     expect([sq1.getScrambleMoveCount(), sq1.getSolutionMoveCount()]).toEqual([2, 1]);
     // Megaminx scrambles: 7 lines of 10 moves and a U turn.
-    const minx = new Puzzle('minx');
+    const minx = classic('minx');
     minx.scramble();
     expect(minx.getScrambleMoveCount()).toBe(77);
     // Relays number each puzzle's scramble.
-    const relay = new Puzzle('relay').setScramble("1) R U\n2) R U R' U'");
+    const relay = classic('relay').setScramble("1) R U\n2) R U R' U'");
     expect(relay.getScrambleMoveCount()).toBe(6);
   });
 
   it('adds up Square-1 turns where the scramble and solution meet', () => {
-    const puzzle = new Puzzle('sq1').setScramble('(1,0)/ (3,3)').setSolution('(1,0)/');
+    const puzzle = classic('sq1').setScramble('(1,0)/ (3,3)').setSolution('(1,0)/');
     expect(puzzle.getImage()).toBe(getScrambleImage('sqrs', '(1,0)/ (4,3)/'));
     puzzle.setScramble('(5,-5)').setSolution('(4,-4)');
     expect(puzzle.getImage()).toBe(getScrambleImage('sqrs', '(-3,3)'));
   });
 
   it('throws a clear error for moves csTimer can’t read', () => {
-    const puzzle = new Puzzle('sq1').setScramble('hello');
+    const puzzle = classic('sq1').setScramble('hello');
     expect(() => puzzle.getImage()).toThrow('Can\'t read these moves as Square-1 moves: "hello"');
   });
 });
 
 describe('Puzzle scramble types', () => {
   it('lists every csTimer type for the puzzle', () => {
-    const puzzle = new Puzzle('333');
+    const puzzle = classic('333');
     const types = puzzle.getScrambleTypes();
     expect(types).toHaveLength(49);
     expect(types).toContainEqual({ id: 'pll', name: '3x3x3 CFOP PLL' });
   });
 
   it('covers all of csTimer’s scramble types across the puzzles', () => {
-    const ids = listPuzzles().flatMap((id) => new Puzzle(id).getScrambleTypes().map((t) => t.id));
+    const ids = listPuzzles().flatMap((id) =>
+      classic(id)
+        .getScrambleTypes()
+        .map((t) => t.id),
+    );
     expect(ids).toHaveLength(206);
   });
 
   it('scrambles with a picked type until a method is picked again', () => {
-    const puzzle = new Puzzle('333').setScrambleType('pll');
+    const puzzle = classic('333').setScrambleType('pll');
     expect(puzzle.getScrambleType()).toBe('pll');
     expect(puzzle.getScrambleMethod()).toBeUndefined();
     const scramble = puzzle.scramble();
@@ -316,13 +325,13 @@ describe('Puzzle scramble types', () => {
   });
 
   it('rejects types of other puzzles', () => {
-    expect(() => new Puzzle('333').setScrambleType('pyrso')).toThrow(
+    expect(() => classic('333').setScrambleType('pyrso')).toThrow(
       '"pyrso" is not a 3x3x3 scramble type',
     );
   });
 
   it('says when csTimer has no picture for a type', () => {
-    const puzzle = new Puzzle('ivy');
+    const puzzle = classic('ivy');
     expect(puzzle.name).toBe('Ivy Cube');
     puzzle.scramble();
     expect(puzzle.hasImage()).toBe(false);
@@ -330,12 +339,12 @@ describe('Puzzle scramble types', () => {
   });
 
   it('works for puzzles outside the WCA, with methods from their type names', () => {
-    const fto = new Puzzle('fto');
+    const fto = classic('fto');
     expect(fto.name).toBe('FTO');
     expect(fto.getScrambleMethods()).toEqual(['default', 'random-state', 'random-move']);
     expect(fto.getFaces()).toEqual([]);
     expect(fto.getImage()).toBe(getScrambleImage('ftoso', ''));
-    const big = new Puzzle('999');
+    const big = classic('999');
     expect(big.name).toBe('9x9x9');
     expect(big.has3DView()).toBe(true);
     big.scramble();
