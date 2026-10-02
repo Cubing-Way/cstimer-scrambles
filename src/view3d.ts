@@ -3,7 +3,7 @@
 
 import { styleElement, unstyleElement } from './styling.js';
 import type { ElementStyle } from './styling.js';
-import { SEAM, isStickerless, seamColor, tileCorners } from './cubestyle.js';
+import { isStickerless, tileCorners } from './cubestyle.js';
 import type { CubeStyle } from './cubestyle.js';
 
 type Axis = 'x' | 'y';
@@ -345,27 +345,6 @@ interface View3DOptions {
 }
 
 /**
- * A stickerless tile's background: its color, with a thin line along each side, half as
- * wide as the line between two tiles, in the color `seamColor` gives for it and the tile
- * across that side (its own color along the face's border).
- */
-function seamBackground(colors: string[], size: number, index: number): string {
-  const own = colors[index] ?? '#111';
-  const row = Math.floor(index / size);
-  const col = index % size;
-  const across = (onBorder: boolean, other: number) =>
-    seamColor(own, onBorder ? own : (colors[other] ?? '#111'));
-  const h = `${parseFloat(((SEAM / 2) * 100).toFixed(3))}%`;
-  const strip = (to: string, start: string, end: string) =>
-    `linear-gradient(to ${to}, ${start} ${h}, transparent ${h}, transparent calc(100% - ${h}), ${end} calc(100% - ${h}))`;
-  return [
-    strip('bottom', across(row === 0, index - size), across(row === size - 1, index + size)),
-    strip('right', across(col === 0, index - 1), across(col === size - 1, index + 1)),
-    own,
-  ].join(', ');
-}
-
-/**
  * Draws a size x size x size cube in `element` (replacing what is in it), with each
  * face's sticker colors in the order U R F D L B, as `Puzzle.getStickers()` gives them.
  * With a `width`, a face is `width / 4` pixels wide, as in the flat picture (the view is
@@ -414,8 +393,7 @@ function drawCube3D(
   moveFaces(view.copies, 0.5 + COPY_GAP, offsets);
   turn(view);
   // Stickerless tiles fill the whole face and touch, with no black between them, as in the
-  // flat picture. A thin line in a slightly darker color, painted inside each tile along its
-  // sides, marks where two pieces meet; the tile's round corners cut it off.
+  // flat picture, with nothing drawn between them.
   const stickerless = isStickerless(cubeStyle);
   const corners = Array.from({ length: size * size }, (_, j) =>
     tileCorners(cubeStyle, size, j)
@@ -430,7 +408,7 @@ function drawCube3D(
       [...face.children].forEach((sticker, j) => {
         const tile = sticker as HTMLElement;
         const color = colors[j] ?? '#111';
-        tile.style.background = stickerless ? seamBackground(colors, size, j) : color;
+        tile.style.background = color;
         tile.style.borderRadius = corners[j]!;
       });
     }
