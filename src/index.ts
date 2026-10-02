@@ -10,6 +10,9 @@ export type {
   CameraMode,
   CameraAngle,
   FaceOffset,
+  ImagePart,
+  PartFilter,
+  ElementStyle,
 } from './puzzle.js';
 
 // Each puzzle module registers its events when it loads; this order is listEvents()'s order.

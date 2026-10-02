@@ -54,7 +54,7 @@ function faceletsFromSvg(svg: string): string {
 describe('scramble images', () => {
   it('draws a solved cube for an empty scramble', () => {
     const svg = getScrambleImage('333', '');
-    expect(svg.startsWith('<svg viewBox="0 0 ')).toBe(true);
+    expect(svg.startsWith('<svg class="cstimer-image" viewBox="0 0 ')).toBe(true);
     expect(svg.match(/<polygon /g)).toHaveLength(54);
     expect(faceletsFromSvg(svg)).toBe(min2phase.fromScramble(''));
   });
@@ -98,7 +98,7 @@ describe('scramble images', () => {
     expect(types.length).toBeGreaterThan(170);
     for (const type of types) {
       const svg = getScrambleImage(type, getScramble(type));
-      expect(svg.startsWith('<svg viewBox="0 0 '), type).toBe(true);
+      expect(svg.startsWith('<svg class="cstimer-image" viewBox="0 0 '), type).toBe(true);
       expect(svg, type).toMatch(/<(polygon|path|circle|rect)/);
     }
   }, 60_000);

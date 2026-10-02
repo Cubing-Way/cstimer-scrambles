@@ -186,12 +186,16 @@ describe('Puzzle image size', () => {
   it('keeps csTimer’s size by default', () => {
     const puzzle = classic('333');
     expect(puzzle.getImageSize()).toBeUndefined();
-    expect(puzzle.getImage()).toMatch(/^<svg viewBox="0 0 396 296" width="396" height="296"/);
+    expect(puzzle.getImage()).toMatch(
+      /^<svg class="cstimer-image" viewBox="0 0 396 296" width="396" height="296"/,
+    );
   });
 
   it('sets the width and keeps the shape', () => {
     const svg = classic('333').setImageSize(198).getImage();
-    expect(svg).toMatch(/^<svg viewBox="0 0 396 296" width="198" height="148"/);
+    expect(svg).toMatch(
+      /^<svg class="cstimer-image" viewBox="0 0 396 296" width="198" height="148"/,
+    );
   });
 
   it('rejects sizes that are not positive', () => {

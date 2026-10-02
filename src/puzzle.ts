@@ -5,6 +5,8 @@ import { drawImage, hasScrambleImage } from './image.js';
 import { drawCubeNet, thickenBorders } from './net2d.js';
 import { DEFAULT_CAMERA_ANGLE, drawCube3D } from './view3d.js';
 import type { CameraAngle, CameraMode, FaceOffset, HiddenFaces } from './view3d.js';
+import { IMAGE_PARTS, styleSvg } from './styling.js';
+import type { ElementStyle, ImagePart, PartFilter } from './styling.js';
 import image from './vendor/cstimer/image.js';
 import tools from './vendor/cstimer/toolsutil.js';
 
@@ -273,7 +275,9 @@ class Puzzle {
   #hiddenFaces: HiddenFaces = 'hidden';
   #cameraMode: CameraMode = 'mouse';
   #cameraAngle: CameraAngle = { ...DEFAULT_CAMERA_ANGLE };
+  #floatingOffsets: Partial<Record<string, FaceOffset>> = {};
   #faceOffsets: Partial<Record<string, FaceOffset>> = {};
+  #styles: ElementStyle[] = [];
   #method: ScrambleMethod = 'default';
   #length: number | undefined;
   #scramble = '';
@@ -401,9 +405,49 @@ class Puzzle {
    * `setFloatingFaceOffset('L', { x: 1, rotateY: 45 })`. Positions are in face widths and
    * turns in degrees, in the cube's directions: x toward R, y toward U, z toward F (see
    * `FaceOffset`). Values left out are 0, and it replaces the face's earlier offset.
+   * Any of the six faces can be moved; a copy only shows while its face is at the back.
    * Only for cubes (see `has3DView`).
    */
   setFloatingFaceOffset(face: string, offset: Partial<FaceOffset>): this {
+    this.#floatingOffsets[face] = this.#checkOffset(face, offset);
+    return this;
+  }
+
+  /** The offset set with `setFloatingFaceOffset` for one face, all 0 by default. */
+  getFloatingFaceOffset(face: string): FaceOffset {
+    return { ...(this.#floatingOffsets[face] ?? NO_OFFSET) };
+  }
+
+  /** Puts every floating face back where it floats by default. */
+  resetFloatingFaceOffsets(): this {
+    this.#floatingOffsets = {};
+    return this;
+  }
+
+  /**
+   * Moves and turns one face of the cube itself in the `show3D` view, the way
+   * `setFloatingFaceOffset` moves a floating copy, e.g. `setFaceOffset('U', { y: 0.5 })` to
+   * lift the top face off the cube. It works with hidden and floating back faces alike.
+   * Only for cubes (see `has3DView`).
+   */
+  setFaceOffset(face: string, offset: Partial<FaceOffset>): this {
+    this.#faceOffsets[face] = this.#checkOffset(face, offset);
+    return this;
+  }
+
+  /** The offset set with `setFaceOffset` for one face, all 0 by default. */
+  getFaceOffset(face: string): FaceOffset {
+    return { ...(this.#faceOffsets[face] ?? NO_OFFSET) };
+  }
+
+  /** Puts every face of the cube back in its place. */
+  resetFaceOffsets(): this {
+    this.#faceOffsets = {};
+    return this;
+  }
+
+  /** Checks a face offset, filling in 0 for the values left out. */
+  #checkOffset(face: string, offset: Partial<FaceOffset>): FaceOffset {
     if (!this.has3DView()) throw new Error(`${this.name} has no 3D view yet, only cubes do`);
     if (!CUBE_FACES.includes(face)) {
       throw new Error(`${this.name} has no face "${face}". Faces: ${CUBE_FACES.join(', ')}`);
@@ -417,18 +461,59 @@ class Puzzle {
         throw new Error(`Offset ${key} must be a number, not ${value}`);
       }
     }
-    this.#faceOffsets[face] = full;
+    return full;
+  }
+
+  /**
+   * Adds a style of your own to some parts of the picture, in `getImage()`'s SVG and in the
+   * `show3D` view: the whole picture (`'image'`), the faces (`'face'`) or the tiles
+   * (`'tile'`), all of them or only those of one face, or one tile by its number on its face
+   * (counted row by row from the top left, from 0). `css` holds CSS properties and values,
+   * e.g. `setElementStyle('tile', { stroke: '#fff', strokeWidth: '2' })` or
+   * `setElementStyle('face', { opacity: '0.4' }, { face: 'B' })`. Styles add up, and a later
+   * one wins over an earlier one on the same property.
+   *
+   * The SVG takes SVG properties (`fill`, `stroke`, `rx`, `opacity`...) and the 3D view
+   * HTML ones (`background`, `border-radius`, `opacity`...). A face of the SVG is a group:
+   * its `fill` colors its black background, its `stroke` outlines its background and tiles.
+   * Faces and tile numbers are for cubes drawn by this library (any image style but
+   * `'cstimer'`, and the 3D view); csTimer's pictures only have the image and its tiles. The
+   * same parts carry class names and data attributes (`cstimer-image`, `cstimer-face`,
+   * `cstimer-tile`, `data-face`, `data-tile`) for styling with a page's own CSS instead.
+   */
+  setElementStyle(part: ImagePart, css: Record<string, string>, where: PartFilter = {}): this {
+    if (!IMAGE_PARTS.includes(part)) {
+      throw new Error(`Unknown part "${part}". Parts: ${IMAGE_PARTS.join(', ')}`);
+    }
+    for (const [property, value] of Object.entries(css)) {
+      if (typeof value !== 'string' || !/^[a-zA-Z-]+$/.test(property)) {
+        throw new Error(`CSS must be property names with text values, not ${property}: ${value}`);
+      }
+    }
+    if ((where.face !== undefined || where.tile !== undefined) && !this.has3DView()) {
+      throw new Error(`Only cubes have faces and tile numbers to style, not ${this.name}`);
+    }
+    if (where.face !== undefined && !CUBE_FACES.includes(where.face)) {
+      throw new Error(`${this.name} has no face "${where.face}". Faces: ${CUBE_FACES.join(', ')}`);
+    }
+    if (where.tile !== undefined && !(Number.isInteger(where.tile) && where.tile >= 0)) {
+      throw new Error(`A tile number must be a whole number from 0, not ${where.tile}`);
+    }
+    const style: ElementStyle = { part, css: { ...css } };
+    if (where.face !== undefined) style.face = where.face;
+    if (where.tile !== undefined) style.tile = where.tile;
+    this.#styles.push(style);
     return this;
   }
 
-  /** The offset set with `setFloatingFaceOffset` for one face, all 0 by default. */
-  getFloatingFaceOffset(face: string): FaceOffset {
-    return { ...(this.#faceOffsets[face] ?? NO_OFFSET) };
+  /** The styles added with `setElementStyle`, in the order they were added. */
+  getElementStyles(): ElementStyle[] {
+    return this.#styles.map((style) => ({ ...style, css: { ...style.css } }));
   }
 
-  /** Puts every floating face back where it floats by default. */
-  resetFloatingFaceOffsets(): this {
-    this.#faceOffsets = {};
+  /** Takes away every style added with `setElementStyle`. */
+  resetElementStyles(): this {
+    this.#styles = [];
     return this;
   }
 
@@ -671,7 +756,8 @@ class Puzzle {
    * unless the camera is fixed (see `setCameraMode`). Call it again after changing the
    * puzzle to update the view: the cube keeps the angle it was dragged to. Only for cubes
    * (see `has3DView`), and only in a browser. `setHiddenFaces('floating')` also shows the
-   * faces at the back, and `setFloatingFaceOffset` moves them.
+   * faces at the back, and `setFloatingFaceOffset` moves them. `setFaceOffset` moves the
+   * cube's own faces and `setElementStyle` styles the view.
    */
   show3D(element: HTMLElement): this {
     drawCube3D(element, this.#info.cubeSize ?? 0, this.getStickers(), {
@@ -679,7 +765,9 @@ class Puzzle {
       hidden: this.#hiddenFaces,
       camera: this.#cameraMode,
       angle: this.#cameraAngle,
-      offsets: this.#faceOffsets,
+      offsets: this.#floatingOffsets,
+      faceOffsets: this.#faceOffsets,
+      styles: this.#styles,
     });
     return this;
   }
@@ -704,7 +792,7 @@ class Puzzle {
     // A cube's own scramble types (not relays of it) are drawn from its stickers.
     const size = this.#info.cubeSize;
     if (style !== 'cstimer' && size !== undefined && tools.puzzleType(type) === this.id) {
-      return drawCubeNet(size, this.getStickers(), style, this.#imageSize);
+      return styleSvg(drawCubeNet(size, this.getStickers(), style, this.#imageSize), this.#styles);
     }
     const colors = this.#info.cstimerOrder
       .map((face) => toCstimerColor(this.#colors[face]!))
@@ -718,7 +806,7 @@ class Puzzle {
         this.#info.colorSetting ? { [this.#info.colorSetting]: colors } : {},
         this.#imageSize,
       );
-      return style === 'cstimer' ? svg : thickenBorders(svg);
+      return styleSvg(style === 'cstimer' ? svg : thickenBorders(svg), this.#styles);
     } catch {
       throw new Error(`Can't read these moves as ${this.name} moves: "${moves}"`);
     }
@@ -726,4 +814,14 @@ class Puzzle {
 }
 
 export { Puzzle, listPuzzles };
-export type { ScrambleMethod, ImageStyle, HiddenFaces, CameraMode, CameraAngle, FaceOffset };
+export type {
+  ScrambleMethod,
+  ImageStyle,
+  HiddenFaces,
+  CameraMode,
+  CameraAngle,
+  FaceOffset,
+  ImagePart,
+  PartFilter,
+  ElementStyle,
+};

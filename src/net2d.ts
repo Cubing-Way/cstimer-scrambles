@@ -38,7 +38,8 @@ function round(n: number): string {
  * Draws a size x size x size cube unfolded, as an SVG string, with each face's sticker
  * colors in the order `Puzzle.getStickers()` gives them. A face is `width / 4` pixels wide,
  * the same as in the 3D view, so the joined faces are `width` pixels wide and the separated
- * ones a little wider for the gaps; without it a face is 100 pixels wide.
+ * ones a little wider for the gaps; without it a face is 100 pixels wide. The picture, each
+ * face and each tile carry the class names and data attributes of styling.ts.
  */
 function drawCubeNet(
   size: number,
@@ -54,31 +55,36 @@ function drawCubeNet(
   const parts: string[] = [];
   if (layout === 'joined') {
     // The black behind the faces as two overlapping strips, a row and a column, so there
-    // are no seams where faces touch.
+    // are no seams where the faces' own backgrounds touch.
     parts.push(
-      `<rect x="0" y="${SIDE}" width="${w}" height="${SIDE}" fill="${BLACK}"/>`,
-      `<rect x="${SIDE}" y="0" width="${SIDE}" height="${h}" fill="${BLACK}"/>`,
+      `<rect class="cstimer-background" x="0" y="${SIDE}" width="${w}" height="${SIDE}" fill="${BLACK}"/>`,
+      `<rect class="cstimer-background" x="${SIDE}" y="0" width="${SIDE}" height="${h}" fill="${BLACK}"/>`,
     );
   }
   for (const [face, col, row] of NET) {
     const x0 = col * step;
     const y0 = row * step;
-    if (layout === 'separated') {
-      parts.push(`<rect x="${x0}" y="${y0}" width="${SIDE}" height="${SIDE}" fill="${BLACK}"/>`);
-    }
+    // Each face is a group with its background and tiles, so it can be styled as one
+    // (see styling.ts). Its background takes the group's fill.
+    parts.push(
+      `<g class="cstimer-face" data-face="${face}" fill="${BLACK}">`,
+      `<rect class="cstimer-face-bg" x="${x0}" y="${y0}" width="${SIDE}" height="${SIDE}"/>`,
+    );
     const colors = stickers[face] ?? [];
     for (let i = 0; i < size * size; i++) {
       const x = x0 + PADDING + (i % size) * (cell + GAP);
       const y = y0 + PADDING + Math.floor(i / size) * (cell + GAP);
       parts.push(
-        `<rect x="${round(x)}" y="${round(y)}" width="${round(cell)}" height="${round(cell)}"` +
+        `<rect class="cstimer-tile" data-face="${face}" data-tile="${i}"` +
+          ` x="${round(x)}" y="${round(y)}" width="${round(cell)}" height="${round(cell)}"` +
           ` rx="${radius}" fill="${colors[i] ?? BLACK}"/>`,
       );
     }
+    parts.push('</g>');
   }
   const pxWidth = width === undefined ? w : (width / 4) * (w / SIDE);
   return (
-    `<svg viewBox="0 0 ${w} ${h}" width="${round(pxWidth)}" height="${round((pxWidth * h) / w)}"` +
+    `<svg class="cstimer-image" viewBox="0 0 ${w} ${h}" width="${round(pxWidth)}" height="${round((pxWidth * h) / w)}"` +
     ` xmlns="http://www.w3.org/2000/svg">${parts.join('')}</svg>`
   );
 }
