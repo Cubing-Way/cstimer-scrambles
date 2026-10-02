@@ -367,8 +367,9 @@ class Puzzle {
   /**
    * Picks what `show3D` does with the faces you can't see from where you look:
    * - `'hidden'` (the default): they are hidden behind the cube, as on a real one.
-   * - `'floating'`: a copy of each of them floats a little away from the cube, behind it,
-   *   so every face can be seen at once. Turning the cube swaps which faces float.
+   * - `'floating'`: a flat copy of each of them floats beside the cube, on the side the
+   *   face points to, never covered by the cube, so every face can be seen at once.
+   *   Turning the cube swaps which faces float.
    */
   setHiddenFaces(mode: HiddenFaces): this {
     if (!HIDDEN_FACES.includes(mode)) {
