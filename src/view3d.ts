@@ -3,7 +3,7 @@
 
 import { styleElement, unstyleElement } from './styling.js';
 import type { ElementStyle } from './styling.js';
-import { SEAM, isStickerless, seamColor, tileCorners } from './cubestyle.js';
+import { SEAM, isStickerless, tileCorners } from './cubestyle.js';
 import type { CubeStyle } from './cubestyle.js';
 
 type Axis = 'x' | 'y';
@@ -392,12 +392,12 @@ function drawCube3D(
   moveFaces(view.faces, 0.5, faceOffsets);
   moveFaces(view.copies, 0.5 + COPY_GAP, offsets);
   turn(view);
-  // Stickerless tiles fill the whole face, with a thin, flat line in a darker shade of
-  // their color along their edges where the pieces meet, as in the flat picture. It is a
-  // border rather than a shadow, which the browser blurs when it turns the faces.
+  // Stickerless tiles fill the whole face, with only a thin black line where two pieces
+  // meet, as in the flat picture: the face's black showing through a narrow gap, half as
+  // wide along its border.
   const stickerless = isStickerless(cubeStyle);
-  const seam = (color: string) =>
-    stickerless ? `calc(var(--side) * ${SEAM / size}) solid ${seamColor(color)}` : '';
+  const seam = `calc(var(--side) * ${SEAM / size})`;
+  const edge = `calc(var(--side) * ${SEAM / size / 2})`;
   const corners = Array.from({ length: size * size }, (_, j) =>
     tileCorners(cubeStyle, size, j)
       .map((r) => `${parseFloat((r * 100).toFixed(3))}%`)
@@ -406,14 +406,12 @@ function drawCube3D(
   FACES.forEach(([name], i) => {
     const colors = stickers[name] ?? [];
     for (const face of [view.faces[i]!, view.copies[i]!]) {
-      face.style.padding = stickerless ? '0' : '';
-      face.style.gap = stickerless ? '0' : '';
+      face.style.padding = stickerless ? edge : '';
+      face.style.gap = stickerless ? seam : '';
       [...face.children].forEach((sticker, j) => {
         const tile = sticker as HTMLElement;
-        const color = colors[j] ?? '#111';
-        tile.style.background = color;
+        tile.style.background = colors[j] ?? '#111';
         tile.style.borderRadius = corners[j]!;
-        tile.style.border = seam(color);
       });
     }
   });

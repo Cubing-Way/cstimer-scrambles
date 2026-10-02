@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { Puzzle } from '../src/index.js';
-import { seamColor, tileCorners } from '../src/cubestyle.js';
+import { tileCorners } from '../src/cubestyle.js';
 
 /** The `d` of each tile drawn as a path, in drawing order. */
 function tilePaths(svg: string): string[] {
@@ -46,20 +46,14 @@ describe('Puzzle cube styles', () => {
     expect(fills).toEqual(['U', 'L', 'F', 'R', 'B', 'D'].flatMap((face) => stickers[face]!));
   });
 
-  it('fills the whole face with stickerless tiles and a darker line where they meet', () => {
+  it('fills the whole face with stickerless tiles and one black line where they meet', () => {
     const svg = new Puzzle('222').setCubeStyle('stickerless').getImage();
-    // U's top left tile starts in the face's very corner (U is at x 106, after the gap) and is half the face wide.
-    // The shape is shrunk by half the line's width (3.5% of 50), so the line stays inside it.
-    expect(tilePaths(svg)[0]).toMatch(/^M106.875 0.875H155.125/);
-    expect(svg.match(/ stroke="#[0-9a-f]{6}"/g)).toHaveLength(24);
+    // U is at x 106, after the gap. Between two tiles the face's black shows through a gap 7% of
+    // a tile's space (3.5 of 50) wide, and half that along the face's border.
+    expect(tilePaths(svg)[0]).toMatch(/^M107.75 1.75H154.25/);
+    expect(svg).toMatch(/<g class="cstimer-face" data-face="U" fill="#111">/);
+    expect(svg).not.toContain('stroke');
     expect(svg).not.toContain('filter');
-  });
-
-  it('draws the line in a darker shade of the tile color', () => {
-    expect(seamColor('#fff')).toBe('#a6a6a6');
-    expect(seamColor('#0d0')).toBe('#009000');
-    expect(seamColor('rgb(255, 0, 0)')).toBe('#a60000');
-    expect(seamColor('red')).toBe('color-mix(in srgb, red 65%, #000)');
   });
 
   it('lets element styles win over the cube style', () => {

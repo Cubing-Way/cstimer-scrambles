@@ -2,7 +2,7 @@
 // and stickers with rounded corners. Cubes get their own drawing; the other puzzles keep
 // csTimer's drawing with thicker black borders.
 
-import { SEAM, isStickerless, seamColor, tileCorners } from './cubestyle.js';
+import { SEAM, isStickerless, tileCorners } from './cubestyle.js';
 import type { CubeStyle } from './cubestyle.js';
 
 /**
@@ -67,17 +67,14 @@ function drawCubeNet(
   const step = SIDE + (layout === 'joined' ? 0 : FACE_GAP);
   const w = 3 * step + SIDE;
   const h = 2 * step + SIDE;
-  // Stickerless tiles fill the whole face, with no black border or gaps.
+  // Stickerless tiles fill the whole face, with only a thin black line where two pieces
+  // meet: the face's black showing through a narrow gap, half as wide along its border.
   const stickerless = isStickerless(style);
-  const padding = stickerless ? 0 : PADDING;
-  const gap = stickerless ? 0 : GAP;
+  const gap = stickerless ? (SIDE / size) * SEAM : GAP;
+  const padding = stickerless ? gap / 2 : PADDING;
   const cell = (SIDE - 2 * padding - (size - 1) * gap) / size;
   const radius = round(cell * 0.12);
   const parts: string[] = [];
-  // Stickerless tiles get a thin, flat line in a darker shade of their own color along their
-  // edges, so each piece shows where it meets the next. The tile's shape is shrunk by half
-  // the line's width, so the line stays inside the tile.
-  const seam = stickerless ? cell * SEAM : 0;
   if (layout === 'joined') {
     // The black behind the faces as two overlapping strips, a row and a column, so there
     // are no seams where the faces' own backgrounds touch.
@@ -100,13 +97,10 @@ function drawCubeNet(
       const x = x0 + padding + (i % size) * (cell + gap);
       const y = y0 + padding + Math.floor(i / size) * (cell + gap);
       if (style !== 'classic') {
-        const corners = tileCorners(style, size, i).map((r) => Math.max(r * cell - seam / 2, 0));
-        const color = colors[i] ?? BLACK;
+        const corners = tileCorners(style, size, i).map((r) => r * cell);
         parts.push(
           `<path class="cstimer-tile" data-face="${face}" data-tile="${i}"` +
-            ` d="${roundedSquare(x + seam / 2, y + seam / 2, cell - seam, corners)}" fill="${color}"` +
-            (seam > 0 ? ` stroke="${seamColor(color)}" stroke-width="${round(seam)}"` : '') +
-            '/>',
+            ` d="${roundedSquare(x, y, cell, corners)}" fill="${colors[i] ?? BLACK}"/>`,
         );
         continue;
       }
