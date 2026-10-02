@@ -1,6 +1,9 @@
 // A 3D view of a cube in a web page, built from plain HTML elements turned in 3D by CSS
 // (no 3D library). It can be dragged with the mouse or a finger to look at every side.
 
+import { styleElement, unstyleElement } from './styling.js';
+import type { ElementStyle } from './styling.js';
+
 type Axis = 'x' | 'y';
 
 /**
@@ -55,8 +58,8 @@ interface CameraAngle {
 }
 
 /**
- * Moves and turns a floating copy of a face from where it floats by default, in the
- * cube's directions: x toward R, y toward U, z toward F.
+ * Moves and turns a face of the cube, or its floating copy, from where it is by default, in
+ * the cube's directions: x toward R, y toward U, z toward F.
  * - `x`, `y`, `z`: how far to move it, in face widths (`1` moves it by one whole face).
  * - `rotateX`, `rotateY`, `rotateZ`: how far to turn it about its own center, in degrees,
  *   clockwise as seen from the R, U and F sides (the way the cube rotations x, y and z
@@ -205,20 +208,24 @@ function placeCopies(view: View): void {
 }
 
 /**
- * Puts each floating copy a little way out from its face, then moves and turns it by its
- * offset. CSS's y points down, so the offset's y (toward U) and its turn about y flip.
+ * Puts each face (or floating copy) `out` cube sides out from the cube's center, then moves
+ * and turns it by its offset. CSS's y points down, so the offset's y (toward U) and its turn
+ * about y flip.
  */
-function moveCopies(view: View, offsets: Partial<Record<string, FaceOffset>>): void {
+function moveFaces(
+  faces: HTMLElement[],
+  out: number,
+  offsets: Partial<Record<string, FaceOffset>>,
+): void {
   FACES.forEach(([name, axis, degrees], i) => {
     const offset = offsets[name];
-    const [x, y, z] = column(rotation(axis, degrees), 2).map((n) => n * (0.5 + COPY_GAP));
+    const [x, y, z] = column(rotation(axis, degrees), 2).map((n) => n * out);
     const center = [x! + (offset?.x ?? 0), y! - (offset?.y ?? 0), z! + (offset?.z ?? 0)];
     const turns = offset
       ? `rotateZ(${offset.rotateZ}deg) rotateY(${-offset.rotateY}deg) rotateX(${offset.rotateX}deg) `
       : '';
     const [cx, cy, cz] = center.map((n) => `calc(var(--side) * ${n})`);
-    view.copies[i]!.style.transform =
-      `translate3d(${cx}, ${cy}, ${cz}) ${turns}${place(axis, degrees)}`;
+    faces[i]!.style.transform = `translate3d(${cx}, ${cy}, ${cz}) ${turns}${place(axis, degrees)}`;
   });
 }
 
@@ -270,20 +277,25 @@ function createView(
   const doc = element.ownerDocument;
   addStyle(doc);
   const box = doc.createElement('div');
-  box.className = 'cstimer-3d';
+  box.className = 'cstimer-3d cstimer-image';
   const cube = doc.createElement('div');
   cube.className = 'cstimer-3d-cube';
   const makeFace = (name: string, className: string) => {
     const face = doc.createElement('div');
-    face.className = className;
+    face.className = `${className} cstimer-face`;
     face.dataset.face = name;
     face.style.gridTemplate = `repeat(${size}, 1fr) / repeat(${size}, 1fr)`;
-    for (let i = 0; i < size * size; i++) face.append(doc.createElement('div'));
+    for (let i = 0; i < size * size; i++) {
+      const tile = doc.createElement('div');
+      tile.className = 'cstimer-tile';
+      tile.dataset.face = name;
+      tile.dataset.tile = String(i);
+      face.append(tile);
+    }
     return face;
   };
-  const faces = FACES.map(([name, axis, degrees]) => {
+  const faces = FACES.map(([name]) => {
     const face = makeFace(name, 'cstimer-3d-face');
-    face.style.transform = `${place(axis, degrees)} translateZ(calc(var(--side) / 2))`;
     cube.append(face);
     return face;
   });
@@ -321,6 +333,10 @@ interface View3DOptions {
   angle?: CameraAngle;
   /** How far each floating copy is moved and turned, by face name (see `FaceOffset`). */
   offsets?: Partial<Record<string, FaceOffset>>;
+  /** How far each face of the cube itself is moved and turned, by face name. */
+  faceOffsets?: Partial<Record<string, FaceOffset>>;
+  /** Styles for the view, its faces and its tiles (see styling.ts). */
+  styles?: readonly ElementStyle[];
 }
 
 /**
@@ -337,7 +353,14 @@ function drawCube3D(
   stickers: Record<string, string[]>,
   options: View3DOptions = {},
 ): void {
-  const { width, hidden = 'hidden', camera = 'mouse', offsets = {} } = options;
+  const {
+    width,
+    hidden = 'hidden',
+    camera = 'mouse',
+    offsets = {},
+    faceOffsets = {},
+    styles = [],
+  } = options;
   const angle = options.angle ?? DEFAULT_CAMERA_ANGLE;
   const angleKey = `${angle.x} ${angle.y}`;
   let view = views.get(element);
@@ -347,6 +370,9 @@ function drawCube3D(
       : createView(element, size, { ...angle }, angleKey);
     views.set(element, view);
   }
+  const tiles = [...view.faces, ...view.copies].flatMap((face) => [...face.children]);
+  const parts = [view.box, ...view.faces, ...view.copies, ...(tiles as HTMLElement[])];
+  parts.forEach(unstyleElement);
   view.fixed = camera === 'fixed';
   if (view.fixed || view.setAngle !== angleKey) {
     view.angle = { x: angle.x, y: angle.y };
@@ -357,7 +383,8 @@ function drawCube3D(
   view.box.style.width = width === undefined ? '' : `${(width / 4) * sides}px`;
   view.box.classList.toggle('cstimer-3d-floating', view.floating);
   view.box.classList.toggle('cstimer-3d-fixed', view.fixed);
-  moveCopies(view, offsets);
+  moveFaces(view.faces, 0.5, faceOffsets);
+  moveFaces(view.copies, 0.5 + COPY_GAP, offsets);
   turn(view);
   FACES.forEach(([name], i) => {
     const colors = stickers[name] ?? [];
@@ -367,6 +394,15 @@ function drawCube3D(
       });
     }
   });
+  if (styles.length > 0) {
+    styleElement(view.box, styles, 'image');
+    for (const face of [...view.faces, ...view.copies]) {
+      styleElement(face, styles, 'face', face.dataset.face);
+      for (const tile of face.children as HTMLCollectionOf<HTMLElement>) {
+        styleElement(tile, styles, 'tile', tile.dataset.face, Number(tile.dataset.tile));
+      }
+    }
+  }
 }
 
 export { drawCube3D, DEFAULT_CAMERA_ANGLE };

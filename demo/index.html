@@ -279,6 +279,16 @@
       #image[hidden] {
         display: none;
       }
+      .css-list {
+        margin: 6px 0 0;
+        padding-left: 1.2em;
+        font:
+          0.85rem/1.5 ui-monospace,
+          monospace;
+      }
+      .css-list:empty {
+        display: none;
+      }
       .meta {
         color: var(--muted);
         font-size: 0.9rem;
@@ -376,8 +386,12 @@
                 <span class="note">x tilts, y turns, in degrees</span>
               </div>
               <div class="option" id="offset-option">
-                <span>Floating face position</span>
-                <div class="xyz">
+                <span>Face position</span>
+                <div class="toggle" role="group" aria-label="Which face to move">
+                  <button type="button" data-target="floating">Floating copy</button>
+                  <button type="button" data-target="cube">Cube face</button>
+                </div>
+                <div class="xyz" style="margin-top: 6px">
                   <span></span>
                   <span class="head">x</span>
                   <span class="head">y</span>
@@ -421,6 +435,46 @@
                   >Move in face widths, turn in degrees; x toward R, y toward U, z toward F</span
                 >
               </div>
+              <form id="css-form" class="option" novalidate>
+                <span>Element styles</span>
+                <div class="toggle" role="group" aria-label="Part to style">
+                  <button type="button" data-part="image">Image</button>
+                  <button type="button" data-part="face">Face</button>
+                  <button type="button" data-part="tile">Tile</button>
+                </div>
+                <div class="row">
+                  <select id="css-face" aria-label="Which face">
+                    <option value="">All faces</option>
+                    <option>U</option>
+                    <option>R</option>
+                    <option>F</option>
+                    <option>D</option>
+                    <option>L</option>
+                    <option>B</option>
+                  </select>
+                  <input
+                    id="css-tile"
+                    type="number"
+                    min="0"
+                    placeholder="all tiles"
+                    aria-label="Tile number"
+                    style="width: 6.5em"
+                  />
+                </div>
+                <div class="row">
+                  <input
+                    id="css-text"
+                    type="text"
+                    spellcheck="false"
+                    aria-label="CSS"
+                    style="flex: 1; padding: 6px 8px"
+                  />
+                  <button type="submit">Add</button>
+                  <button type="button" id="css-reset">Reset all</button>
+                </div>
+                <span class="note" id="css-note"></span>
+                <ul id="css-list" class="css-list"></ul>
+              </form>
               <form id="size-form" class="option" novalidate>
                 <span>Size</span>
                 <div class="size">
@@ -513,7 +567,21 @@
       // The 3D camera and the floating faces' offsets picked, applied to every cube.
       let cameraMode = 'mouse';
       let cameraAngle = new Puzzle('333').getCameraAngle();
-      const offsets = {};
+      // Offsets for the floating copies and for the cube's own faces, by face.
+      const offsets = { floating: {}, cube: {} };
+      let offsetTarget = 'floating';
+      const targetButtons = [...document.querySelectorAll('[data-target]')];
+      // Element styles added in the demo, applied to every puzzle (faces and tile numbers
+      // only to the cubes): { part, css, where }.
+      const elementStyles = [];
+      let cssPart = 'tile';
+      const partButtons = [...document.querySelectorAll('[data-part]')];
+      // An example for each part, shown in the empty CSS box.
+      const CSS_EXAMPLES = {
+        image: 'background: #def; border-radius: 12px',
+        face: 'opacity: 0.4',
+        tile: 'stroke: #fff; stroke-width: 2',
+      };
       const cameraButtons = [...document.querySelectorAll('[data-camera]')];
       const offsetInputs = [...document.querySelectorAll('[data-offset]')];
       const offsetFace = $('offset-face');
@@ -522,7 +590,7 @@
       function showCameraAndOffset() {
         $('angle-x').value = +cameraAngle.x.toFixed(2);
         $('angle-y').value = +cameraAngle.y.toFixed(2);
-        const offset = offsets[offsetFace.value] ?? {};
+        const offset = offsets[offsetTarget][offsetFace.value] ?? {};
         for (const input of offsetInputs) input.value = offset[input.dataset.offset] ?? 0;
       }
       const moves = (n) => `${n} ${n === 1 ? 'move' : 'moves'}`;
@@ -568,11 +636,35 @@
         }
         $('hidden-option').classList.toggle('off', !in3D);
         if (puzzle.has3DView()) {
-          puzzle.setCameraMode(cameraMode).setCameraAngle(cameraAngle).resetFloatingFaceOffsets();
-          for (const [face, offset] of Object.entries(offsets)) {
+          puzzle
+            .setCameraMode(cameraMode)
+            .setCameraAngle(cameraAngle)
+            .resetFloatingFaceOffsets()
+            .resetFaceOffsets();
+          for (const [face, offset] of Object.entries(offsets.floating)) {
             puzzle.setFloatingFaceOffset(face, offset);
           }
+          for (const [face, offset] of Object.entries(offsets.cube)) {
+            puzzle.setFaceOffset(face, offset);
+          }
         }
+        puzzle.resetElementStyles();
+        for (const { part, css, where } of elementStyles) {
+          if (puzzle.has3DView() || (where.face === undefined && where.tile === undefined)) {
+            puzzle.setElementStyle(part, css, where);
+          }
+        }
+        for (const button of partButtons) {
+          button.setAttribute('aria-pressed', String(button.dataset.part === cssPart));
+        }
+        $('css-face').disabled = cssPart === 'image' || !puzzle.has3DView();
+        $('css-tile').disabled = cssPart !== 'tile' || !puzzle.has3DView();
+        $('css-text').placeholder = CSS_EXAMPLES[cssPart];
+        $('css-note').textContent = puzzle.has3DView()
+          ? in3D
+            ? 'HTML CSS in 3D, e.g. background, border-radius, opacity'
+            : 'SVG CSS in 2D, e.g. fill, stroke, opacity; a face’s fill is its background'
+          : 'This puzzle has no faces or tile numbers to pick, only the image and every tile';
         for (const button of cameraButtons) {
           button.setAttribute('aria-pressed', String(button.dataset.camera === cameraMode));
           button.disabled = !in3D;
@@ -580,11 +672,17 @@
         for (const input of angleInputs) input.disabled = !in3D;
         $('angle-reset').disabled = !in3D;
         $('camera-option').classList.toggle('off', !in3D);
-        const floating = in3D && hiddenFaces === 'floating';
-        for (const input of offsetInputs) input.disabled = !floating;
-        offsetFace.disabled = !floating;
-        $('offset-reset').disabled = !floating;
-        $('offset-option').classList.toggle('off', !floating);
+        // The cube's own faces can move whenever the 3D view shows; the copies only float
+        // with floating back faces.
+        const movable = in3D && (offsetTarget === 'cube' || hiddenFaces === 'floating');
+        for (const input of offsetInputs) input.disabled = !movable;
+        offsetFace.disabled = !movable;
+        $('offset-reset').disabled = !in3D;
+        for (const button of targetButtons) {
+          button.setAttribute('aria-pressed', String(button.dataset.target === offsetTarget));
+          button.disabled = !in3D;
+        }
+        $('offset-option').classList.toggle('off', !in3D);
         cube3d.title = cameraMode === 'mouse' ? 'Drag to turn the cube' : '';
         $('colors-option').hidden = colorsDiv.childElementCount === 0;
         image.hidden = in3D;
@@ -733,13 +831,77 @@
             const value = Number(box.value);
             offset[box.dataset.offset] = Number.isFinite(value) ? value : 0;
           }
-          offsets[offsetFace.value] = offset;
+          offsets[offsetTarget][offsetFace.value] = offset;
           draw();
         });
       }
       $('offset-reset').addEventListener('click', () => {
-        for (const face of Object.keys(offsets)) delete offsets[face];
+        offsets.floating = {};
+        offsets.cube = {};
         showCameraAndOffset();
+        draw();
+      });
+      for (const button of targetButtons) {
+        button.addEventListener('click', () => {
+          offsetTarget = button.dataset.target;
+          showCameraAndOffset();
+          draw();
+        });
+      }
+      for (const button of partButtons) {
+        button.addEventListener('click', () => {
+          cssPart = button.dataset.part;
+          draw();
+        });
+      }
+      // Reads "stroke: #fff; stroke-width: 2" into { stroke: '#fff', 'stroke-width': '2' }.
+      function parseCss(text) {
+        const css = {};
+        for (const declaration of text.split(';')) {
+          const colon = declaration.indexOf(':');
+          if (colon < 0) continue;
+          const property = declaration.slice(0, colon).trim();
+          const value = declaration.slice(colon + 1).trim();
+          if (property && value) css[property] = value;
+        }
+        return css;
+      }
+      function showStyles() {
+        $('css-list').replaceChildren(
+          ...elementStyles.map(({ part, css, where }) => {
+            const li = document.createElement('li');
+            const at = [where.face, where.tile === undefined ? '' : `#${where.tile}`].join('');
+            const text = Object.entries(css)
+              .map(([k, v]) => `${k}: ${v}`)
+              .join('; ');
+            li.textContent = `${part}${at ? ` ${at}` : ''} { ${text} }`;
+            return li;
+          }),
+        );
+      }
+      $('css-form').addEventListener('submit', (e) => {
+        e.preventDefault();
+        const css = parseCss($('css-text').value || CSS_EXAMPLES[cssPart]);
+        const where = {};
+        if (cssPart !== 'image' && $('css-face').value) where.face = $('css-face').value;
+        const tile = $('css-tile').value;
+        if (cssPart === 'tile' && tile !== '') where.tile = Number(tile);
+        try {
+          // Checked on a cube, so faces and tile numbers can be given on any puzzle.
+          new Puzzle('333').setElementStyle(cssPart, css, where);
+          elementStyles.push({ part: cssPart, css, where });
+          $('css-text').value = '';
+        } catch (error) {
+          info.classList.add('error');
+          info.textContent = error.message;
+          return;
+        }
+        showStyles();
+        draw();
+      });
+      $('css-reset').addEventListener('click', () => {
+        elementStyles.length = 0;
+        showStyles();
         draw();
       });
       scrambleInput.addEventListener('input', () => {

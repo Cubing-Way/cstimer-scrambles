@@ -11,7 +11,7 @@ describe('Puzzle image styles', () => {
     const cube = new Puzzle('333');
     expect(cube.getImageStyle()).toBe('separated');
     const svg = cube.getImage();
-    expect(svg).toMatch(/^<svg viewBox="0 0 418 312"/);
+    expect(svg).toMatch(/^<svg class="cstimer-image" viewBox="0 0 418 312"/);
     // Six black faces, then 9 rounded stickers on each.
     expect(svg.match(/fill="#111"/g)).toHaveLength(6);
     expect(stickerFills(svg)).toHaveLength(54);
@@ -29,7 +29,7 @@ describe('Puzzle image styles', () => {
   it('can join the faces into one flat cube', () => {
     const cube = new Puzzle('222').setImageStyle('joined');
     const svg = cube.getImage();
-    expect(svg).toMatch(/^<svg viewBox="0 0 400 300"/);
+    expect(svg).toMatch(/^<svg class="cstimer-image" viewBox="0 0 400 300"/);
     expect(stickerFills(svg)).toEqual(stickerFills(new Puzzle('222').getImage()));
   });
 
@@ -40,7 +40,9 @@ describe('Puzzle image styles', () => {
 
   it('sets the width and keeps the shape', () => {
     const svg = new Puzzle('333').setImageStyle('joined').setImageSize(200).getImage();
-    expect(svg).toMatch(/^<svg viewBox="0 0 400 300" width="200" height="150"/);
+    expect(svg).toMatch(
+      /^<svg class="cstimer-image" viewBox="0 0 400 300" width="200" height="150"/,
+    );
   });
 
   it('keeps a face a quarter of the size, joined or separated', () => {

@@ -3,6 +3,7 @@
 import image from './vendor/cstimer/image.js';
 import kernel from './vendor/cstimer/kernel.js';
 import tools from './vendor/cstimer/toolsutil.js';
+import { markCstimerSvg } from './styling.js';
 
 /**
  * Puzzles csTimer's image code can draw, as csTimer's puzzle type ids (what
@@ -62,7 +63,8 @@ function hasScrambleImage(type: string): boolean {
  * "Draw Scramble" tool, e.g. an unfolded cube with the U face on top and F in the middle.
  *
  * `type` is the scramble type id the scramble was made for, e.g. `'333'` or `'pll'`.
- * The SVG has a viewBox, so it can be resized with CSS, and no background.
+ * The SVG has a viewBox, so it can be resized with CSS, and no background. The `<svg>` has
+ * the class `cstimer-image` and each shape the class `cstimer-tile`, for styling with CSS.
  *
  * Throws for types csTimer has no image for (see `hasScrambleImage`).
  */
@@ -99,11 +101,12 @@ function drawImage(
   }
   const height = width === undefined ? svg.height : (svg.height * width) / svg.width;
   // csTimer's SVG only sets width and height; a viewBox lets the picture scale.
-  return svg
+  const rendered = svg
     .render()
     .replace(/ width="[^"]*"/, width === undefined ? '$&' : ` width="${round(width)}"`)
     .replace(/ height="[^"]*"/, width === undefined ? '$&' : ` height="${round(height)}"`)
     .replace('<svg ', `<svg viewBox="0 0 ${round(svg.width)} ${round(svg.height)}" `);
+  return markCstimerSvg(rendered);
 }
 
 function round(n: number): string {
