@@ -6,6 +6,7 @@ export { Puzzle, listPuzzles } from './puzzle.js';
 export type {
   ScrambleMethod,
   ImageStyle,
+  CubeStyle,
   HiddenFaces,
   CameraMode,
   CameraAngle,

@@ -3,6 +3,8 @@
 
 import { styleElement, unstyleElement } from './styling.js';
 import type { ElementStyle } from './styling.js';
+import { isStickerless, tileCorners } from './cubestyle.js';
+import type { CubeStyle } from './cubestyle.js';
 
 type Axis = 'x' | 'y';
 
@@ -337,6 +339,8 @@ interface View3DOptions {
   faceOffsets?: Partial<Record<string, FaceOffset>>;
   /** Styles for the view, its faces and its tiles (see styling.ts). */
   styles?: readonly ElementStyle[];
+  /** How the tiles look, `'classic'` by default (see `CubeStyle`). */
+  cubeStyle?: CubeStyle;
 }
 
 /**
@@ -360,6 +364,7 @@ function drawCube3D(
     offsets = {},
     faceOffsets = {},
     styles = [],
+    cubeStyle = 'classic',
   } = options;
   const angle = options.angle ?? DEFAULT_CAMERA_ANGLE;
   const angleKey = `${angle.x} ${angle.y}`;
@@ -386,11 +391,28 @@ function drawCube3D(
   moveFaces(view.faces, 0.5, faceOffsets);
   moveFaces(view.copies, 0.5 + COPY_GAP, offsets);
   turn(view);
+  // Stickerless tiles fill the whole face, with a thin, faint outline and a light shadow
+  // where the pieces meet, as in the flat picture.
+  const stickerless = isStickerless(cubeStyle);
+  const shadow = stickerless
+    ? `inset 0 0 0 calc(var(--side) * 0.006) rgba(0, 0, 0, 0.3),` +
+      ` inset 0 0 calc(var(--side) * ${0.12 / size}) rgba(0, 0, 0, 0.45)`
+    : '';
+  const corners = Array.from({ length: size * size }, (_, j) =>
+    tileCorners(cubeStyle, size, j)
+      .map((r) => `${parseFloat((r * 100).toFixed(3))}%`)
+      .join(' '),
+  );
   FACES.forEach(([name], i) => {
     const colors = stickers[name] ?? [];
     for (const face of [view.faces[i]!, view.copies[i]!]) {
+      face.style.padding = stickerless ? '0' : '';
+      face.style.gap = stickerless ? '0' : '';
       [...face.children].forEach((sticker, j) => {
-        (sticker as HTMLElement).style.background = colors[j] ?? '#111';
+        const tile = sticker as HTMLElement;
+        tile.style.background = colors[j] ?? '#111';
+        tile.style.borderRadius = corners[j]!;
+        tile.style.boxShadow = shadow;
       });
     }
   });
