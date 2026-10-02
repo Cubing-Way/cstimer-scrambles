@@ -354,6 +354,19 @@
                   <button type="button" data-style="cstimer">csTimer</button>
                 </div>
               </div>
+              <div class="option" id="cube-style-option">
+                <span>Cube style</span>
+                <div class="toggle" role="group" aria-label="Cube style">
+                  <button type="button" data-cube-style="classic">Classic</button>
+                  <button type="button" data-cube-style="stickered">Stickered</button>
+                  <button type="button" data-cube-style="stickered-round">Stickered round</button>
+                  <button type="button" data-cube-style="stickerless">Stickerless</button>
+                  <button type="button" data-cube-style="stickerless-round">
+                    Stickerless round
+                  </button>
+                </div>
+                <span class="note">Cubes only, in 2D and 3D</span>
+              </div>
               <div class="option" id="hidden-option">
                 <span>3D back faces</span>
                 <div class="toggle" role="group" aria-label="3D back faces">
@@ -562,6 +575,9 @@
       // The 2D faces and 3D back faces picked, applied to whichever puzzle is shown.
       let imageStyle = 'separated';
       let hiddenFaces = 'hidden';
+      // The cube style picked, applied to every cube.
+      let cubeStyle = 'classic';
+      const cubeStyleButtons = [...document.querySelectorAll('[data-cube-style]')];
       const styleButtons = [...document.querySelectorAll('[data-style]')];
       const hiddenButtons = [...document.querySelectorAll('[data-hidden]')];
       // The 3D camera and the floating faces' offsets picked, applied to every cube.
@@ -629,6 +645,14 @@
               : '';
         }
         $('style-option').classList.toggle('off', in3D);
+        if (puzzle.has3DView()) puzzle.setCubeStyle(cubeStyle);
+        // The csTimer picture keeps csTimer's own look.
+        const noCubeStyle = !puzzle.has3DView() || (!in3D && style === 'cstimer');
+        for (const button of cubeStyleButtons) {
+          button.setAttribute('aria-pressed', String(button.dataset.cubeStyle === cubeStyle));
+          button.disabled = noCubeStyle;
+        }
+        $('cube-style-option').classList.toggle('off', noCubeStyle);
         if (puzzle.has3DView()) puzzle.setHiddenFaces(hiddenFaces);
         for (const button of hiddenButtons) {
           button.setAttribute('aria-pressed', String(button.dataset.hidden === hiddenFaces));
@@ -794,6 +818,12 @@
       for (const button of styleButtons) {
         button.addEventListener('click', () => {
           imageStyle = button.dataset.style;
+          draw();
+        });
+      }
+      for (const button of cubeStyleButtons) {
+        button.addEventListener('click', () => {
+          cubeStyle = button.dataset.cubeStyle;
           draw();
         });
       }

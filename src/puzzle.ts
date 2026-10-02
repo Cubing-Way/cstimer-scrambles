@@ -5,6 +5,8 @@ import { drawImage, hasScrambleImage } from './image.js';
 import { drawCubeNet, thickenBorders } from './net2d.js';
 import { DEFAULT_CAMERA_ANGLE, drawCube3D } from './view3d.js';
 import type { CameraAngle, CameraMode, FaceOffset, HiddenFaces } from './view3d.js';
+import { CUBE_STYLES } from './cubestyle.js';
+import type { CubeStyle } from './cubestyle.js';
 import { IMAGE_PARTS, styleSvg } from './styling.js';
 import type { ElementStyle, ImagePart, PartFilter } from './styling.js';
 import image from './vendor/cstimer/image.js';
@@ -273,6 +275,7 @@ class Puzzle {
   #imageSize: number | undefined;
   #imageStyle: ImageStyle = 'separated';
   #hiddenFaces: HiddenFaces = 'hidden';
+  #cubeStyle: CubeStyle = 'classic';
   #cameraMode: CameraMode = 'mouse';
   #cameraAngle: CameraAngle = { ...DEFAULT_CAMERA_ANGLE };
   #floatingOffsets: Partial<Record<string, FaceOffset>> = {};
@@ -375,6 +378,26 @@ class Puzzle {
   /** The style set with `setImageStyle`, `'separated'` by default. */
   getImageStyle(): ImageStyle {
     return this.#imageStyle;
+  }
+
+  /**
+   * Picks a ready-made look for a cube's tiles, in `getImage()` (with any image style but
+   * `'cstimer'`) and in `show3D` alike: `'classic'` (the default), `'stickered'`,
+   * `'stickered-round'`, `'stickerless'` or `'stickerless-round'` (see `CubeStyle`).
+   * Styles from `setElementStyle` still win over it. Only cubes have it (see `has3DView`);
+   * the other puzzles are drawn as before.
+   */
+  setCubeStyle(style: CubeStyle): this {
+    if (!CUBE_STYLES.includes(style)) {
+      throw new Error(`Unknown cube style "${style}". Styles: ${CUBE_STYLES.join(', ')}`);
+    }
+    this.#cubeStyle = style;
+    return this;
+  }
+
+  /** The style set with `setCubeStyle`, `'classic'` by default. */
+  getCubeStyle(): CubeStyle {
+    return this.#cubeStyle;
   }
 
   /**
@@ -768,6 +791,7 @@ class Puzzle {
       offsets: this.#floatingOffsets,
       faceOffsets: this.#faceOffsets,
       styles: this.#styles,
+      cubeStyle: this.#cubeStyle,
     });
     return this;
   }
@@ -792,7 +816,8 @@ class Puzzle {
     // A cube's own scramble types (not relays of it) are drawn from its stickers.
     const size = this.#info.cubeSize;
     if (style !== 'cstimer' && size !== undefined && tools.puzzleType(type) === this.id) {
-      return styleSvg(drawCubeNet(size, this.getStickers(), style, this.#imageSize), this.#styles);
+      const svg = drawCubeNet(size, this.getStickers(), style, this.#imageSize, this.#cubeStyle);
+      return styleSvg(svg, this.#styles);
     }
     const colors = this.#info.cstimerOrder
       .map((face) => toCstimerColor(this.#colors[face]!))
@@ -817,6 +842,7 @@ export { Puzzle, listPuzzles };
 export type {
   ScrambleMethod,
   ImageStyle,
+  CubeStyle,
   HiddenFaces,
   CameraMode,
   CameraAngle,

@@ -2,6 +2,9 @@
 // and stickers with rounded corners. Cubes get their own drawing; the other puzzles keep
 // csTimer's drawing with thicker black borders.
 
+import { isStickerless, tileCorners } from './cubestyle.js';
+import type { CubeStyle } from './cubestyle.js';
+
 /**
  * How the cube's faces are laid out in the flat picture:
  * - `'separated'`: the unfolded cube with a gap between the faces.
@@ -34,25 +37,62 @@ function round(n: number): string {
   return parseFloat(n.toFixed(3)).toString();
 }
 
+/** A `w` x `w` square at `x`, `y` with each corner rounded by its own radius, as a path. */
+function roundedSquare(x: number, y: number, w: number, corners: number[]): string {
+  const [tl = 0, tr = 0, br = 0, bl = 0] = corners;
+  const arc = (r: number, toX: number, toY: number) =>
+    r > 0 ? `A${round(r)} ${round(r)} 0 0 1 ${round(toX)} ${round(toY)}` : '';
+  return (
+    `M${round(x + tl)} ${round(y)}H${round(x + w - tr)}${arc(tr, x + w, y + tr)}` +
+    `V${round(y + w - br)}${arc(br, x + w - br, y + w)}H${round(x + bl)}${arc(bl, x, y + w - bl)}` +
+    `V${round(y + tl)}${arc(tl, x + tl, y)}Z`
+  );
+}
+
+/**
+ * A soft shadow along the inside of a tile's edges, for the stickerless styles, where the
+ * pieces touch (along with a thin, faint outline on the tile). Its id carries the blur, so pictures of different cubes on one page don't
+ * pick up each other's.
+ */
+function shadowFilter(blur: number): { id: string; svg: string } {
+  const id = `cstimer-shadow-${round(blur).replace('.', '_')}`;
+  return {
+    id,
+    svg:
+      `<filter id="${id}"><feFlood flood-color="#000" flood-opacity="0.45"/>` +
+      `<feComposite in2="SourceAlpha" operator="out"/><feGaussianBlur stdDeviation="${round(blur)}"/>` +
+      `<feComposite in2="SourceAlpha" operator="in"/>` +
+      `<feMerge><feMergeNode in="SourceGraphic"/><feMergeNode/></feMerge></filter>`,
+  };
+}
+
 /**
  * Draws a size x size x size cube unfolded, as an SVG string, with each face's sticker
  * colors in the order `Puzzle.getStickers()` gives them. A face is `width / 4` pixels wide,
  * the same as in the 3D view, so the joined faces are `width` pixels wide and the separated
  * ones a little wider for the gaps; without it a face is 100 pixels wide. The picture, each
- * face and each tile carry the class names and data attributes of styling.ts.
+ * face and each tile carry the class names and data attributes of styling.ts. `style`
+ * picks the tiles' look (see `CubeStyle`).
  */
 function drawCubeNet(
   size: number,
   stickers: Record<string, string[]>,
   layout: NetLayout = 'separated',
   width?: number,
+  style: CubeStyle = 'classic',
 ): string {
   const step = SIDE + (layout === 'joined' ? 0 : FACE_GAP);
   const w = 3 * step + SIDE;
   const h = 2 * step + SIDE;
-  const cell = (SIDE - 2 * PADDING - (size - 1) * GAP) / size;
+  // Stickerless tiles fill the whole face, with no black border or gaps.
+  const stickerless = isStickerless(style);
+  const padding = stickerless ? 0 : PADDING;
+  const gap = stickerless ? 0 : GAP;
+  const cell = (SIDE - 2 * padding - (size - 1) * gap) / size;
   const radius = round(cell * 0.12);
   const parts: string[] = [];
+  const shadow = stickerless ? shadowFilter(cell * 0.06) : undefined;
+  if (shadow) parts.push(`<defs>${shadow.svg}</defs>`);
   if (layout === 'joined') {
     // The black behind the faces as two overlapping strips, a row and a column, so there
     // are no seams where the faces' own backgrounds touch.
@@ -72,8 +112,21 @@ function drawCubeNet(
     );
     const colors = stickers[face] ?? [];
     for (let i = 0; i < size * size; i++) {
-      const x = x0 + PADDING + (i % size) * (cell + GAP);
-      const y = y0 + PADDING + Math.floor(i / size) * (cell + GAP);
+      const x = x0 + padding + (i % size) * (cell + gap);
+      const y = y0 + padding + Math.floor(i / size) * (cell + gap);
+      if (style !== 'classic') {
+        const corners = tileCorners(style, size, i).map((r) => r * cell);
+        parts.push(
+          `<path class="cstimer-tile" data-face="${face}" data-tile="${i}"` +
+            ` d="${roundedSquare(x, y, cell, corners)}" fill="${colors[i] ?? BLACK}"` +
+            (shadow
+              ? ` stroke="#000" stroke-opacity="0.3" stroke-width="${round(SIDE * 0.012)}"`
+              : '') +
+            (shadow ? ` filter="url(#${shadow.id})"` : '') +
+            '/>',
+        );
+        continue;
+      }
       parts.push(
         `<rect class="cstimer-tile" data-face="${face}" data-tile="${i}"` +
           ` x="${round(x)}" y="${round(y)}" width="${round(cell)}" height="${round(cell)}"` +
