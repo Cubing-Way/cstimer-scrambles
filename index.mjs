@@ -2477,6 +2477,78 @@ var image = (function() {
 	};
 })();
 //#endregion
+//#region src/styling.ts
+const IMAGE_PARTS = [
+	"image",
+	"face",
+	"tile"
+];
+/** `strokeWidth` and `stroke-width` both become `stroke-width`. */
+function kebab(property) {
+	return property.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`);
+}
+/**
+* The CSS for one part, from every style that is for it; later styles win over earlier
+* ones. `face` and `tile` are the part's own, when it has them.
+*/
+function cssFor(styles, part, face, tile) {
+	const css = /* @__PURE__ */ new Map();
+	for (const style of styles) {
+		if (style.part !== part) continue;
+		if (style.face !== void 0 && style.face !== face) continue;
+		if (style.tile !== void 0 && style.tile !== tile) continue;
+		for (const [property, value] of Object.entries(style.css)) {
+			css.delete(kebab(property));
+			css.set(kebab(property), value);
+		}
+	}
+	return css;
+}
+function escapeAttribute(text) {
+	return text.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
+}
+/**
+* Adds the styles to an SVG drawn with the class names above, at the end of each part's
+* `style` attribute, so they win over the picture's own colors and sizes.
+*/
+function styleSvg(svg, styles) {
+	if (styles.length === 0) return svg;
+	return svg.replace(/<(\w+)([^>]*?)(\/?)>/g, (tag, name, attrs, end) => {
+		const part = attrs.match(/class="cstimer-(image|face|tile)"/)?.[1];
+		if (!part) return tag;
+		const face = attrs.match(/data-face="([^"]*)"/)?.[1];
+		const tile = attrs.match(/data-tile="(\d+)"/)?.[1];
+		const css = cssFor(styles, part, face, tile === void 0 ? void 0 : Number(tile));
+		if (css.size === 0) return tag;
+		const added = [...css].map(([property, value]) => `${property}:${value};`).join("");
+		const own = attrs.match(/ style="([^"]*)"/);
+		const style = ` style="${own ? own[1] : ""}${escapeAttribute(added)}"`;
+		return `<${name}${own ? attrs.replace(own[0], "") : attrs}${style}${end}>`;
+	});
+}
+/** Marks the parts of one of csTimer's pictures: the `<svg>` as the image, each shape as a tile. */
+function markCstimerSvg(svg) {
+	return svg.replace("<svg ", "<svg class=\"cstimer-image\" ").replace(/<(polygon|circle|path|rect) /g, "<$1 class=\"cstimer-tile\" ");
+}
+/** The CSS each element got from `styleElement`, with what it had before, to put back. */
+const applied = /* @__PURE__ */ new WeakMap();
+/** Takes away the styles `styleElement` gave an element, putting back what it had before. */
+function unstyleElement(element) {
+	for (const [property, value] of applied.get(element) ?? []) element.style.setProperty(property, value);
+	applied.delete(element);
+}
+/** Gives an element of the 3D view the styles that are for it. */
+function styleElement(element, styles, part, face, tile) {
+	const css = cssFor(styles, part, face, tile);
+	if (css.size === 0) return;
+	const before = /* @__PURE__ */ new Map();
+	for (const [property, value] of css) {
+		before.set(property, element.style.getPropertyValue(property));
+		element.style.setProperty(property, value);
+	}
+	applied.set(element, before);
+}
+//#endregion
 //#region src/image.ts
 /**
 * Puzzles csTimer's image code can draw, as csTimer's puzzle type ids (what
@@ -2530,7 +2602,8 @@ function hasScrambleImage(type) {
 * "Draw Scramble" tool, e.g. an unfolded cube with the U face on top and F in the middle.
 *
 * `type` is the scramble type id the scramble was made for, e.g. `'333'` or `'pll'`.
-* The SVG has a viewBox, so it can be resized with CSS, and no background.
+* The SVG has a viewBox, so it can be resized with CSS, and no background. The `<svg>` has
+* the class `cstimer-image` and each shape the class `cstimer-tile`, for styling with CSS.
 *
 * Throws for types csTimer has no image for (see `hasScrambleImage`).
 */
@@ -2558,7 +2631,7 @@ function drawImage(type, scramble, settings = {}, width) {
 	}
 	if (!svg) throw new Error(`csTimer has no scramble image for "${type}"`);
 	const height = width === void 0 ? svg.height : svg.height * width / svg.width;
-	return svg.render().replace(/ width="[^"]*"/, width === void 0 ? "$&" : ` width="${round$1(width)}"`).replace(/ height="[^"]*"/, width === void 0 ? "$&" : ` height="${round$1(height)}"`).replace("<svg ", `<svg viewBox="0 0 ${round$1(svg.width)} ${round$1(svg.height)}" `);
+	return markCstimerSvg(svg.render().replace(/ width="[^"]*"/, width === void 0 ? "$&" : ` width="${round$1(width)}"`).replace(/ height="[^"]*"/, width === void 0 ? "$&" : ` height="${round$1(height)}"`).replace("<svg ", `<svg viewBox="0 0 ${round$1(svg.width)} ${round$1(svg.height)}" `));
 }
 function round$1(n) {
 	return parseFloat(n.toFixed(3)).toString();
@@ -2615,7 +2688,8 @@ function round(n) {
 * Draws a size x size x size cube unfolded, as an SVG string, with each face's sticker
 * colors in the order `Puzzle.getStickers()` gives them. A face is `width / 4` pixels wide,
 * the same as in the 3D view, so the joined faces are `width` pixels wide and the separated
-* ones a little wider for the gaps; without it a face is 100 pixels wide.
+* ones a little wider for the gaps; without it a face is 100 pixels wide. The picture, each
+* face and each tile carry the class names and data attributes of styling.ts.
 */
 function drawCubeNet(size, stickers, layout = "separated", width) {
 	const step = SIDE + (layout === "joined" ? 0 : FACE_GAP);
@@ -2624,20 +2698,21 @@ function drawCubeNet(size, stickers, layout = "separated", width) {
 	const cell = (SIDE - 2 * PADDING - (size - 1) * GAP) / size;
 	const radius = round(cell * .12);
 	const parts = [];
-	if (layout === "joined") parts.push(`<rect x="0" y="${SIDE}" width="${w}" height="${SIDE}" fill="${BLACK}"/>`, `<rect x="${SIDE}" y="0" width="${SIDE}" height="${h}" fill="${BLACK}"/>`);
+	if (layout === "joined") parts.push(`<rect class="cstimer-background" x="0" y="${SIDE}" width="${w}" height="${SIDE}" fill="${BLACK}"/>`, `<rect class="cstimer-background" x="${SIDE}" y="0" width="${SIDE}" height="${h}" fill="${BLACK}"/>`);
 	for (const [face, col, row] of NET) {
 		const x0 = col * step;
 		const y0 = row * step;
-		if (layout === "separated") parts.push(`<rect x="${x0}" y="${y0}" width="${SIDE}" height="${SIDE}" fill="${BLACK}"/>`);
+		parts.push(`<g class="cstimer-face" data-face="${face}" fill="${BLACK}">`, `<rect class="cstimer-face-bg" x="${x0}" y="${y0}" width="${SIDE}" height="${SIDE}"/>`);
 		const colors = stickers[face] ?? [];
 		for (let i = 0; i < size * size; i++) {
 			const x = x0 + PADDING + i % size * (cell + GAP);
 			const y = y0 + PADDING + Math.floor(i / size) * (cell + GAP);
-			parts.push(`<rect x="${round(x)}" y="${round(y)}" width="${round(cell)}" height="${round(cell)}" rx="${radius}" fill="${colors[i] ?? BLACK}"/>`);
+			parts.push(`<rect class="cstimer-tile" data-face="${face}" data-tile="${i}" x="${round(x)}" y="${round(y)}" width="${round(cell)}" height="${round(cell)}" rx="${radius}" fill="${colors[i] ?? BLACK}"/>`);
 		}
+		parts.push("</g>");
 	}
 	const pxWidth = width === void 0 ? w : width / 4 * (w / SIDE);
-	return `<svg viewBox="0 0 ${w} ${h}" width="${round(pxWidth)}" height="${round(pxWidth * h / w)}" xmlns="http://www.w3.org/2000/svg">${parts.join("")}</svg>`;
+	return `<svg class="cstimer-image" viewBox="0 0 ${w} ${h}" width="${round(pxWidth)}" height="${round(pxWidth * h / w)}" xmlns="http://www.w3.org/2000/svg">${parts.join("")}</svg>`;
 }
 /**
 * Gives one of csTimer's pictures the same look: its thin black outlines become thick,
@@ -2841,13 +2916,14 @@ function placeCopies(view) {
 	});
 }
 /**
-* Puts each floating copy a little way out from its face, then moves and turns it by its
-* offset. CSS's y points down, so the offset's y (toward U) and its turn about y flip.
+* Puts each face (or floating copy) `out` cube sides out from the cube's center, then moves
+* and turns it by its offset. CSS's y points down, so the offset's y (toward U) and its turn
+* about y flip.
 */
-function moveCopies(view, offsets) {
+function moveFaces(faces, out, offsets) {
 	FACES.forEach(([name, axis, degrees], i) => {
 		const offset = offsets[name];
-		const [x, y, z] = column(rotation(axis, degrees), 2).map((n) => n * 1.5);
+		const [x, y, z] = column(rotation(axis, degrees), 2).map((n) => n * out);
 		const center = [
 			x + (offset?.x ?? 0),
 			y - (offset?.y ?? 0),
@@ -2855,7 +2931,7 @@ function moveCopies(view, offsets) {
 		];
 		const turns = offset ? `rotateZ(${offset.rotateZ}deg) rotateY(${-offset.rotateY}deg) rotateX(${offset.rotateX}deg) ` : "";
 		const [cx, cy, cz] = center.map((n) => `calc(var(--side) * ${n})`);
-		view.copies[i].style.transform = `translate3d(${cx}, ${cy}, ${cz}) ${turns}${place(axis, degrees)}`;
+		faces[i].style.transform = `translate3d(${cx}, ${cy}, ${cz}) ${turns}${place(axis, degrees)}`;
 	});
 }
 /** The views already drawn, by the element they are in, so drawing again updates them. */
@@ -2902,20 +2978,25 @@ function createView(element, size, angle, setAngle) {
 	const doc = element.ownerDocument;
 	addStyle(doc);
 	const box = doc.createElement("div");
-	box.className = "cstimer-3d";
+	box.className = "cstimer-3d cstimer-image";
 	const cube = doc.createElement("div");
 	cube.className = "cstimer-3d-cube";
 	const makeFace = (name, className) => {
 		const face = doc.createElement("div");
-		face.className = className;
+		face.className = `${className} cstimer-face`;
 		face.dataset.face = name;
 		face.style.gridTemplate = `repeat(${size}, 1fr) / repeat(${size}, 1fr)`;
-		for (let i = 0; i < size * size; i++) face.append(doc.createElement("div"));
+		for (let i = 0; i < size * size; i++) {
+			const tile = doc.createElement("div");
+			tile.className = "cstimer-tile";
+			tile.dataset.face = name;
+			tile.dataset.tile = String(i);
+			face.append(tile);
+		}
 		return face;
 	};
-	const faces = FACES.map(([name, axis, degrees]) => {
+	const faces = FACES.map(([name]) => {
 		const face = makeFace(name, "cstimer-3d-face");
-		face.style.transform = `${place(axis, degrees)} translateZ(calc(var(--side) / 2))`;
 		cube.append(face);
 		return face;
 	});
@@ -2959,7 +3040,7 @@ function createView(element, size, angle, setAngle) {
 * the cube was dragged to is kept, unless the camera is fixed or its angle changed.
 */
 function drawCube3D(element, size, stickers, options = {}) {
-	const { width, hidden = "hidden", camera = "mouse", offsets = {} } = options;
+	const { width, hidden = "hidden", camera = "mouse", offsets = {}, faceOffsets = {}, styles = [] } = options;
 	const angle = options.angle ?? DEFAULT_CAMERA_ANGLE;
 	const angleKey = `${angle.x} ${angle.y}`;
 	let view = views.get(element);
@@ -2967,6 +3048,13 @@ function drawCube3D(element, size, stickers, options = {}) {
 		view = view ? createView(element, size, view.angle, view.setAngle) : createView(element, size, { ...angle }, angleKey);
 		views.set(element, view);
 	}
+	const tiles = [...view.faces, ...view.copies].flatMap((face) => [...face.children]);
+	[
+		view.box,
+		...view.faces,
+		...view.copies,
+		...tiles
+	].forEach(unstyleElement);
 	view.fixed = camera === "fixed";
 	if (view.fixed || view.setAngle !== angleKey) {
 		view.angle = {
@@ -2980,7 +3068,8 @@ function drawCube3D(element, size, stickers, options = {}) {
 	view.box.style.width = width === void 0 ? "" : `${width / 4 * sides}px`;
 	view.box.classList.toggle("cstimer-3d-floating", view.floating);
 	view.box.classList.toggle("cstimer-3d-fixed", view.fixed);
-	moveCopies(view, offsets);
+	moveFaces(view.faces, .5, faceOffsets);
+	moveFaces(view.copies, 1.5, offsets);
 	turn(view);
 	FACES.forEach(([name], i) => {
 		const colors = stickers[name] ?? [];
@@ -2988,11 +3077,23 @@ function drawCube3D(element, size, stickers, options = {}) {
 			sticker.style.background = colors[j] ?? "#111";
 		});
 	});
+	if (styles.length > 0) {
+		styleElement(view.box, styles, "image");
+		for (const face of [...view.faces, ...view.copies]) {
+			styleElement(face, styles, "face", face.dataset.face);
+			for (const tile of face.children) styleElement(tile, styles, "tile", tile.dataset.face, Number(tile.dataset.tile));
+		}
+	}
 }
 //#endregion
 //#region \0@oxc-project+runtime@0.152.0/helpers/esm/checkPrivateRedeclaration.js
 function _checkPrivateRedeclaration(e, t) {
 	if (t.has(e)) throw new TypeError("Cannot initialize the same private elements twice on an object");
+}
+//#endregion
+//#region \0@oxc-project+runtime@0.152.0/helpers/esm/classPrivateMethodInitSpec.js
+function _classPrivateMethodInitSpec(e, a) {
+	_checkPrivateRedeclaration(e, a), a.add(e);
 }
 //#endregion
 //#region \0@oxc-project+runtime@0.152.0/helpers/esm/classPrivateFieldInitSpec.js
@@ -3357,13 +3458,16 @@ var _imageStyle = /* @__PURE__ */ new WeakMap();
 var _hiddenFaces = /* @__PURE__ */ new WeakMap();
 var _cameraMode = /* @__PURE__ */ new WeakMap();
 var _cameraAngle = /* @__PURE__ */ new WeakMap();
+var _floatingOffsets = /* @__PURE__ */ new WeakMap();
 var _faceOffsets = /* @__PURE__ */ new WeakMap();
+var _styles = /* @__PURE__ */ new WeakMap();
 var _method = /* @__PURE__ */ new WeakMap();
 var _length = /* @__PURE__ */ new WeakMap();
 var _scramble = /* @__PURE__ */ new WeakMap();
 var _solution = /* @__PURE__ */ new WeakMap();
 var _scrambleType = /* @__PURE__ */ new WeakMap();
 var _type = /* @__PURE__ */ new WeakMap();
+var _Puzzle_brand = /* @__PURE__ */ new WeakSet();
 /**
 * One physical puzzle, e.g. `new Puzzle('333')`. Each puzzle keeps its own settings
 * (colors, image size, scramble method and length), so two puzzles never affect each other.
@@ -3373,6 +3477,7 @@ var _type = /* @__PURE__ */ new WeakMap();
 */
 var Puzzle = class {
 	constructor(id) {
+		_classPrivateMethodInitSpec(this, _Puzzle_brand);
 		_classPrivateFieldInitSpec(this, _info, void 0);
 		_classPrivateFieldInitSpec(this, _colors, void 0);
 		_classPrivateFieldInitSpec(this, _imageSize, void 0);
@@ -3380,7 +3485,9 @@ var Puzzle = class {
 		_classPrivateFieldInitSpec(this, _hiddenFaces, "hidden");
 		_classPrivateFieldInitSpec(this, _cameraMode, "mouse");
 		_classPrivateFieldInitSpec(this, _cameraAngle, { ...DEFAULT_CAMERA_ANGLE });
+		_classPrivateFieldInitSpec(this, _floatingOffsets, {});
 		_classPrivateFieldInitSpec(this, _faceOffsets, {});
+		_classPrivateFieldInitSpec(this, _styles, []);
 		_classPrivateFieldInitSpec(this, _method, "default");
 		_classPrivateFieldInitSpec(this, _length, void 0);
 		_classPrivateFieldInitSpec(this, _scramble, "");
@@ -3478,29 +3585,83 @@ var Puzzle = class {
 	* `setFloatingFaceOffset('L', { x: 1, rotateY: 45 })`. Positions are in face widths and
 	* turns in degrees, in the cube's directions: x toward R, y toward U, z toward F (see
 	* `FaceOffset`). Values left out are 0, and it replaces the face's earlier offset.
+	* Any of the six faces can be moved; a copy only shows while its face is at the back.
 	* Only for cubes (see `has3DView`).
 	*/
 	setFloatingFaceOffset(face, offset) {
-		if (!this.has3DView()) throw new Error(`${this.name} has no 3D view yet, only cubes do`);
-		if (!CUBE_FACES.includes(face)) throw new Error(`${this.name} has no face "${face}". Faces: ${CUBE_FACES.join(", ")}`);
-		const full = {
-			...NO_OFFSET,
-			...offset
-		};
-		for (const [key, value] of Object.entries(full)) {
-			if (!(key in NO_OFFSET)) throw new Error(`Unknown offset "${key}". Offsets: ${Object.keys(NO_OFFSET).join(", ")}`);
-			if (typeof value !== "number" || !Number.isFinite(value)) throw new Error(`Offset ${key} must be a number, not ${value}`);
-		}
-		_classPrivateFieldGet2(_faceOffsets, this)[face] = full;
+		_classPrivateFieldGet2(_floatingOffsets, this)[face] = _assertClassBrand(_Puzzle_brand, this, _checkOffset).call(this, face, offset);
 		return this;
 	}
 	/** The offset set with `setFloatingFaceOffset` for one face, all 0 by default. */
 	getFloatingFaceOffset(face) {
-		return { ..._classPrivateFieldGet2(_faceOffsets, this)[face] ?? NO_OFFSET };
+		return { ..._classPrivateFieldGet2(_floatingOffsets, this)[face] ?? NO_OFFSET };
 	}
 	/** Puts every floating face back where it floats by default. */
 	resetFloatingFaceOffsets() {
+		_classPrivateFieldSet2(_floatingOffsets, this, {});
+		return this;
+	}
+	/**
+	* Moves and turns one face of the cube itself in the `show3D` view, the way
+	* `setFloatingFaceOffset` moves a floating copy, e.g. `setFaceOffset('U', { y: 0.5 })` to
+	* lift the top face off the cube. It works with hidden and floating back faces alike.
+	* Only for cubes (see `has3DView`).
+	*/
+	setFaceOffset(face, offset) {
+		_classPrivateFieldGet2(_faceOffsets, this)[face] = _assertClassBrand(_Puzzle_brand, this, _checkOffset).call(this, face, offset);
+		return this;
+	}
+	/** The offset set with `setFaceOffset` for one face, all 0 by default. */
+	getFaceOffset(face) {
+		return { ..._classPrivateFieldGet2(_faceOffsets, this)[face] ?? NO_OFFSET };
+	}
+	/** Puts every face of the cube back in its place. */
+	resetFaceOffsets() {
 		_classPrivateFieldSet2(_faceOffsets, this, {});
+		return this;
+	}
+	/**
+	* Adds a style of your own to some parts of the picture, in `getImage()`'s SVG and in the
+	* `show3D` view: the whole picture (`'image'`), the faces (`'face'`) or the tiles
+	* (`'tile'`), all of them or only those of one face, or one tile by its number on its face
+	* (counted row by row from the top left, from 0). `css` holds CSS properties and values,
+	* e.g. `setElementStyle('tile', { stroke: '#fff', strokeWidth: '2' })` or
+	* `setElementStyle('face', { opacity: '0.4' }, { face: 'B' })`. Styles add up, and a later
+	* one wins over an earlier one on the same property.
+	*
+	* The SVG takes SVG properties (`fill`, `stroke`, `rx`, `opacity`...) and the 3D view
+	* HTML ones (`background`, `border-radius`, `opacity`...). A face of the SVG is a group:
+	* its `fill` colors its black background, its `stroke` outlines its background and tiles.
+	* Faces and tile numbers are for cubes drawn by this library (any image style but
+	* `'cstimer'`, and the 3D view); csTimer's pictures only have the image and its tiles. The
+	* same parts carry class names and data attributes (`cstimer-image`, `cstimer-face`,
+	* `cstimer-tile`, `data-face`, `data-tile`) for styling with a page's own CSS instead.
+	*/
+	setElementStyle(part, css, where = {}) {
+		if (!IMAGE_PARTS.includes(part)) throw new Error(`Unknown part "${part}". Parts: ${IMAGE_PARTS.join(", ")}`);
+		for (const [property, value] of Object.entries(css)) if (typeof value !== "string" || !/^[a-zA-Z-]+$/.test(property)) throw new Error(`CSS must be property names with text values, not ${property}: ${value}`);
+		if ((where.face !== void 0 || where.tile !== void 0) && !this.has3DView()) throw new Error(`Only cubes have faces and tile numbers to style, not ${this.name}`);
+		if (where.face !== void 0 && !CUBE_FACES.includes(where.face)) throw new Error(`${this.name} has no face "${where.face}". Faces: ${CUBE_FACES.join(", ")}`);
+		if (where.tile !== void 0 && !(Number.isInteger(where.tile) && where.tile >= 0)) throw new Error(`A tile number must be a whole number from 0, not ${where.tile}`);
+		const style = {
+			part,
+			css: { ...css }
+		};
+		if (where.face !== void 0) style.face = where.face;
+		if (where.tile !== void 0) style.tile = where.tile;
+		_classPrivateFieldGet2(_styles, this).push(style);
+		return this;
+	}
+	/** The styles added with `setElementStyle`, in the order they were added. */
+	getElementStyles() {
+		return _classPrivateFieldGet2(_styles, this).map((style) => ({
+			...style,
+			css: { ...style.css }
+		}));
+	}
+	/** Takes away every style added with `setElementStyle`. */
+	resetElementStyles() {
+		_classPrivateFieldSet2(_styles, this, []);
 		return this;
 	}
 	/**
@@ -3704,7 +3865,8 @@ var Puzzle = class {
 	* unless the camera is fixed (see `setCameraMode`). Call it again after changing the
 	* puzzle to update the view: the cube keeps the angle it was dragged to. Only for cubes
 	* (see `has3DView`), and only in a browser. `setHiddenFaces('floating')` also shows the
-	* faces at the back, and `setFloatingFaceOffset` moves them.
+	* faces at the back, and `setFloatingFaceOffset` moves them. `setFaceOffset` moves the
+	* cube's own faces and `setElementStyle` styles the view.
 	*/
 	show3D(element) {
 		drawCube3D(element, _classPrivateFieldGet2(_info, this).cubeSize ?? 0, this.getStickers(), {
@@ -3712,7 +3874,9 @@ var Puzzle = class {
 			hidden: _classPrivateFieldGet2(_hiddenFaces, this),
 			camera: _classPrivateFieldGet2(_cameraMode, this),
 			angle: _classPrivateFieldGet2(_cameraAngle, this),
-			offsets: _classPrivateFieldGet2(_faceOffsets, this)
+			offsets: _classPrivateFieldGet2(_floatingOffsets, this),
+			faceOffsets: _classPrivateFieldGet2(_faceOffsets, this),
+			styles: _classPrivateFieldGet2(_styles, this)
 		});
 		return this;
 	}
@@ -3731,18 +3895,32 @@ var Puzzle = class {
 		if (!hasScrambleImage(type)) throw new Error(`csTimer has no picture for "${type}" scrambles`);
 		const style = _classPrivateFieldGet2(_imageStyle, this);
 		const size = _classPrivateFieldGet2(_info, this).cubeSize;
-		if (style !== "cstimer" && size !== void 0 && tools.puzzleType(type) === this.id) return drawCubeNet(size, this.getStickers(), style, _classPrivateFieldGet2(_imageSize, this));
+		if (style !== "cstimer" && size !== void 0 && tools.puzzleType(type) === this.id) return styleSvg(drawCubeNet(size, this.getStickers(), style, _classPrivateFieldGet2(_imageSize, this)), _classPrivateFieldGet2(_styles, this));
 		const colors = _classPrivateFieldGet2(_info, this).cstimerOrder.map((face) => toCstimerColor(_classPrivateFieldGet2(_colors, this)[face])).join("");
 		let moves = [_classPrivateFieldGet2(_scramble, this), _classPrivateFieldGet2(_solution, this)].filter(Boolean).join(" ");
 		if (this.id === "sq1") moves = joinSq1Turns(moves);
 		try {
 			const svg = drawImage(type, moves, _classPrivateFieldGet2(_info, this).colorSetting ? { [_classPrivateFieldGet2(_info, this).colorSetting]: colors } : {}, _classPrivateFieldGet2(_imageSize, this));
-			return style === "cstimer" ? svg : thickenBorders(svg);
+			return styleSvg(style === "cstimer" ? svg : thickenBorders(svg), _classPrivateFieldGet2(_styles, this));
 		} catch {
 			throw new Error(`Can't read these moves as ${this.name} moves: "${moves}"`);
 		}
 	}
 };
+/** Checks a face offset, filling in 0 for the values left out. */
+function _checkOffset(face, offset) {
+	if (!this.has3DView()) throw new Error(`${this.name} has no 3D view yet, only cubes do`);
+	if (!CUBE_FACES.includes(face)) throw new Error(`${this.name} has no face "${face}". Faces: ${CUBE_FACES.join(", ")}`);
+	const full = {
+		...NO_OFFSET,
+		...offset
+	};
+	for (const [key, value] of Object.entries(full)) {
+		if (!(key in NO_OFFSET)) throw new Error(`Unknown offset "${key}". Offsets: ${Object.keys(NO_OFFSET).join(", ")}`);
+		if (typeof value !== "number" || !Number.isFinite(value)) throw new Error(`Offset ${key} must be a number, not ${value}`);
+	}
+	return full;
+}
 //#endregion
 //#region src/cstimer.ts
 const ENTITIES = {
