@@ -42,16 +42,21 @@
         margin: 0 0 12px;
         font-size: 1.1rem;
       }
-      /* Two panels side by side on wide screens: making scrambles, then showing the puzzle. */
+      /* Two panels the full width of the page: making scrambles, then showing the puzzle. */
       .layout {
         display: grid;
-        grid-template-columns: minmax(0, 1fr) auto;
+        grid-template-columns: minmax(0, 1fr);
         gap: 20px;
-        align-items: start;
         margin-top: 20px;
       }
-      @media (max-width: 1100px) {
-        .layout {
+      /* The scramble and the solution side by side on wide screens. */
+      .move-boxes {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+        gap: 0 20px;
+      }
+      @media (max-width: 800px) {
+        .move-boxes {
           grid-template-columns: minmax(0, 1fr);
         }
       }
@@ -65,11 +70,12 @@
       .panel .meta {
         margin: 12px 0 0;
       }
-      /* The visualizer: its options in a column right next to the picture. */
+      /* The visualizer: its options in a column right next to the picture, both centered. */
       .viewer {
         display: flex;
-        gap: 20px;
+        gap: 32px;
         align-items: flex-start;
+        justify-content: center;
       }
       @media (max-width: 700px) {
         .viewer {
@@ -273,19 +279,21 @@
             >
             <button id="next">New scramble</button>
           </div>
-          <label class="moves">
-            <span id="scramble-label">Scramble</span>
-            <textarea id="scramble" rows="2" spellcheck="false"></textarea>
-          </label>
-          <label class="moves">
-            <span id="solution-label">Solution</span>
-            <textarea
-              id="solution"
-              rows="2"
-              spellcheck="false"
-              placeholder="Type moves here"
-            ></textarea>
-          </label>
+          <div class="move-boxes">
+            <label class="moves">
+              <span id="scramble-label">Scramble</span>
+              <textarea id="scramble" rows="2" spellcheck="false"></textarea>
+            </label>
+            <label class="moves">
+              <span id="solution-label">Solution</span>
+              <textarea
+                id="solution"
+                rows="2"
+                spellcheck="false"
+                placeholder="Type moves here"
+              ></textarea>
+            </label>
+          </div>
           <p class="meta" id="info"></p>
         </section>
         <section class="panel" aria-labelledby="viewer-heading">
