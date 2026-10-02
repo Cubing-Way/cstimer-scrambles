@@ -2650,26 +2650,13 @@ const CLASSIC_RADIUS = .12;
 const RADIUS = .25;
 const ROUND_RADIUS = .32;
 /**
-* How wide the darker line along a stickerless tile's edges is, as a part of its width.
-* Two touching tiles each draw one, so the line between them is twice as wide.
+* How wide the dark line between two stickerless tiles is, as a part of the space one tile
+* takes on the face. It is the black of the face showing through a gap between the tiles,
+* like the plastic between the pieces of a real stickerless cube, so two touching tiles
+* share one line. Along the face's border the line is half as wide, so where two faces meet
+* it adds up to the same width.
 */
-const SEAM = .035;
-/**
-* The darker shade of a tile's color for its line in the stickerless styles. Hex and
-* `rgb()` colors are worked out here, so the picture looks the same anywhere; any other
-* CSS color is left to the browser with `color-mix`.
-*/
-function seamColor(color) {
-	let rgb;
-	const hex = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(color.trim());
-	if (hex) rgb = (hex[1].length === 3 ? [...hex[1]].map((d) => d + d) : hex[1].match(/../g)).map((d) => parseInt(d, 16));
-	else {
-		const fn = /^rgb\(\s*(\d+)[\s,]+(\d+)[\s,]+(\d+)\s*\)$/i.exec(color.trim());
-		if (fn) rgb = fn.slice(1, 4).map(Number);
-	}
-	if (!rgb) return `color-mix(in srgb, ${color} ${Math.round(65)}%, #000)`;
-	return `#${rgb.map((c) => Math.round(Math.min(c, 255) * .65).toString(16).padStart(2, "0")).join("")}`;
-}
+const SEAM = .07;
 function isStickerless(style) {
 	return style.startsWith("stickerless");
 }
@@ -2769,12 +2756,11 @@ function drawCubeNet(size, stickers, layout = "separated", width, style = "class
 	const w = 3 * step + SIDE;
 	const h = 2 * step + SIDE;
 	const stickerless = isStickerless(style);
-	const padding = stickerless ? 0 : PADDING;
-	const gap = stickerless ? 0 : GAP;
+	const gap = stickerless ? SIDE / size * SEAM : GAP;
+	const padding = stickerless ? gap / 2 : PADDING;
 	const cell = (SIDE - 2 * padding - (size - 1) * gap) / size;
 	const radius = round(cell * .12);
 	const parts = [];
-	const seam = stickerless ? cell * SEAM : 0;
 	if (layout === "joined") parts.push(`<rect class="cstimer-background" x="0" y="${SIDE}" width="${w}" height="${SIDE}" fill="${BLACK}"/>`, `<rect class="cstimer-background" x="${SIDE}" y="0" width="${SIDE}" height="${h}" fill="${BLACK}"/>`);
 	for (const [face, col, row] of NET) {
 		const x0 = col * step;
@@ -2785,9 +2771,8 @@ function drawCubeNet(size, stickers, layout = "separated", width, style = "class
 			const x = x0 + padding + i % size * (cell + gap);
 			const y = y0 + padding + Math.floor(i / size) * (cell + gap);
 			if (style !== "classic") {
-				const corners = tileCorners(style, size, i).map((r) => Math.max(r * cell - seam / 2, 0));
-				const color = colors[i] ?? BLACK;
-				parts.push(`<path class="cstimer-tile" data-face="${face}" data-tile="${i}" d="${roundedSquare(x + seam / 2, y + seam / 2, cell - seam, corners)}" fill="${color}"` + (seam > 0 ? ` stroke="${seamColor(color)}" stroke-width="${round(seam)}"` : "") + "/>");
+				const corners = tileCorners(style, size, i).map((r) => r * cell);
+				parts.push(`<path class="cstimer-tile" data-face="${face}" data-tile="${i}" d="${roundedSquare(x, y, cell, corners)}" fill="${colors[i] ?? BLACK}"/>`);
 				continue;
 			}
 			parts.push(`<rect class="cstimer-tile" data-face="${face}" data-tile="${i}" x="${round(x)}" y="${round(y)}" width="${round(cell)}" height="${round(cell)}" rx="${radius}" fill="${colors[i] ?? BLACK}"/>`);
@@ -3156,19 +3141,18 @@ function drawCube3D(element, size, stickers, options = {}) {
 	moveFaces(view.copies, 1.5, offsets);
 	turn(view);
 	const stickerless = isStickerless(cubeStyle);
-	const seam = (color) => stickerless ? `calc(var(--side) * ${SEAM / size}) solid ${seamColor(color)}` : "";
+	const seam = `calc(var(--side) * ${SEAM / size})`;
+	const edge = `calc(var(--side) * ${SEAM / size / 2})`;
 	const corners = Array.from({ length: size * size }, (_, j) => tileCorners(cubeStyle, size, j).map((r) => `${parseFloat((r * 100).toFixed(3))}%`).join(" "));
 	FACES.forEach(([name], i) => {
 		const colors = stickers[name] ?? [];
 		for (const face of [view.faces[i], view.copies[i]]) {
-			face.style.padding = stickerless ? "0" : "";
-			face.style.gap = stickerless ? "0" : "";
+			face.style.padding = stickerless ? edge : "";
+			face.style.gap = stickerless ? seam : "";
 			[...face.children].forEach((sticker, j) => {
 				const tile = sticker;
-				const color = colors[j] ?? "#111";
-				tile.style.background = color;
+				tile.style.background = colors[j] ?? "#111";
 				tile.style.borderRadius = corners[j];
-				tile.style.border = seam(color);
 			});
 		}
 	});
