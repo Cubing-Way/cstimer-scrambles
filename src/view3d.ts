@@ -2,7 +2,6 @@
 // (no 3D library). It can be dragged with the mouse or a finger to look at every side.
 
 type Axis = 'x' | 'y';
-type Vector = [number, number, number];
 
 /**
  * The faces in the order their stickers are given, and where each one sits on the cube:
@@ -24,35 +23,62 @@ const CAMERA = 5.8;
 /**
  * How wide the view is, in cube sides: room for the cube from any angle, and with floating
  * faces room for the copies around it too. With a width set, a face is `width / 4` pixels,
- * as in the flat picture, so the view with floating faces is a little wider than `width`.
+ * as in the flat picture, so the view with floating faces is `width` pixels wide.
  */
-const VIEW_SIDES = { hidden: 2.4, floating: 4.5 };
-/**
- * Where the floating copies of the three faces at the back go, in cube sides, as x (to the
- * right, toward R), y (down, toward D) and z (toward you, toward F). Each copy keeps its
- * face's angle and moves from its face by this much, so that one of its corners touches a
- * corner of the cube: L's touches U L F, D's touches D R F and B's touches U R B.
- */
-const COPY_SHIFT: Record<string, Vector> = {
-  L: [0, -1, 1],
-  D: [1, 0, 1],
-  B: [1, -1, 0],
-};
+const VIEW_SIDES = { hidden: 2.4, floating: 4 };
+/** How far the floating copies are from their faces, in cube sides. */
+const COPY_GAP = 1;
 
 /**
  * What the 3D view does with the faces at the back:
  * - `'hidden'`: hidden behind the cube, as on a real one.
- * - `'floating'`: the view stays on the U R F corner and can't be turned, and a copy of
- *   each face at the back (L, D, B) sits next to the cube, as big as the face and seen as
- *   through a glass cube, so all six faces show at once.
+ * - `'floating'`: a copy of each floats a little way out from it, as big as the face and
+ *   seen through the cube, so all six faces show at once.
  */
 type HiddenFaces = 'hidden' | 'floating';
 
 /**
- * How far the view is turned, in degrees: tilted toward you, then turned sideways. This
- * puts the U R F corner in the middle, pointing straight at the camera.
+ * How the camera of the 3D view moves:
+ * - `'mouse'`: the cube can be dragged with the mouse or a finger to look at every side.
+ * - `'fixed'`: the cube stays at its camera angle and can't be dragged.
  */
-const START_ANGLE = { x: -(Math.atan(Math.SQRT1_2) * 180) / Math.PI, y: -45 };
+type CameraMode = 'mouse' | 'fixed';
+
+/**
+ * How far the cube is turned in front of the camera, in degrees: first tilted about the
+ * x axis (`x`, negative tilts the top toward you), then turned about the up-down axis
+ * (`y`, negative brings the right side toward you).
+ */
+interface CameraAngle {
+  x: number;
+  y: number;
+}
+
+/**
+ * Moves and turns a floating copy of a face from where it floats by default, in the
+ * cube's directions: x toward R, y toward U, z toward F.
+ * - `x`, `y`, `z`: how far to move it, in face widths (`1` moves it by one whole face).
+ * - `rotateX`, `rotateY`, `rotateZ`: how far to turn it about its own center, in degrees,
+ *   clockwise as seen from the R, U and F sides (the way the cube rotations x, y and z
+ *   turn), first about x, then y, then z.
+ */
+interface FaceOffset {
+  x: number;
+  y: number;
+  z: number;
+  rotateX: number;
+  rotateY: number;
+  rotateZ: number;
+}
+
+/**
+ * The camera angle the view starts at: the U R F corner in the middle, pointing straight
+ * at the camera.
+ */
+const DEFAULT_CAMERA_ANGLE: Readonly<CameraAngle> = {
+  x: -(Math.atan(Math.SQRT1_2) * 180) / Math.PI,
+  y: -45,
+};
 
 const STYLE = `
 .cstimer-3d {
@@ -68,7 +94,7 @@ const STYLE = `
 .cstimer-3d:active {
   cursor: grabbing;
 }
-.cstimer-3d.cstimer-3d-floating {
+.cstimer-3d.cstimer-3d-fixed {
   cursor: auto;
 }
 /* The camera. Its distance is in cqmin, which only follows the box from inside it (on the
@@ -111,8 +137,8 @@ const STYLE = `
 .cstimer-3d-floating .cstimer-3d-scene {
   --side: ${100 / VIEW_SIDES.floating}cqmin;
 }
-/* A copy of a face at the back, next to the cube and seen from behind, so it shows the face
-   as it would look through a glass cube (shown by placeCopies). */
+/* A copy of a face at the back, a little way out from it and seen from behind, so it shows
+   the face as it would look through a glass cube (shown by placeCopies). */
 .cstimer-3d-copy {
   backface-visibility: visible;
   display: none;
@@ -126,18 +152,73 @@ interface View {
   /** The floating copies of the faces, in the same order. */
   copies: HTMLElement[];
   floating: boolean;
+  fixed: boolean;
   size: number;
-  angle: { x: number; y: number };
+  angle: CameraAngle;
+  /** The camera angle last given to `drawCube3D`, so the view only goes there when it changes. */
+  setAngle: string;
+}
+
+type Vector = [number, number, number];
+type Matrix = [Vector, Vector, Vector];
+
+/** The turn CSS's `rotateX` or `rotateY` makes, as a matrix (y points down, z at you). */
+function rotation(axis: Axis, degrees: number): Matrix {
+  const a = (degrees * Math.PI) / 180;
+  const c = Math.cos(a);
+  const s = Math.sin(a);
+  return axis === 'x'
+    ? [
+        [1, 0, 0],
+        [0, c, -s],
+        [0, s, c],
+      ]
+    : [
+        [c, 0, s],
+        [0, 1, 0],
+        [-s, 0, c],
+      ];
+}
+
+function multiply(a: Matrix, b: Matrix): Matrix {
+  const cell = (i: number, j: number) =>
+    a[i]![0] * b[0]![j]! + a[i]![1] * b[1]![j]! + a[i]![2] * b[2]![j]!;
+  return [0, 1, 2].map((i) => [cell(i, 0), cell(i, 1), cell(i, 2)]) as Matrix;
+}
+
+/** Column `j` of a matrix: where it sends the x (0), y (1) or z (2) direction. */
+function column(m: Matrix, j: number): Vector {
+  return [m[0][j]!, m[1][j]!, m[2][j]!];
 }
 
 /**
- * With floating faces, shows the copies of the faces at the back, and turns the view to the
- * U R F corner.
+ * With floating faces, shows the copies of the faces at the back: those whose plane the
+ * camera is behind.
  */
 function placeCopies(view: View): void {
-  if (view.floating) Object.assign(view.angle, START_ANGLE);
-  FACES.forEach(([name], i) => {
-    view.copies[i]!.style.display = view.floating && name in COPY_SHIFT ? 'grid' : 'none';
+  const turned = multiply(rotation('x', view.angle.x), rotation('y', view.angle.y));
+  FACES.forEach(([, axis, degrees], i) => {
+    const out = column(multiply(turned, rotation(axis, degrees)), 2);
+    const back = view.floating && out[2] < 0.5 / CAMERA;
+    view.copies[i]!.style.display = back ? 'grid' : 'none';
+  });
+}
+
+/**
+ * Puts each floating copy a little way out from its face, then moves and turns it by its
+ * offset. CSS's y points down, so the offset's y (toward U) and its turn about y flip.
+ */
+function moveCopies(view: View, offsets: Partial<Record<string, FaceOffset>>): void {
+  FACES.forEach(([name, axis, degrees], i) => {
+    const offset = offsets[name];
+    const [x, y, z] = column(rotation(axis, degrees), 2).map((n) => n * (0.5 + COPY_GAP));
+    const center = [x! + (offset?.x ?? 0), y! - (offset?.y ?? 0), z! + (offset?.z ?? 0)];
+    const turns = offset
+      ? `rotateZ(${offset.rotateZ}deg) rotateY(${-offset.rotateY}deg) rotateX(${offset.rotateX}deg) `
+      : '';
+    const [cx, cy, cz] = center.map((n) => `calc(var(--side) * ${n})`);
+    view.copies[i]!.style.transform =
+      `translate3d(${cx}, ${cy}, ${cz}) ${turns}${place(axis, degrees)}`;
   });
 }
 
@@ -153,13 +234,13 @@ function addStyle(doc: Document): void {
 }
 
 function turn(view: View): void {
-  placeCopies(view);
   view.cube.style.transform = `rotateX(${view.angle.x}deg) rotateY(${view.angle.y}deg)`;
+  placeCopies(view);
 }
 
 /**
  * Turns the view while it is dragged: sideways all the way round, up and down to the top
- * and bottom. Not with floating faces, where the view stays on the U R F corner.
+ * and bottom. Not with a fixed camera.
  */
 function makeDraggable(box: HTMLElement, view: View): void {
   let last: { x: number; y: number } | undefined;
@@ -168,7 +249,7 @@ function makeDraggable(box: HTMLElement, view: View): void {
     box.setPointerCapture(e.pointerId);
   });
   box.addEventListener('pointermove', (e) => {
-    if (!last || view.floating) return;
+    if (!last || view.fixed) return;
     // About half a degree per pixel dragged.
     view.angle.y += (e.clientX - last.x) * 0.5;
     view.angle.x = Math.max(-90, Math.min(90, view.angle.x - (e.clientY - last.y) * 0.5));
@@ -180,7 +261,12 @@ function makeDraggable(box: HTMLElement, view: View): void {
   box.addEventListener('pointercancel', stop);
 }
 
-function createView(element: HTMLElement, size: number, angle: View['angle']): View {
+function createView(
+  element: HTMLElement,
+  size: number,
+  angle: CameraAngle,
+  setAngle: string,
+): View {
   const doc = element.ownerDocument;
   addStyle(doc);
   const box = doc.createElement('div');
@@ -207,10 +293,8 @@ function createView(element: HTMLElement, size: number, angle: View['angle']): V
     core.style.transform = `${place(axis, degrees)} translateZ(calc(var(--side) * 0.48))`;
     cube.append(core);
   }
-  const copies = FACES.map(([name, axis, degrees]) => {
+  const copies = FACES.map(([name]) => {
     const copy = makeFace(name, 'cstimer-3d-face cstimer-3d-copy');
-    const [x, y, z] = (COPY_SHIFT[name] ?? [0, 0, 0]).map((n) => `calc(var(--side) * ${n})`);
-    copy.style.transform = `translate3d(${x}, ${y}, ${z}) ${place(axis, degrees)} translateZ(calc(var(--side) / 2))`;
     cube.append(copy);
     return copy;
   });
@@ -219,38 +303,61 @@ function createView(element: HTMLElement, size: number, angle: View['angle']): V
   scene.append(cube);
   box.append(scene);
   element.replaceChildren(box);
-  const view = { box, cube, faces, copies, floating: false, size, angle };
+  const view = { box, cube, faces, copies, floating: false, fixed: false, size, angle, setAngle };
   turn(view);
   makeDraggable(box, view);
   return view;
+}
+
+/** How `drawCube3D` shows the cube; every option has a default. */
+interface View3DOptions {
+  /** A face is `width / 4` pixels wide; without it the view fills the element's width. */
+  width?: number;
+  /** What to do with the faces at the back, `'hidden'` by default (see `HiddenFaces`). */
+  hidden?: HiddenFaces;
+  /** Whether the cube can be dragged, `'mouse'` by default (see `CameraMode`). */
+  camera?: CameraMode;
+  /** Where the camera looks from, `DEFAULT_CAMERA_ANGLE` by default (see `CameraAngle`). */
+  angle?: CameraAngle;
+  /** How far each floating copy is moved and turned, by face name (see `FaceOffset`). */
+  offsets?: Partial<Record<string, FaceOffset>>;
 }
 
 /**
  * Draws a size x size x size cube in `element` (replacing what is in it), with each
  * face's sticker colors in the order U R F D L B, as `Puzzle.getStickers()` gives them.
  * With a `width`, a face is `width / 4` pixels wide, as in the flat picture (the view is
- * square and a little wider than `width` with floating faces, a bit over half that without);
- * without it the view fills the element's width.
- * `hidden` says whether the faces at the back float around the cube (see `HiddenFaces`).
- * Drawing in the same element again only changes the colors, width and mode, so the
- * angle is kept.
+ * square and `width` pixels wide with floating faces, a bit over half that without).
+ * Drawing in the same element again only changes the colors and options, so the angle
+ * the cube was dragged to is kept, unless the camera is fixed or its angle changed.
  */
 function drawCube3D(
   element: HTMLElement,
   size: number,
   stickers: Record<string, string[]>,
-  width?: number,
-  hidden: HiddenFaces = 'hidden',
+  options: View3DOptions = {},
 ): void {
+  const { width, hidden = 'hidden', camera = 'mouse', offsets = {} } = options;
+  const angle = options.angle ?? DEFAULT_CAMERA_ANGLE;
+  const angleKey = `${angle.x} ${angle.y}`;
   let view = views.get(element);
   if (!view || view.size !== size || !element.contains(view.cube)) {
-    view = createView(element, size, view ? view.angle : { ...START_ANGLE });
+    view = view
+      ? createView(element, size, view.angle, view.setAngle)
+      : createView(element, size, { ...angle }, angleKey);
     views.set(element, view);
+  }
+  view.fixed = camera === 'fixed';
+  if (view.fixed || view.setAngle !== angleKey) {
+    view.angle = { x: angle.x, y: angle.y };
+    view.setAngle = angleKey;
   }
   view.floating = hidden === 'floating';
   const sides = VIEW_SIDES[view.floating ? 'floating' : 'hidden'];
   view.box.style.width = width === undefined ? '' : `${(width / 4) * sides}px`;
   view.box.classList.toggle('cstimer-3d-floating', view.floating);
+  view.box.classList.toggle('cstimer-3d-fixed', view.fixed);
+  moveCopies(view, offsets);
   turn(view);
   FACES.forEach(([name], i) => {
     const colors = stickers[name] ?? [];
@@ -262,5 +369,5 @@ function drawCube3D(
   });
 }
 
-export { drawCube3D };
-export type { HiddenFaces };
+export { drawCube3D, DEFAULT_CAMERA_ANGLE };
+export type { HiddenFaces, CameraMode, CameraAngle, FaceOffset };

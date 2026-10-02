@@ -92,3 +92,35 @@ describe('Puzzle hidden faces', () => {
     expect(() => cube.setHiddenFaces('ghost')).toThrow('Unknown hidden faces mode');
   });
 });
+
+describe('Puzzle 3D camera and floating face offsets', () => {
+  it('has a mouse camera on the U R F corner by default and can fix it', () => {
+    const cube = new Puzzle('333');
+    expect(cube.getCameraMode()).toBe('mouse');
+    expect(cube.setCameraMode('fixed').getCameraMode()).toBe('fixed');
+    // @ts-expect-error: not a mode
+    expect(() => cube.setCameraMode('drone')).toThrow('Unknown camera mode');
+    expect(cube.getCameraAngle().y).toBe(-45);
+    expect(cube.getCameraAngle().x).toBeCloseTo(-35.26, 2);
+    expect(cube.setCameraAngle({ x: -20, y: 30 }).getCameraAngle()).toEqual({ x: -20, y: 30 });
+    expect(() => cube.setCameraAngle({ x: NaN, y: 0 })).toThrow('numbers of degrees');
+    expect(cube.resetCameraAngle().getCameraAngle().y).toBe(-45);
+  });
+
+  it('moves and turns each floating face, 0 by default', () => {
+    const cube = new Puzzle('444');
+    const none = { x: 0, y: 0, z: 0, rotateX: 0, rotateY: 0, rotateZ: 0 };
+    expect(cube.getFloatingFaceOffset('L')).toEqual(none);
+    cube.setFloatingFaceOffset('L', { x: 1, rotateY: 45 });
+    expect(cube.getFloatingFaceOffset('L')).toEqual({ ...none, x: 1, rotateY: 45 });
+    // Setting again replaces the whole offset.
+    cube.setFloatingFaceOffset('L', { z: 2 });
+    expect(cube.getFloatingFaceOffset('L')).toEqual({ ...none, z: 2 });
+    expect(cube.resetFloatingFaceOffsets().getFloatingFaceOffset('L')).toEqual(none);
+    expect(() => cube.setFloatingFaceOffset('X', {})).toThrow('no face "X"');
+    expect(() => cube.setFloatingFaceOffset('U', { x: Infinity })).toThrow('must be a number');
+    // @ts-expect-error: not an offset
+    expect(() => cube.setFloatingFaceOffset('U', { w: 1 })).toThrow('Unknown offset');
+    expect(() => new Puzzle('pyram').setFloatingFaceOffset('F', {})).toThrow('only cubes');
+  });
+});
