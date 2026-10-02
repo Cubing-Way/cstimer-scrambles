@@ -236,6 +236,34 @@
         opacity: 0.5;
         cursor: not-allowed;
       }
+      /* Number boxes for the camera angle and the floating face's offset, in rows. */
+      .xyz {
+        display: grid;
+        grid-template-columns: 3.2em repeat(3, 5.5em);
+        justify-content: start;
+        gap: 6px;
+        align-items: center;
+      }
+      .xyz input[type='number'] {
+        width: 100%;
+        box-sizing: border-box;
+        padding: 6px 8px;
+      }
+      .xyz .head {
+        color: var(--muted);
+        font-size: 0.85rem;
+        text-align: center;
+      }
+      .row {
+        display: flex;
+        gap: 6px;
+        align-items: center;
+        margin-top: 6px;
+      }
+      .row button,
+      .row select {
+        padding: 6px 10px;
+      }
       #cube3d[hidden] {
         display: none;
       }
@@ -323,6 +351,76 @@
                   <button type="button" data-hidden="floating">Floating</button>
                 </div>
               </div>
+              <div class="option" id="camera-option">
+                <span>3D camera</span>
+                <div class="toggle" role="group" aria-label="3D camera">
+                  <button type="button" data-camera="mouse">Mouse</button>
+                  <button type="button" data-camera="fixed">Fixed</button>
+                </div>
+                <div class="xyz" style="margin-top: 6px">
+                  <span class="head">Angle</span>
+                  <input
+                    id="angle-x"
+                    type="number"
+                    step="5"
+                    aria-label="Camera tilt (x) in degrees"
+                  />
+                  <input
+                    id="angle-y"
+                    type="number"
+                    step="5"
+                    aria-label="Camera turn (y) in degrees"
+                  />
+                  <button type="button" id="angle-reset">Reset</button>
+                </div>
+                <span class="note">x tilts, y turns, in degrees</span>
+              </div>
+              <div class="option" id="offset-option">
+                <span>Floating face position</span>
+                <div class="xyz">
+                  <span></span>
+                  <span class="head">x</span>
+                  <span class="head">y</span>
+                  <span class="head">z</span>
+                  <span class="head">Move</span>
+                  <input data-offset="x" type="number" step="0.25" aria-label="Move x (toward R)" />
+                  <input data-offset="y" type="number" step="0.25" aria-label="Move y (toward U)" />
+                  <input data-offset="z" type="number" step="0.25" aria-label="Move z (toward F)" />
+                  <span class="head">Turn</span>
+                  <input
+                    data-offset="rotateX"
+                    type="number"
+                    step="15"
+                    aria-label="Turn x in degrees"
+                  />
+                  <input
+                    data-offset="rotateY"
+                    type="number"
+                    step="15"
+                    aria-label="Turn y in degrees"
+                  />
+                  <input
+                    data-offset="rotateZ"
+                    type="number"
+                    step="15"
+                    aria-label="Turn z in degrees"
+                  />
+                </div>
+                <div class="row">
+                  <select id="offset-face" aria-label="Face to move">
+                    <option>U</option>
+                    <option>R</option>
+                    <option>F</option>
+                    <option>D</option>
+                    <option selected>L</option>
+                    <option>B</option>
+                  </select>
+                  <button type="button" id="offset-reset">Reset all</button>
+                </div>
+                <span class="note"
+                  >Move in face widths, turn in degrees; x toward R, y toward U, z toward F</span
+                >
+              </div>
               <form id="size-form" class="option" novalidate>
                 <span>Size</span>
                 <div class="size">
@@ -347,7 +445,7 @@
             </div>
             <div class="stage" id="stage">
               <div id="image"></div>
-              <div id="cube3d" title="Drag to turn the cube"></div>
+              <div id="cube3d"></div>
             </div>
           </div>
         </section>
@@ -412,6 +510,21 @@
       let hiddenFaces = 'hidden';
       const styleButtons = [...document.querySelectorAll('[data-style]')];
       const hiddenButtons = [...document.querySelectorAll('[data-hidden]')];
+      // The 3D camera and the floating faces' offsets picked, applied to every cube.
+      let cameraMode = 'mouse';
+      let cameraAngle = new Puzzle('333').getCameraAngle();
+      const offsets = {};
+      const cameraButtons = [...document.querySelectorAll('[data-camera]')];
+      const offsetInputs = [...document.querySelectorAll('[data-offset]')];
+      const offsetFace = $('offset-face');
+      const angleInputs = [$('angle-x'), $('angle-y')];
+      // Shows the camera angle and the picked face's offset in their boxes.
+      function showCameraAndOffset() {
+        $('angle-x').value = +cameraAngle.x.toFixed(2);
+        $('angle-y').value = +cameraAngle.y.toFixed(2);
+        const offset = offsets[offsetFace.value] ?? {};
+        for (const input of offsetInputs) input.value = offset[input.dataset.offset] ?? 0;
+      }
       const moves = (n) => `${n} ${n === 1 ? 'move' : 'moves'}`;
 
       function draw() {
@@ -454,6 +567,25 @@
           button.disabled = !in3D;
         }
         $('hidden-option').classList.toggle('off', !in3D);
+        if (puzzle.has3DView()) {
+          puzzle.setCameraMode(cameraMode).setCameraAngle(cameraAngle).resetFloatingFaceOffsets();
+          for (const [face, offset] of Object.entries(offsets)) {
+            puzzle.setFloatingFaceOffset(face, offset);
+          }
+        }
+        for (const button of cameraButtons) {
+          button.setAttribute('aria-pressed', String(button.dataset.camera === cameraMode));
+          button.disabled = !in3D;
+        }
+        for (const input of angleInputs) input.disabled = !in3D;
+        $('angle-reset').disabled = !in3D;
+        $('camera-option').classList.toggle('off', !in3D);
+        const floating = in3D && hiddenFaces === 'floating';
+        for (const input of offsetInputs) input.disabled = !floating;
+        offsetFace.disabled = !floating;
+        $('offset-reset').disabled = !floating;
+        $('offset-option').classList.toggle('off', !floating);
+        cube3d.title = cameraMode === 'mouse' ? 'Drag to turn the cube' : '';
         $('colors-option').hidden = colorsDiv.childElementCount === 0;
         image.hidden = in3D;
         cube3d.hidden = !in3D;
@@ -573,6 +705,43 @@
           draw();
         });
       }
+      for (const button of cameraButtons) {
+        button.addEventListener('click', () => {
+          cameraMode = button.dataset.camera;
+          draw();
+        });
+      }
+      for (const input of angleInputs) {
+        input.addEventListener('change', () => {
+          const x = Number($('angle-x').value);
+          const y = Number($('angle-y').value);
+          if (Number.isFinite(x) && Number.isFinite(y)) cameraAngle = { x, y };
+          showCameraAndOffset();
+          draw();
+        });
+      }
+      $('angle-reset').addEventListener('click', () => {
+        cameraAngle = new Puzzle('333').getCameraAngle();
+        showCameraAndOffset();
+        draw();
+      });
+      offsetFace.addEventListener('change', showCameraAndOffset);
+      for (const input of offsetInputs) {
+        input.addEventListener('input', () => {
+          const offset = {};
+          for (const box of offsetInputs) {
+            const value = Number(box.value);
+            offset[box.dataset.offset] = Number.isFinite(value) ? value : 0;
+          }
+          offsets[offsetFace.value] = offset;
+          draw();
+        });
+      }
+      $('offset-reset').addEventListener('click', () => {
+        for (const face of Object.keys(offsets)) delete offsets[face];
+        showCameraAndOffset();
+        draw();
+      });
       scrambleInput.addEventListener('input', () => {
         current().setScramble(scrambleInput.value);
         scrambleTimes.delete(current().id);
@@ -591,6 +760,7 @@
         }
       });
       puzzleSelect.value = '333';
+      showCameraAndOffset();
       showPuzzle();
     </script>
   </body>
