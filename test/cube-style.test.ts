@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { Puzzle } from '../src/index.js';
-import { tileCorners } from '../src/cubestyle.js';
+import { seamColor, tileCorners } from '../src/cubestyle.js';
 
 /** The `d` of each tile drawn as a path, in drawing order. */
 function tilePaths(svg: string): string[] {
@@ -46,14 +46,32 @@ describe('Puzzle cube styles', () => {
     expect(fills).toEqual(['U', 'L', 'F', 'R', 'B', 'D'].flatMap((face) => stickers[face]!));
   });
 
-  it('fills the whole face with stickerless tiles and one black line where they meet', () => {
-    const svg = new Puzzle('222').setCubeStyle('stickerless').getImage();
-    // U is at x 106, after the gap. Between two tiles the face's black shows through a gap 7% of
-    // a tile's space (3.5 of 50) wide, and half that along the face's border.
-    expect(tilePaths(svg)[0]).toMatch(/^M107.75 1.75H154.25/);
-    expect(svg).toMatch(/<g class="cstimer-face" data-face="U" fill="#111">/);
+  it('fills the whole face with touching stickerless tiles and a darker colored line between them', () => {
+    const cube = new Puzzle('222').setCubeStyle('stickerless');
+    const svg = cube.getImage();
+    // U is at x 106, after the gap. Its first tile fills a quarter of the face, with no black around it.
+    expect(tilePaths(svg)[0]).toBe('M106 0H156V50H106V0Z');
+    // Each tile paints half of the 3-wide line along its right side (6% of 50), in one color
+    // for both: the two tiles' colors mixed, 30% darker.
+    const u = cube.getStickers().U!;
+    const line = seamColor(u[0]!, u[1]!);
+    expect(svg).toContain(
+      `<rect class="cstimer-seam" x="154.5" y="0" width="1.5" height="50" fill="${line}"/>`,
+    );
+    expect(svg).toContain(
+      `<rect class="cstimer-seam" x="156" y="0" width="1.5" height="50" fill="${line}"/>`,
+    );
     expect(svg).not.toContain('stroke');
     expect(svg).not.toContain('filter');
+  });
+
+  it('darkens and mixes the colors for the line between two stickerless tiles', () => {
+    expect(seamColor('#ffffff')).toBe('#b3b3b3');
+    expect(seamColor('#ff0000', '#0000ff')).toBe('#590059');
+    expect(seamColor('rgb(255, 255, 255)', '#fff')).toBe('#b3b3b3');
+    expect(seamColor('white', 'red')).toBe(
+      'color-mix(in srgb, color-mix(in srgb, white, red) 70%, #000)',
+    );
   });
 
   it('lets element styles win over the cube style', () => {
