@@ -2613,8 +2613,9 @@ function round(n) {
 }
 /**
 * Draws a size x size x size cube unfolded, as an SVG string, with each face's sticker
-* colors in the order `Puzzle.getStickers()` gives them. `width` sets the SVG's width in
-* pixels (the height follows); without it a face is 100 pixels wide.
+* colors in the order `Puzzle.getStickers()` gives them. A face is `width / 4` pixels wide,
+* the same as in the 3D view, so the joined faces are `width` pixels wide and the separated
+* ones a little wider for the gaps; without it a face is 100 pixels wide.
 */
 function drawCubeNet(size, stickers, layout = "separated", width) {
 	const step = SIDE + (layout === "joined" ? 0 : FACE_GAP);
@@ -2635,7 +2636,7 @@ function drawCubeNet(size, stickers, layout = "separated", width) {
 			parts.push(`<rect x="${round(x)}" y="${round(y)}" width="${round(cell)}" height="${round(cell)}" rx="${radius}" fill="${colors[i] ?? BLACK}"/>`);
 		}
 	}
-	const pxWidth = width ?? w;
+	const pxWidth = width === void 0 ? w : width / 4 * (w / SIDE);
 	return `<svg viewBox="0 0 ${w} ${h}" width="${round(pxWidth)}" height="${round(pxWidth * h / w)}" xmlns="http://www.w3.org/2000/svg">${parts.join("")}</svg>`;
 }
 /**
@@ -2685,17 +2686,17 @@ const FACES = [
 	]
 ];
 const place = (axis, degrees) => `rotate${axis.toUpperCase()}(${degrees}deg)`;
-/** The camera's distance and, with floating faces, the cube's side, in cqmin (see STYLE). */
-const CAMERA = 300;
-const FLOATING_SIDE = 25;
-/** The floating copies are this much smaller than the faces. */
-const COPY_SCALE = .7;
+/** How far the camera is from the cube's center, in cube sides. */
+const CAMERA = 5.8;
 /**
-* How far the copies' centers are from the cube's center, in cube sides: the cube reaches
-* at most 0.94 of a side from its center on the screen (half its diagonal, a little more
-* where it is nearer the camera), and a copy at most 0.5, so they never meet.
+* How wide the view is, in cube sides: room for the cube from any angle, and with floating
+* faces room for the copies around it too. With a width set, a face is `width / 4` pixels,
+* as in the flat picture, so the view with floating faces is `width` pixels wide.
 */
-const COPY_DISTANCE = 1.5;
+const VIEW_SIDES = {
+	hidden: 2.4,
+	floating: 4
+};
 /** How far the view is turned, in degrees: tilted toward you, then turned sideways. */
 const START_ANGLE = {
 	x: -28,
@@ -2718,10 +2719,10 @@ const STYLE = `
 /* The camera. Its distance is in cqmin, which only follows the box from inside it (on the
    box itself it would follow the window), so the camera moves back as the cube grows. */
 .cstimer-3d-scene {
-  --side: 52cqmin;
+  --side: ${100 / VIEW_SIDES.hidden}cqmin;
   position: absolute;
   inset: 0;
-  perspective: ${CAMERA}cqmin;
+  perspective: calc(var(--side) * ${CAMERA});
 }
 .cstimer-3d-cube {
   position: absolute;
@@ -2752,16 +2753,12 @@ const STYLE = `
 .cstimer-3d-face > div {
   border-radius: 12%;
 }
-/* With floating faces the cube is smaller, to leave room around it for the copies. */
 .cstimer-3d-floating .cstimer-3d-scene {
-  --side: ${FLOATING_SIDE}cqmin;
+  --side: ${100 / VIEW_SIDES.floating}cqmin;
 }
-/* A flat copy of a face at the back, shown beside the cube (placed by placeCopies). */
+/* A copy of a face at the back, a little way out from it and seen from behind, so it shows
+   the face as it would look through a glass cube (shown by placeCopies). */
 .cstimer-3d-copy {
-  inset: 0;
-  margin: auto;
-  width: var(--side);
-  height: var(--side);
   backface-visibility: visible;
   display: none;
 }
@@ -2826,49 +2823,15 @@ function column(m, j) {
 	];
 }
 /**
-* With floating faces, shows a flat copy of each face at the back beside the cube, on a
-* ring around it so the cube never covers it. Each copy sits on the side its face points
-* to, and is turned and mirrored the way the face would look through a glass cube, so its
-* stickers line up with the ones they touch on the cube.
+* With floating faces, shows the copies of the faces at the back: those whose plane the
+* camera is behind.
 */
 function placeCopies(view) {
 	const turned = multiply(rotation("x", view.angle.x), rotation("y", view.angle.y));
-	const faces = FACES.map(([, axis, degrees]) => {
-		const m = multiply(turned, rotation(axis, degrees));
-		return {
-			across: column(m, 0),
-			down: column(m, 1),
-			out: column(m, 2)
-		};
-	});
-	const back = faces.map((face) => view.floating && face.out[2] < .5 * (FLOATING_SIDE / CAMERA));
-	const length = (x, y) => Math.hypot(x, y);
-	const clear = faces.filter((face, i) => back[i] && length(face.out[0], face.out[1]) >= .3);
-	let room = [0, 0];
-	for (const { out } of clear) {
-		const l = length(out[0], out[1]);
-		room = [room[0] - out[0] / l, room[1] - out[1] / l];
-	}
-	room = length(room[0], room[1]) < .1 ? [Math.SQRT1_2, Math.SQRT1_2] : room;
-	faces.forEach((face, i) => {
-		const copy = view.copies[i];
-		copy.style.display = back[i] ? "grid" : "none";
-		if (!back[i]) return;
-		const blend = Math.max(0, .3 - length(face.out[0], face.out[1])) / .3;
-		const roomLength = length(room[0], room[1]);
-		let x = face.out[0] + blend * room[0] / roomLength;
-		let y = face.out[1] + blend * room[1] / roomLength;
-		const l = length(x, y) || 1;
-		x = x / l * COPY_DISTANCE;
-		y = y / l * COPY_DISTANCE;
-		const [ax, ay] = [-face.across[0], -face.across[1]];
-		const [dx, dy] = [face.down[0], face.down[1]];
-		const wa = (ax * ax + ay * ay) ** 2;
-		const wd = (dx * dx + dy * dy) ** 2;
-		const fromAcross = Math.atan2(ay, ax);
-		const fromDown = Math.atan2(-dx, dy);
-		const angle = Math.atan2(wa * Math.sin(fromAcross) + wd * Math.sin(fromDown), wa * Math.cos(fromAcross) + wd * Math.cos(fromDown));
-		copy.style.transform = `translate(calc(var(--side) * ${x.toFixed(4)}), calc(var(--side) * ${y.toFixed(4)})) rotate(${angle.toFixed(4)}rad) scale(-0.7, ${COPY_SCALE})`;
+	FACES.forEach(([, axis, degrees], i) => {
+		const out = column(multiply(turned, rotation(axis, degrees)), 2);
+		const back = view.floating && out[2] < .5 / CAMERA;
+		view.copies[i].style.display = back ? "grid" : "none";
 	});
 }
 /** The views already drawn, by the element they are in, so drawing again updates them. */
@@ -2935,10 +2898,15 @@ function createView(element, size, angle) {
 		core.style.transform = `${place(axis, degrees)} translateZ(calc(var(--side) * 0.48))`;
 		cube.append(core);
 	}
-	const copies = FACES.map(([name]) => makeFace(name, "cstimer-3d-face cstimer-3d-copy"));
+	const copies = FACES.map(([name, axis, degrees]) => {
+		const copy = makeFace(name, "cstimer-3d-face cstimer-3d-copy");
+		copy.style.transform = `${place(axis, degrees)} translateZ(calc(var(--side) * 1.5))`;
+		cube.append(copy);
+		return copy;
+	});
 	const scene = doc.createElement("div");
 	scene.className = "cstimer-3d-scene";
-	scene.append(...copies, cube);
+	scene.append(cube);
 	box.append(scene);
 	element.replaceChildren(box);
 	const view = {
@@ -2957,7 +2925,9 @@ function createView(element, size, angle) {
 /**
 * Draws a size x size x size cube in `element` (replacing what is in it), with each
 * face's sticker colors in the order U R F D L B, as `Puzzle.getStickers()` gives them.
-* The view is `width` pixels wide and as tall, or fills the element's width without it.
+* With a `width`, a face is `width / 4` pixels wide, as in the flat picture (the view is
+* square and `width` pixels wide with floating faces, a bit over half that without);
+* without it the view fills the element's width.
 * `hidden` says whether the faces at the back float around the cube (see `HiddenFaces`).
 * Drawing in the same element again only changes the colors, width and mode, so the
 * angle is kept.
@@ -2968,8 +2938,9 @@ function drawCube3D(element, size, stickers, width, hidden = "hidden") {
 		view = createView(element, size, view ? view.angle : { ...START_ANGLE });
 		views.set(element, view);
 	}
-	view.box.style.width = width === void 0 ? "" : `${width}px`;
 	view.floating = hidden === "floating";
+	const sides = VIEW_SIDES[view.floating ? "floating" : "hidden"];
+	view.box.style.width = width === void 0 ? "" : `${width / 4 * sides}px`;
 	view.box.classList.toggle("cstimer-3d-floating", view.floating);
 	placeCopies(view);
 	FACES.forEach(([name], i) => {
@@ -3393,7 +3364,10 @@ var Puzzle = class {
 	/**
 	* Sets the width of `getImage()`'s SVG in pixels; the height follows the picture's
 	* shape. Without it the SVG keeps csTimer's own size. It can still be resized with CSS.
-	* It also sets the width (and height) of the `show3D` view.
+	* For cubes it sets the size of a face, `width / 4` pixels, the same in the picture (with
+	* any style but `'cstimer'`) and in the `show3D` view: the joined picture and the 3D view
+	* with floating faces are `width` pixels wide, the separated picture a little wider for
+	* its gaps and the 3D view with hidden faces a little over half as wide.
 	*/
 	setImageSize(width) {
 		if (!(width > 0) || !Number.isFinite(width)) throw new Error(`Image size must be a positive number of pixels, not ${width}`);
@@ -3421,8 +3395,9 @@ var Puzzle = class {
 	/**
 	* Picks what `show3D` does with the faces you can't see from where you look:
 	* - `'hidden'` (the default): they are hidden behind the cube, as on a real one.
-	* - `'floating'`: a flat copy of each of them floats beside the cube, on the side the
-	*   face points to, never covered by the cube, so every face can be seen at once.
+	* - `'floating'`: a copy of each of them, as big as the face, floats one cube side out
+	*   from it, seen as through a glass cube, so every face can be seen at once. A face
+	*   pointing straight away from you can still have its copy partly behind the cube.
 	*   Turning the cube swaps which faces float.
 	*/
 	setHiddenFaces(mode) {
@@ -3590,10 +3565,10 @@ var Puzzle = class {
 	}
 	/**
 	* Shows the cube in 3D inside `element` on a web page, as it is now (the same state as
-	* `getImage()`), with this puzzle's colors. It is as wide (and as tall) as the image
-	* size set with `setImageSize`, never wider than the element, or fills the element's
-	* width without one. Drag it with the mouse or a finger to look at every side. Call it again after changing the puzzle
-	* to update the view: the cube keeps the angle it was turned to. Only for cubes (see
+	* `getImage()`), with this puzzle's colors. Its faces are as big as in `getImage()` at the
+	* size set with `setImageSize` (see there), never wider than the element, or it fills
+	* the element's width without one. Drag it with the mouse or a finger to look at every
+	* side. Call it again after changing the puzzle to update the view: the cube keeps the angle it was turned to. Only for cubes (see
 	* `has3DView`), and only in a browser. `setHiddenFaces('floating')` also shows the faces
 	* at the back.
 	*/
