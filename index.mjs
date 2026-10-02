@@ -2648,7 +2648,28 @@ const CUBE_STYLES = [
 /** How round the rounded corners are, as a part of a tile's width. */
 const CLASSIC_RADIUS = .12;
 const RADIUS = .25;
-const ROUND_RADIUS = .4;
+const ROUND_RADIUS = .32;
+/**
+* How wide the darker line along a stickerless tile's edges is, as a part of its width.
+* Two touching tiles each draw one, so the line between them is twice as wide.
+*/
+const SEAM = .035;
+/**
+* The darker shade of a tile's color for its line in the stickerless styles. Hex and
+* `rgb()` colors are worked out here, so the picture looks the same anywhere; any other
+* CSS color is left to the browser with `color-mix`.
+*/
+function seamColor(color) {
+	let rgb;
+	const hex = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(color.trim());
+	if (hex) rgb = (hex[1].length === 3 ? [...hex[1]].map((d) => d + d) : hex[1].match(/../g)).map((d) => parseInt(d, 16));
+	else {
+		const fn = /^rgb\(\s*(\d+)[\s,]+(\d+)[\s,]+(\d+)\s*\)$/i.exec(color.trim());
+		if (fn) rgb = fn.slice(1, 4).map(Number);
+	}
+	if (!rgb) return `color-mix(in srgb, ${color} ${Math.round(65)}%, #000)`;
+	return `#${rgb.map((c) => Math.round(Math.min(c, 255) * .65).toString(16).padStart(2, "0")).join("")}`;
+}
 function isStickerless(style) {
 	return style.startsWith("stickerless");
 }
@@ -2736,18 +2757,6 @@ function roundedSquare(x, y, w, corners) {
 	return `M${round(x + tl)} ${round(y)}H${round(x + w - tr)}${arc(tr, x + w, y + tr)}V${round(y + w - br)}${arc(br, x + w - br, y + w)}H${round(x + bl)}${arc(bl, x, y + w - bl)}V${round(y + tl)}${arc(tl, x + tl, y)}Z`;
 }
 /**
-* A soft shadow along the inside of a tile's edges, for the stickerless styles, where the
-* pieces touch (along with a thin, faint outline on the tile). Its id carries the blur, so pictures of different cubes on one page don't
-* pick up each other's.
-*/
-function shadowFilter(blur) {
-	const id = `cstimer-shadow-${round(blur).replace(".", "_")}`;
-	return {
-		id,
-		svg: `<filter id="${id}"><feFlood flood-color="#000" flood-opacity="0.45"/><feComposite in2="SourceAlpha" operator="out"/><feGaussianBlur stdDeviation="${round(blur)}"/><feComposite in2="SourceAlpha" operator="in"/><feMerge><feMergeNode in="SourceGraphic"/><feMergeNode/></feMerge></filter>`
-	};
-}
-/**
 * Draws a size x size x size cube unfolded, as an SVG string, with each face's sticker
 * colors in the order `Puzzle.getStickers()` gives them. A face is `width / 4` pixels wide,
 * the same as in the 3D view, so the joined faces are `width` pixels wide and the separated
@@ -2765,8 +2774,7 @@ function drawCubeNet(size, stickers, layout = "separated", width, style = "class
 	const cell = (SIDE - 2 * padding - (size - 1) * gap) / size;
 	const radius = round(cell * .12);
 	const parts = [];
-	const shadow = stickerless ? shadowFilter(cell * .06) : void 0;
-	if (shadow) parts.push(`<defs>${shadow.svg}</defs>`);
+	const seam = stickerless ? cell * SEAM : 0;
 	if (layout === "joined") parts.push(`<rect class="cstimer-background" x="0" y="${SIDE}" width="${w}" height="${SIDE}" fill="${BLACK}"/>`, `<rect class="cstimer-background" x="${SIDE}" y="0" width="${SIDE}" height="${h}" fill="${BLACK}"/>`);
 	for (const [face, col, row] of NET) {
 		const x0 = col * step;
@@ -2777,8 +2785,9 @@ function drawCubeNet(size, stickers, layout = "separated", width, style = "class
 			const x = x0 + padding + i % size * (cell + gap);
 			const y = y0 + padding + Math.floor(i / size) * (cell + gap);
 			if (style !== "classic") {
-				const corners = tileCorners(style, size, i).map((r) => r * cell);
-				parts.push(`<path class="cstimer-tile" data-face="${face}" data-tile="${i}" d="${roundedSquare(x, y, cell, corners)}" fill="${colors[i] ?? BLACK}"` + (shadow ? ` stroke="#000" stroke-opacity="0.3" stroke-width="${round(SIDE * .012)}"` : "") + (shadow ? ` filter="url(#${shadow.id})"` : "") + "/>");
+				const corners = tileCorners(style, size, i).map((r) => Math.max(r * cell - seam / 2, 0));
+				const color = colors[i] ?? BLACK;
+				parts.push(`<path class="cstimer-tile" data-face="${face}" data-tile="${i}" d="${roundedSquare(x + seam / 2, y + seam / 2, cell - seam, corners)}" fill="${color}"` + (seam > 0 ? ` stroke="${seamColor(color)}" stroke-width="${round(seam)}"` : "") + "/>");
 				continue;
 			}
 			parts.push(`<rect class="cstimer-tile" data-face="${face}" data-tile="${i}" x="${round(x)}" y="${round(y)}" width="${round(cell)}" height="${round(cell)}" rx="${radius}" fill="${colors[i] ?? BLACK}"/>`);
@@ -2906,6 +2915,7 @@ const STYLE = `
   background: #111;
 }
 .cstimer-3d-face > div {
+  box-sizing: border-box;
   border-radius: 12%;
 }
 .cstimer-3d-floating .cstimer-3d-scene {
@@ -3146,7 +3156,7 @@ function drawCube3D(element, size, stickers, options = {}) {
 	moveFaces(view.copies, 1.5, offsets);
 	turn(view);
 	const stickerless = isStickerless(cubeStyle);
-	const shadow = stickerless ? `inset 0 0 0 calc(var(--side) * 0.006) rgba(0, 0, 0, 0.3), inset 0 0 calc(var(--side) * ${.12 / size}) rgba(0, 0, 0, 0.45)` : "";
+	const seam = (color) => stickerless ? `calc(var(--side) * ${SEAM / size}) solid ${seamColor(color)}` : "";
 	const corners = Array.from({ length: size * size }, (_, j) => tileCorners(cubeStyle, size, j).map((r) => `${parseFloat((r * 100).toFixed(3))}%`).join(" "));
 	FACES.forEach(([name], i) => {
 		const colors = stickers[name] ?? [];
@@ -3155,9 +3165,10 @@ function drawCube3D(element, size, stickers, options = {}) {
 			face.style.gap = stickerless ? "0" : "";
 			[...face.children].forEach((sticker, j) => {
 				const tile = sticker;
-				tile.style.background = colors[j] ?? "#111";
+				const color = colors[j] ?? "#111";
+				tile.style.background = color;
 				tile.style.borderRadius = corners[j];
-				tile.style.boxShadow = shadow;
+				tile.style.border = seam(color);
 			});
 		}
 	});
