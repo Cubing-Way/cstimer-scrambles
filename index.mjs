@@ -2558,10 +2558,93 @@ function drawImage(type, scramble, settings = {}, width) {
 	}
 	if (!svg) throw new Error(`csTimer has no scramble image for "${type}"`);
 	const height = width === void 0 ? svg.height : svg.height * width / svg.width;
-	return svg.render().replace(/ width="[^"]*"/, width === void 0 ? "$&" : ` width="${round(width)}"`).replace(/ height="[^"]*"/, width === void 0 ? "$&" : ` height="${round(height)}"`).replace("<svg ", `<svg viewBox="0 0 ${round(svg.width)} ${round(svg.height)}" `);
+	return svg.render().replace(/ width="[^"]*"/, width === void 0 ? "$&" : ` width="${round$1(width)}"`).replace(/ height="[^"]*"/, width === void 0 ? "$&" : ` height="${round$1(height)}"`).replace("<svg ", `<svg viewBox="0 0 ${round$1(svg.width)} ${round$1(svg.height)}" `);
 }
+function round$1(n) {
+	return parseFloat(n.toFixed(3)).toString();
+}
+//#endregion
+//#region src/net2d.ts
+/** Where each face sits in the unfolded cube, as [column, row]: U on top of F, D below. */
+const NET = [
+	[
+		"U",
+		1,
+		0
+	],
+	[
+		"L",
+		0,
+		1
+	],
+	[
+		"F",
+		1,
+		1
+	],
+	[
+		"R",
+		2,
+		1
+	],
+	[
+		"B",
+		3,
+		1
+	],
+	[
+		"D",
+		1,
+		2
+	]
+];
+/**
+* One face is this many units wide in the SVG. The borders are a little thicker than the
+* 3D view's, which shows each face bigger, so they look as thick.
+*/
+const SIDE = 100;
+const PADDING = SIDE * .035;
+const GAP = SIDE * .03;
+/** Space between faces when they are separated. */
+const FACE_GAP = SIDE * .06;
+const BLACK = "#111";
 function round(n) {
 	return parseFloat(n.toFixed(3)).toString();
+}
+/**
+* Draws a size x size x size cube unfolded, as an SVG string, with each face's sticker
+* colors in the order `Puzzle.getStickers()` gives them. `width` sets the SVG's width in
+* pixels (the height follows); without it a face is 100 pixels wide.
+*/
+function drawCubeNet(size, stickers, layout = "separated", width) {
+	const step = SIDE + (layout === "joined" ? 0 : FACE_GAP);
+	const w = 3 * step + SIDE;
+	const h = 2 * step + SIDE;
+	const cell = (SIDE - 2 * PADDING - (size - 1) * GAP) / size;
+	const radius = round(cell * .12);
+	const parts = [];
+	if (layout === "joined") parts.push(`<rect x="0" y="${SIDE}" width="${w}" height="${SIDE}" fill="${BLACK}"/>`, `<rect x="${SIDE}" y="0" width="${SIDE}" height="${h}" fill="${BLACK}"/>`);
+	for (const [face, col, row] of NET) {
+		const x0 = col * step;
+		const y0 = row * step;
+		if (layout === "separated") parts.push(`<rect x="${x0}" y="${y0}" width="${SIDE}" height="${SIDE}" fill="${BLACK}"/>`);
+		const colors = stickers[face] ?? [];
+		for (let i = 0; i < size * size; i++) {
+			const x = x0 + PADDING + i % size * (cell + GAP);
+			const y = y0 + PADDING + Math.floor(i / size) * (cell + GAP);
+			parts.push(`<rect x="${round(x)}" y="${round(y)}" width="${round(cell)}" height="${round(cell)}" rx="${radius}" fill="${colors[i] ?? BLACK}"/>`);
+		}
+	}
+	const pxWidth = width ?? w;
+	return `<svg viewBox="0 0 ${w} ${h}" width="${round(pxWidth)}" height="${round(pxWidth * h / w)}" xmlns="http://www.w3.org/2000/svg">${parts.join("")}</svg>`;
+}
+/**
+* Gives one of csTimer's pictures the same look: its thin black outlines become thick,
+* dark ones with rounded corners. Only the outlined shapes change, so the clock's dials
+* and hands, which csTimer draws differently, stay as they are.
+*/
+function thickenBorders(svg) {
+	return svg.replace(/stroke:#000;/g, `stroke:${BLACK};stroke-width:2.5;stroke-linejoin:round;`);
 }
 //#endregion
 //#region src/view3d.ts
@@ -2630,6 +2713,20 @@ const STYLE = `
 .cstimer-3d-face > div {
   border-radius: 12%;
 }
+/* With floating faces the cube is smaller, to leave room around it for the copies. */
+.cstimer-3d-floating .cstimer-3d-cube {
+  --side: 30cqmin;
+}
+/* A copy of each face, further out and turned to face the cube, so it can only be seen
+   when its face is at the back. Its columns run the other way, so each sticker stays
+   next to the same corner of the cube, as if the cube were made of glass. */
+.cstimer-3d-hint {
+  direction: rtl;
+  display: none;
+}
+.cstimer-3d-floating .cstimer-3d-hint {
+  display: grid;
+}
 `;
 /** The views already drawn, by the element they are in, so drawing again updates them. */
 const views = /* @__PURE__ */ new WeakMap();
@@ -2674,16 +2771,18 @@ function createView(element, size, angle) {
 	box.className = "cstimer-3d";
 	const cube = doc.createElement("div");
 	cube.className = "cstimer-3d-cube";
-	const faces = FACES.map(([name, place]) => {
+	const makeFace = (name, className, transform) => {
 		const face = doc.createElement("div");
-		face.className = "cstimer-3d-face";
+		face.className = className;
 		face.dataset.face = name;
 		face.style.gridTemplate = `repeat(${size}, 1fr) / repeat(${size}, 1fr)`;
-		face.style.transform = `${place} translateZ(calc(var(--side) / 2))`;
+		face.style.transform = transform;
 		for (let i = 0; i < size * size; i++) face.append(doc.createElement("div"));
 		cube.append(face);
 		return face;
-	});
+	};
+	const faces = FACES.map(([name, place]) => makeFace(name, "cstimer-3d-face", `${place} translateZ(calc(var(--side) / 2))`));
+	const hints = FACES.map(([name, place]) => makeFace(name, "cstimer-3d-face cstimer-3d-hint", `${place} translateZ(calc(var(--side) * 1.5)) rotateY(180deg)`));
 	for (const [, place] of FACES) {
 		const core = doc.createElement("div");
 		core.className = "cstimer-3d-core";
@@ -2699,6 +2798,7 @@ function createView(element, size, angle) {
 		box,
 		cube,
 		faces,
+		hints,
 		size,
 		angle
 	};
@@ -2710,18 +2810,21 @@ function createView(element, size, angle) {
 * Draws a size x size x size cube in `element` (replacing what is in it), with each
 * face's sticker colors in the order U R F D L B, as `Puzzle.getStickers()` gives them.
 * The view is `width` pixels wide and as tall, or fills the element's width without it.
-* Drawing in the same element again only changes the colors and width, so the angle is kept.
+* `hidden` says whether the faces at the back float around the cube (see `HiddenFaces`).
+* Drawing in the same element again only changes the colors, width and mode, so the
+* angle is kept.
 */
-function drawCube3D(element, size, stickers, width) {
+function drawCube3D(element, size, stickers, width, hidden = "hidden") {
 	let view = views.get(element);
 	if (!view || view.size !== size || !element.contains(view.cube)) {
 		view = createView(element, size, view ? view.angle : { ...START_ANGLE });
 		views.set(element, view);
 	}
 	view.box.style.width = width === void 0 ? "" : `${width}px`;
+	view.box.classList.toggle("cstimer-3d-floating", hidden === "floating");
 	FACES.forEach(([name], i) => {
 		const colors = stickers[name] ?? [];
-		[...view.faces[i].children].forEach((sticker, j) => {
+		for (const face of [view.faces[i], view.hints[i]]) [...face.children].forEach((sticker, j) => {
 			sticker.style.background = colors[j] ?? "#111";
 		});
 	});
@@ -2754,6 +2857,12 @@ function _classPrivateFieldGet2(s, a) {
 }
 //#endregion
 //#region src/puzzle.ts
+const IMAGE_STYLES = [
+	"separated",
+	"joined",
+	"cstimer"
+];
+const HIDDEN_FACES = ["hidden", "floating"];
 function cube(n, methods) {
 	return {
 		name: `${n}x${n}x${n}`,
@@ -3067,6 +3176,8 @@ function listPuzzles() {
 var _info = /* @__PURE__ */ new WeakMap();
 var _colors = /* @__PURE__ */ new WeakMap();
 var _imageSize = /* @__PURE__ */ new WeakMap();
+var _imageStyle = /* @__PURE__ */ new WeakMap();
+var _hiddenFaces = /* @__PURE__ */ new WeakMap();
 var _method = /* @__PURE__ */ new WeakMap();
 var _length = /* @__PURE__ */ new WeakMap();
 var _scramble = /* @__PURE__ */ new WeakMap();
@@ -3085,6 +3196,8 @@ var Puzzle = class {
 		_classPrivateFieldInitSpec(this, _info, void 0);
 		_classPrivateFieldInitSpec(this, _colors, void 0);
 		_classPrivateFieldInitSpec(this, _imageSize, void 0);
+		_classPrivateFieldInitSpec(this, _imageStyle, "separated");
+		_classPrivateFieldInitSpec(this, _hiddenFaces, "hidden");
 		_classPrivateFieldInitSpec(this, _method, "default");
 		_classPrivateFieldInitSpec(this, _length, void 0);
 		_classPrivateFieldInitSpec(this, _scramble, "");
@@ -3140,6 +3253,35 @@ var Puzzle = class {
 	/** The width set with `setImageSize`, or `undefined` for the default sizes. */
 	getImageSize() {
 		return _classPrivateFieldGet2(_imageSize, this);
+	}
+	/**
+	* Picks how `getImage()` draws the puzzle: `'separated'` (the default), `'joined'` or
+	* `'cstimer'` (see `ImageStyle`). Cubes are drawn by this library in the style of the
+	* 3D view; the other puzzles keep csTimer's drawing, with thicker black borders.
+	*/
+	setImageStyle(style) {
+		if (!IMAGE_STYLES.includes(style)) throw new Error(`Unknown image style "${style}". Styles: ${IMAGE_STYLES.join(", ")}`);
+		_classPrivateFieldSet2(_imageStyle, this, style);
+		return this;
+	}
+	/** The style set with `setImageStyle`, `'separated'` by default. */
+	getImageStyle() {
+		return _classPrivateFieldGet2(_imageStyle, this);
+	}
+	/**
+	* Picks what `show3D` does with the faces you can't see from where you look:
+	* - `'hidden'` (the default): they are hidden behind the cube, as on a real one.
+	* - `'floating'`: a copy of each of them floats a little away from the cube, behind it,
+	*   so every face can be seen at once. Turning the cube swaps which faces float.
+	*/
+	setHiddenFaces(mode) {
+		if (!HIDDEN_FACES.includes(mode)) throw new Error(`Unknown hidden faces mode "${mode}". Modes: ${HIDDEN_FACES.join(", ")}`);
+		_classPrivateFieldSet2(_hiddenFaces, this, mode);
+		return this;
+	}
+	/** The mode set with `setHiddenFaces`, `'hidden'` by default. */
+	getHiddenFaces() {
+		return _classPrivateFieldGet2(_hiddenFaces, this);
 	}
 	/** Which methods `setScrambleMethod` accepts for this puzzle. */
 	getScrambleMethods() {
@@ -3301,10 +3443,11 @@ var Puzzle = class {
 	* size set with `setImageSize`, never wider than the element, or fills the element's
 	* width without one. Drag it with the mouse or a finger to look at every side. Call it again after changing the puzzle
 	* to update the view: the cube keeps the angle it was turned to. Only for cubes (see
-	* `has3DView`), and only in a browser.
+	* `has3DView`), and only in a browser. `setHiddenFaces('floating')` also shows the faces
+	* at the back.
 	*/
 	show3D(element) {
-		drawCube3D(element, _classPrivateFieldGet2(_info, this).cubeSize ?? 0, this.getStickers(), _classPrivateFieldGet2(_imageSize, this));
+		drawCube3D(element, _classPrivateFieldGet2(_info, this).cubeSize ?? 0, this.getStickers(), _classPrivateFieldGet2(_imageSize, this), _classPrivateFieldGet2(_hiddenFaces, this));
 		return this;
 	}
 	/** Whether `getImage()` can draw the puzzle with its current scramble type. */
@@ -3313,17 +3456,22 @@ var Puzzle = class {
 	}
 	/**
 	* Draws the puzzle as it is now (solved, or after the scramble and then the solution)
-	* as an SVG string, with this puzzle's colors and image size. Same picture as
+	* as an SVG string, with this puzzle's colors, image size and image style (see
+	* `setImageStyle`). With the `'cstimer'` style it is the same picture as
 	* `getScrambleImage`. Throws if csTimer can't read the moves.
 	*/
 	getImage() {
 		const type = _classPrivateFieldGet2(_scramble, this) ? _classPrivateFieldGet2(_scrambleType, this) : this.getScrambleType();
 		if (!hasScrambleImage(type)) throw new Error(`csTimer has no picture for "${type}" scrambles`);
+		const style = _classPrivateFieldGet2(_imageStyle, this);
+		const size = _classPrivateFieldGet2(_info, this).cubeSize;
+		if (style !== "cstimer" && size !== void 0 && tools.puzzleType(type) === this.id) return drawCubeNet(size, this.getStickers(), style, _classPrivateFieldGet2(_imageSize, this));
 		const colors = _classPrivateFieldGet2(_info, this).cstimerOrder.map((face) => toCstimerColor(_classPrivateFieldGet2(_colors, this)[face])).join("");
 		let moves = [_classPrivateFieldGet2(_scramble, this), _classPrivateFieldGet2(_solution, this)].filter(Boolean).join(" ");
 		if (this.id === "sq1") moves = joinSq1Turns(moves);
 		try {
-			return drawImage(type, moves, _classPrivateFieldGet2(_info, this).colorSetting ? { [_classPrivateFieldGet2(_info, this).colorSetting]: colors } : {}, _classPrivateFieldGet2(_imageSize, this));
+			const svg = drawImage(type, moves, _classPrivateFieldGet2(_info, this).colorSetting ? { [_classPrivateFieldGet2(_info, this).colorSetting]: colors } : {}, _classPrivateFieldGet2(_imageSize, this));
+			return style === "cstimer" ? svg : thickenBorders(svg);
 		} catch {
 			throw new Error(`Can't read these moves as ${this.name} moves: "${moves}"`);
 		}

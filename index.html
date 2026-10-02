@@ -32,14 +32,84 @@
         font-family: system-ui, sans-serif;
       }
       main {
-        max-width: 720px;
+        max-width: 1280px;
         margin: 0 auto;
+      }
+      h1 {
+        margin: 0 0 4px;
+      }
+      h2 {
+        margin: 0 0 12px;
+        font-size: 1.1rem;
+      }
+      /* Two panels side by side on wide screens: making scrambles, then showing the puzzle. */
+      .layout {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 20px;
+        align-items: start;
+        margin-top: 20px;
+      }
+      @media (max-width: 1100px) {
+        .layout {
+          grid-template-columns: minmax(0, 1fr);
+        }
+      }
+      .panel {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 16px;
+        min-width: 0;
+      }
+      .panel .meta {
+        margin: 12px 0 0;
+      }
+      /* The visualizer: its options in a column right next to the picture. */
+      .viewer {
+        display: flex;
+        gap: 20px;
+        align-items: flex-start;
+      }
+      @media (max-width: 700px) {
+        .viewer {
+          flex-direction: column;
+        }
+      }
+      .options {
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+        flex: none;
+        max-width: 100%;
+      }
+      .colors {
+        max-width: 240px;
+      }
+      .option > span {
+        display: block;
+        margin-bottom: 4px;
+        color: var(--muted);
+        font-size: 0.85rem;
+      }
+      .option.off > span {
+        opacity: 0.6;
+      }
+      /* As wide as the Size box says, so the panel keeps its width between puzzles. */
+      .stage {
+        min-width: 0;
+        max-width: 100%;
+        display: flex;
+        justify-content: center;
       }
       .controls {
         display: flex;
         gap: 8px;
         flex-wrap: wrap;
         align-items: center;
+      }
+      .controls select {
+        max-width: 100%;
       }
       select,
       button,
@@ -81,9 +151,8 @@
       }
       .colors {
         display: flex;
-        gap: 12px;
+        gap: 8px 12px;
         flex-wrap: wrap;
-        margin: 12px 0;
       }
       .colors label,
       .controls label {
@@ -118,37 +187,38 @@
           monospace;
         word-spacing: 0.3em;
       }
-      .views {
-        display: flex;
-        flex-wrap: wrap;
-        align-items: center;
-        gap: 24px;
-        margin: 16px 0;
-      }
       /* Shown at the size set with setImageSize, but never wider than the page.
          The images have no background of their own, so they sit on the page. */
       #image {
         max-width: 100%;
       }
-      /* The 3D view is as wide as the Size slider says; drag it to turn the cube. */
+      /* The 3D view is as wide as the Size box says; drag it to turn the cube. */
       #cube3d {
         max-width: 100%;
       }
-      /* 2D or 3D: two buttons, the one in use filled in. */
+      /* Choices as a row of buttons, the one in use filled in. */
       .toggle {
         display: inline-flex;
+      }
+      .toggle button {
+        padding: 6px 10px;
       }
       .toggle button {
         background: var(--card);
         border-color: var(--border);
         color: var(--fg);
       }
+      .toggle button {
+        border-radius: 0;
+      }
+      .toggle button + button {
+        margin-left: -1px;
+      }
       .toggle button:first-child {
         border-radius: 6px 0 0 6px;
       }
       .toggle button:last-child {
         border-radius: 0 6px 6px 0;
-        margin-left: -1px;
       }
       .toggle button[aria-pressed='true'] {
         background: var(--accent);
@@ -190,46 +260,88 @@
         csTimer's scramble generators running in your browser.
         <a href="https://github.com/Cubing-Way/cstimer-scrambles">Source on GitHub</a>
       </p>
-      <div class="controls">
-        <select id="puzzle" aria-label="Puzzle"></select>
-        <select id="type" aria-label="Scramble type"></select>
-        <select id="method" aria-label="Scramble method"></select>
-        <label
-          >Length <input id="length" type="number" min="1" max="999" placeholder="n/a" />
-          <span class="note" id="length-note">set by this scramble type</span></label
-        >
-        <form id="size-form" class="size" novalidate>
-          <label
-            >Size
-            <input id="size" type="number" min="100" max="480" step="10" value="300" /> px</label
-          >
-          <button type="submit">Apply</button>
-        </form>
-        <div class="toggle" role="group" aria-label="View">
-          <button type="button" id="view-2d" aria-pressed="true">2D</button>
-          <button type="button" id="view-3d" aria-pressed="false">3D</button>
-        </div>
-        <button id="next">New scramble</button>
+      <div class="layout">
+        <section class="panel" aria-labelledby="scramble-heading">
+          <h2 id="scramble-heading">Scramble options</h2>
+          <div class="controls">
+            <select id="puzzle" aria-label="Puzzle"></select>
+            <select id="type" aria-label="Scramble type"></select>
+            <select id="method" aria-label="Scramble method"></select>
+            <label
+              >Length <input id="length" type="number" min="1" max="999" placeholder="n/a" />
+              <span class="note" id="length-note">set by this scramble type</span></label
+            >
+            <button id="next">New scramble</button>
+          </div>
+          <label class="moves">
+            <span id="scramble-label">Scramble</span>
+            <textarea id="scramble" rows="2" spellcheck="false"></textarea>
+          </label>
+          <label class="moves">
+            <span id="solution-label">Solution</span>
+            <textarea
+              id="solution"
+              rows="2"
+              spellcheck="false"
+              placeholder="Type moves here"
+            ></textarea>
+          </label>
+          <p class="meta" id="info"></p>
+        </section>
+        <section class="panel" aria-labelledby="viewer-heading">
+          <h2 id="viewer-heading">Visualizer options</h2>
+          <div class="viewer">
+            <div class="options">
+              <div class="option">
+                <span>View</span>
+                <div class="toggle" role="group" aria-label="View">
+                  <button type="button" id="view-2d" aria-pressed="true">2D</button>
+                  <button type="button" id="view-3d" aria-pressed="false">3D</button>
+                </div>
+              </div>
+              <div class="option" id="style-option">
+                <span>2D faces</span>
+                <div class="toggle" role="group" aria-label="2D faces">
+                  <button type="button" data-style="separated">Separated</button>
+                  <button type="button" data-style="joined">Joined</button>
+                  <button type="button" data-style="cstimer">csTimer</button>
+                </div>
+              </div>
+              <div class="option" id="hidden-option">
+                <span>3D back faces</span>
+                <div class="toggle" role="group" aria-label="3D back faces">
+                  <button type="button" data-hidden="hidden">Hidden</button>
+                  <button type="button" data-hidden="floating">Floating</button>
+                </div>
+              </div>
+              <form id="size-form" class="option" novalidate>
+                <span>Size</span>
+                <div class="size">
+                  <input
+                    id="size"
+                    type="number"
+                    min="100"
+                    max="480"
+                    step="10"
+                    value="300"
+                    aria-label="Size in pixels"
+                  />
+                  px
+                  <button type="submit">Apply</button>
+                </div>
+              </form>
+              <div class="option" id="colors-option">
+                <span>Colors</span>
+                <div class="colors" id="colors"></div>
+              </div>
+            </div>
+            <div class="stage" id="stage">
+              <div id="image"></div>
+              <div id="cube3d" title="Drag to turn the cube"></div>
+            </div>
+          </div>
+        </section>
       </div>
-      <div class="colors" id="colors"></div>
-      <label class="moves">
-        <span id="scramble-label">Scramble</span>
-        <textarea id="scramble" rows="2" spellcheck="false"></textarea>
-      </label>
-      <label class="moves">
-        <span id="solution-label">Solution</span>
-        <textarea
-          id="solution"
-          rows="2"
-          spellcheck="false"
-          placeholder="Type moves here"
-        ></textarea>
-      </label>
-      <div class="views">
-        <div id="image"></div>
-        <div id="cube3d" title="Drag to turn the cube"></div>
-      </div>
-      <p class="meta" id="info"></p>
     </main>
     <script type="module">
       import { Puzzle, listPuzzles } from './index.mjs';
@@ -285,11 +397,17 @@
       const long = (c) => (c.length === 4 ? '#' + [...c.slice(1)].map((x) => x + x).join('') : c);
 
       let view = '2d';
+      // The 2D faces and 3D back faces picked, applied to whichever puzzle is shown.
+      let imageStyle = 'separated';
+      let hiddenFaces = 'hidden';
+      const styleButtons = [...document.querySelectorAll('[data-style]')];
+      const hiddenButtons = [...document.querySelectorAll('[data-hidden]')];
       const moves = (n) => `${n} ${n === 1 ? 'move' : 'moves'}`;
 
       function draw() {
         const puzzle = current();
         puzzle.setImageSize(imageSize);
+        $('stage').style.width = `${imageSize}px`;
         const ms = scrambleTimes.get(puzzle.id);
         scrambleLabel.textContent =
           `Scramble · ${moves(puzzle.getScrambleMoveCount())}` +
@@ -302,6 +420,26 @@
         const in3D = view === '3d' && puzzle.has3DView();
         view2D.setAttribute('aria-pressed', String(!in3D));
         view3D.setAttribute('aria-pressed', String(in3D));
+        // Only the cubes have faces to join; the others show the picked style otherwise
+        // as separated, and go back to joined when a cube is picked again.
+        const style = imageStyle === 'joined' && !puzzle.has3DView() ? 'separated' : imageStyle;
+        puzzle.setImageStyle(style);
+        for (const button of styleButtons) {
+          button.setAttribute('aria-pressed', String(button.dataset.style === style));
+          button.disabled = in3D || (button.dataset.style === 'joined' && !puzzle.has3DView());
+          button.title =
+            button.dataset.style === 'joined' && !puzzle.has3DView()
+              ? 'Only the cubes have faces to join'
+              : '';
+        }
+        $('style-option').classList.toggle('off', in3D);
+        if (puzzle.has3DView()) puzzle.setHiddenFaces(hiddenFaces);
+        for (const button of hiddenButtons) {
+          button.setAttribute('aria-pressed', String(button.dataset.hidden === hiddenFaces));
+          button.disabled = !in3D;
+        }
+        $('hidden-option').classList.toggle('off', !in3D);
+        $('colors-option').hidden = colorsDiv.childElementCount === 0;
         image.hidden = in3D;
         cube3d.hidden = !in3D;
         info.classList.remove('error');
@@ -405,6 +543,18 @@
       ]) {
         button.addEventListener('click', () => {
           view = value;
+          draw();
+        });
+      }
+      for (const button of styleButtons) {
+        button.addEventListener('click', () => {
+          imageStyle = button.dataset.style;
+          draw();
+        });
+      }
+      for (const button of hiddenButtons) {
+        button.addEventListener('click', () => {
+          hiddenFaces = button.dataset.hidden;
           draw();
         });
       }
