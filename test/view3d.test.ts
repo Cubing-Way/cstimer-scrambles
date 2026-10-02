@@ -56,7 +56,7 @@ describe('Puzzle 3D view', () => {
 
   it('matches the 2D picture after a scramble and solution', () => {
     for (const id of ['222', '333', '444', '555', '666', '777']) {
-      const cube = new Puzzle(id).setColor('U', '#fff');
+      const cube = new Puzzle(id).setImageStyle('cstimer').setColor('U', '#fff');
       cube.scramble();
       cube.setSolution("R U2 F'");
       const size = Number(id[0]);
