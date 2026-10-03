@@ -1,5 +1,35 @@
 import { describe, expect, it } from 'vitest';
 import { Puzzle } from '../src/index.js';
+import poly3d from '../src/vendor/cstimer/poly3dlib.js';
+
+/**
+ * Whether a puzzle csTimer draws with poly3dlib (Pyraminx "pyr", Skewb "skb", FTO "fto")
+ * is solved after `moves`, held any way: each face one color, as its image would show.
+ */
+function polySolved(type: string, moves: string): boolean {
+  const params = poly3d.getFamousPuzzle(type)!;
+  const puzzle = poly3d.makePuzzle(...params.polyParam);
+  const parser = params.parser ?? poly3d.makePuzzleParser(puzzle);
+  const faces = poly3d.renderNet(puzzle, 0, 0)[1].map((sticker) => sticker?.[2]);
+  let colors = faces.slice();
+  for (const [name, turns] of parser.parseScramble(moves)) {
+    const move = puzzle.getTwistyIdx(name);
+    const perm = puzzle.moveTable[move]!;
+    const max = puzzle.twistyDetails[move]![1];
+    const times = ((turns % max) + max) % max;
+    colors = colors.map((_, i) => {
+      let from = i;
+      for (let t = 0; t < times; t++) from = perm[from]! < 0 ? from : perm[from]!;
+      return colors[from];
+    });
+  }
+  const faceColor = new Map<number, number | undefined>();
+  return faces.every((face, i) => {
+    if (face === undefined) return true;
+    if (!faceColor.has(face)) faceColor.set(face, colors[i]);
+    return faceColor.get(face) === colors[i];
+  });
+}
 
 describe('Puzzle.solve', () => {
   it('solves random-state 2x2x2 and 3x3x3 scrambles', () => {
@@ -103,11 +133,117 @@ describe('Puzzle.solve', () => {
   });
 
   it('only works where there is a solver', () => {
-    expect(new Puzzle('444').hasSolver()).toBe(false);
-    expect(new Puzzle('pyram').hasSolver()).toBe(false);
-    expect(() => new Puzzle('444').solve()).toThrow();
-    expect(new Puzzle('333').hasSolver()).toBe(true);
-    expect(new Puzzle('222').hasSolver()).toBe(true);
+    for (const id of ['555', 'minx', 'clock', 'mpyr']) {
+      expect(new Puzzle(id).hasSolver()).toBe(false);
+      expect(new Puzzle(id).getSolverKind()).toBeUndefined();
+    }
+    expect(() => new Puzzle('555').solve()).toThrow();
+    for (const id of ['222', '333', '444', 'pyram', 'skewb', 'sq1', 'fto']) {
+      expect(new Puzzle(id).hasSolver()).toBe(true);
+    }
     expect(new Puzzle('333').setScrambleType('pll').hasSolver()).toBe(true);
+    expect(new Puzzle('444').setScrambleType('444yj').hasSolver()).toBe(true);
+  });
+
+  it('says how each solver solves', () => {
+    const kinds = Object.fromEntries(
+      ['222', '333', '444', 'pyram', 'skewb', 'sq1', 'fto'].map((id) => [
+        id,
+        new Puzzle(id).getSolverKind(),
+      ]),
+    );
+    expect(kinds).toEqual({
+      '222': 'fewest-moves',
+      '333': 'search',
+      '444': 'phases',
+      pyram: 'fewest-moves',
+      skewb: 'fewest-moves',
+      sq1: 'phases',
+      fto: 'phases',
+    });
+  });
+});
+
+describe('Puzzle.solve on 4x4x4, Pyraminx, Skewb, Square-1 and FTO', () => {
+  const methods = ['random-state', 'random-move'] as const;
+
+  it('solves 4x4x4 scrambles', () => {
+    const cube = new Puzzle('444');
+    for (const method of methods) {
+      cube.setScrambleMethod(method);
+      for (let i = 0; i < 3; i++) {
+        cube.scramble();
+        const solution = cube.solve();
+        expect(solution).toMatch(/^([URFDLB]w?['2]? ?)+$/);
+        expect(cube.getSolveStatus()).toBe('solved');
+        expect(cube.isSolutionShortest()).toBe(false);
+      }
+    }
+    // Wide moves and rotations in the scramble too.
+    cube.setScramble("x Rw U2 Fw' y Uw2 z' L");
+    cube.solve();
+    expect(cube.getSolveStatus()).toBe('solved');
+    expect(new Puzzle('444').setScramble("Rw Lw'").solve()).toBe('');
+  }, 30000);
+
+  it('solves Pyraminx and Skewb in the fewest moves', () => {
+    for (const [id, type] of [
+      ['pyram', 'pyr'],
+      ['skewb', 'skb'],
+    ]) {
+      const puzzle = new Puzzle(id!);
+      for (const method of methods) {
+        puzzle.setScrambleMethod(method);
+        for (let i = 0; i < 5; i++) {
+          puzzle.scramble();
+          const solution = puzzle.solve();
+          expect(polySolved(type!, `${puzzle.getScramble()} ${solution}`)).toBe(true);
+          expect(puzzle.isSolutionShortest()).toBe(true);
+          // Random-state scrambles have at least 8 moves (tips aside) and 11 at most.
+          expect(solution.split(' ').filter((m) => /[A-Z]/.test(m)).length).toBeLessThanOrEqual(11);
+        }
+      }
+    }
+    expect(new Puzzle('pyram').setScramble("R U R' U' r b'").solve()).toBe("U R U' R' r' b");
+    expect(new Puzzle('skewb').setScramble("R U' B").solve()).toBe("B' U R'");
+    expect(new Puzzle('skewb').setScramble('').solve()).toBe('');
+  });
+
+  it('solves Square-1 scrambles, written like its scrambles', () => {
+    const sq1 = new Puzzle('sq1');
+    const solved = sq1.getImage();
+    for (const method of methods) {
+      sq1.setScrambleMethod(method);
+      for (let i = 0; i < 4; i++) {
+        sq1.scramble();
+        const solution = sq1.solve();
+        expect(solution).toMatch(/^(\(-?\d,-?\d\)|\/| )+$/);
+        expect(sq1.getImage()).toBe(solved);
+        expect(sq1.isSolutionShortest()).toBe(false);
+      }
+    }
+    expect(sq1.setScramble('(1,0)/ (-1,0)/').solve()).toBe('/ (1,0)/ (-1,0)');
+    expect(sq1.setScramble('(3,3)').solve()).toBe('(-3,-3)');
+  });
+
+  it('solves FTO scrambles', () => {
+    const fto = new Puzzle('fto');
+    for (const method of methods) {
+      fto.setScrambleMethod(method);
+      for (let i = 0; i < 3; i++) {
+        fto.scramble();
+        const solution = fto.solve();
+        expect(polySolved('fto', `${fto.getScramble()} ${solution}`)).toBe(true);
+        expect(fto.isSolutionShortest()).toBe(false);
+      }
+    }
+    expect(fto.setScramble("R BL'").solve().length).toBeGreaterThan(0);
+  }, 30000);
+
+  it('throws on moves its solver can not read', () => {
+    expect(() => new Puzzle('pyram').setScramble('U [u]').solve()).toThrow(/\[u\]/);
+    expect(() => new Puzzle('skewb').setScramble('R x').solve()).toThrow(/"x"/);
+    expect(() => new Puzzle('fto').setScramble('U T').solve()).toThrow(/"T"/);
+    expect(() => new Puzzle('sq1').setScramble('(1,0) R').solve()).toThrow(/"R"/);
   });
 });

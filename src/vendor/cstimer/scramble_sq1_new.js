@@ -1,5 +1,5 @@
 // Vendored from csTimer (src/js/scramble/scramble_sq1_new.js) @ 2547d82. GPL-3.0, (c) cs0x7f.
-// Changes: ESM import/export; $.noop -> plain JS; DEBUG disabled.
+// Changes: ESM import/export; $.noop -> plain JS; exports solve (moves that make a Square-1 state); DEBUG disabled.
 import mathlib from './mathlib.js';
 import scrMgr from './scrmgr.js';
 var DEBUG = false;
@@ -907,6 +907,11 @@ var sq1 = (function(setNPerm, getNPerm, circle, rn) {
 	return {
 		initialize: function() {},
 		SqCubie: SqCubie,
+		solve: function(c) {
+			Shape_$clinit();
+			Square_$clinit();
+			return Search_solution(search, c);
+		},
 		getRandomScramble: square1SolverGetRandomScramble
 	};
 

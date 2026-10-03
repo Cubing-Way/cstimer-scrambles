@@ -20,6 +20,7 @@ export type {
   StepSolverId,
   StepSolverInfo,
   StepSolution,
+  SolverKind,
 } from './puzzle.js';
 
 // Each puzzle module registers its events when it loads; this order is listEvents()'s order.

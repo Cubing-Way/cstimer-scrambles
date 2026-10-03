@@ -39,6 +39,17 @@ interface GSolverStatic {
   ): GSolver;
 }
 
+/**
+ * csTimer's mathlib.Solver: an IDA* search over coordinates, one move table per coordinate.
+ * `init` builds the tables; after it `move[t][axis][coord]` is coordinate t after one turn.
+ */
+interface CoordSolver {
+  init(): void;
+  move: number[][][];
+  /** The fewest moves to solve `state`, at least `minLength`: [axis, power] each (power 0 = one turn). */
+  search(state: number[], minLength: number, maxLength?: number): [number, number][] | null;
+}
+
 declare const mathlib: {
   gSolver: GSolverStatic;
   CubieCube: CubieCubeStatic;
@@ -51,4 +62,4 @@ declare const mathlib: {
   setSeed(count: number, seed: string): void;
 };
 export default mathlib;
-export type { CubieCube, CubieCubeStatic, GSolver };
+export type { CubieCube, CubieCubeStatic, CoordSolver, GSolver };

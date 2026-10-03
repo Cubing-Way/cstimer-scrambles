@@ -19,7 +19,8 @@ import {
   allowedSolutionMoves,
 } from './solution.js';
 import type { SliceMoves, SolutionRules, SolveStatus, WideMoves } from './solution.js';
-import { CubeSearch, SOLVER_SIZES } from './solver.js';
+import { SOLVERS, startSearch } from './solver.js';
+import type { PuzzleSearch, SolverKind } from './solver.js';
 import {
   DEFAULT_STEP_ORIENTATION,
   ROTATIONS,
@@ -854,11 +855,28 @@ class Puzzle {
   }
 
   /**
-   * Whether `solve` works for this puzzle with its current scramble type: 2x2x2 and 3x3x3,
-   * with their own scramble types (not relays or other notations). More puzzles later.
+   * Whether `solve` works for this puzzle with its current scramble type: 2x2x2, 3x3x3,
+   * 4x4x4, Pyraminx, Skewb, Square-1 and FTO, with their own scramble types (not relays or
+   * other notations).
    */
   hasSolver(): boolean {
-    return SOLVER_SIZES.includes(this.#info.cubeSize ?? 0) && this.#hasCubeNotation();
+    const solver = SOLVERS[this.id];
+    if (!solver) return false;
+    const type = this.#scramble ? this.#scrambleType : this.getScrambleType();
+    return tools.puzzleType(type) === solver.notation;
+  }
+
+  /**
+   * How this puzzle's solver solves (see `SolverKind`), `undefined` when it has none (see
+   * `hasSolver`):
+   * - `'fewest-moves'` (2x2x2, Pyraminx, Skewb): always the fewest moves, at once.
+   * - `'search'` (3x3x3): looks for shorter solutions within the time limit (see
+   *   `setSolveTimeLimit`).
+   * - `'phases'` (4x4x4, Square-1, FTO): one solution made in phases, longer than the
+   *   shortest; the time limit doesn't apply.
+   */
+  getSolverKind(): SolverKind | undefined {
+    return this.hasSolver() ? SOLVERS[this.id]!.kind : undefined;
   }
 
   /**
@@ -866,7 +884,7 @@ class Puzzle {
    * milliseconds (default 3000). A few seconds usually gets 17 to 19 moves, often the
    * shortest there is, but proving that nothing shorter exists can take many minutes.
    * `Infinity` searches until it has that proof, so the solution is always the shortest.
-   * 2x2x2 is always solved in the fewest moves at once.
+   * Only 3x3x3's solver searches (see `getSolverKind`); the others are done at once.
    */
   setSolveTimeLimit(ms: number): this {
     if (!(ms > 0)) throw new Error(`The solve time limit must be more than 0 ms, not ${ms}`);
@@ -879,21 +897,28 @@ class Puzzle {
   }
 
   /**
-   * Finds the shortest solution it can for the scramble with csTimer's own solvers, in the
-   * half-turn metric (R2 counts as one move), and makes it the puzzle's solution (replacing
-   * anything set with `setSolution`), so `getImage()` then shows the puzzle solved. Returns
-   * that solution, `''` if the scramble leaves the puzzle solved. It is a computer
-   * solution, not a human method: the fewest moves on 2x2x2 (only U, R and F turns); on
-   * 3x3x3 the shortest found within the time limit (see `setSolveTimeLimit`), and
-   * `isSolutionShortest` says whether it is known to be the shortest. Only face turns, so
-   * it follows every solution option, FMC mode included. The page can't do anything else
-   * while it searches; `solveAsync` lets it. The first 3x3x3 solve takes a bit longer
-   * while the solver sets up. Throws on puzzles without a solver (see `hasSolver`).
+   * Finds the shortest solution it can for the scramble with csTimer's own solvers, and
+   * makes it the puzzle's solution (replacing anything set with `setSolution`), so
+   * `getImage()` then shows the puzzle solved. Returns that solution, `''` if the scramble
+   * leaves the puzzle solved. It is a computer solution, not a human method:
+   * - 2x2x2: the fewest moves (only U, R and F turns, R2 counts as one move).
+   * - 3x3x3: the shortest found within the time limit (see `setSolveTimeLimit`), in the
+   *   half-turn metric; `isSolutionShortest` says whether it is known to be the shortest.
+   * - 4x4x4: outer and wide (Rw) turns, solved by reduction, about 45 moves.
+   * - Pyraminx: the fewest moves, the tips last. Skewb: the fewest moves.
+   * - Square-1: written like csTimer's scrambles, `(1,0)/ (-3,0)/ ...`, about 12 slices.
+   * - FTO: face turns, solved in three phases, about 30 moves.
+   * See `getSolverKind`. On cubes it uses no slice moves, so it follows every solution
+   * option, FMC mode included. It solves the scramble as the puzzle's own scramble types
+   * write it (rotations, wide and slice moves on cubes; not on the others), and throws on
+   * moves it can't read. The page can't do anything else while it searches; `solveAsync`
+   * lets it. The first 3x3x3, 4x4x4 or FTO solve takes a bit longer while the solver sets
+   * up. Throws on puzzles without a solver (see `hasSolver`).
    */
   solve(): string {
     const search = this.#startSearch();
     const end = performance.now() + this.#solveTimeLimit;
-    while (!search.shortest && performance.now() < end) search.step();
+    while (!search.done && performance.now() < end) search.step();
     return this.#finishSearch(search);
   }
 
@@ -913,11 +938,11 @@ class Puzzle {
     this.#stopSolving = stop;
     const end = performance.now() + this.#solveTimeLimit;
     onProgress?.(search.solution);
-    while (!search.shortest && !stopped && performance.now() < end) {
+    while (!search.done && !stopped && performance.now() < end) {
       // Let the page draw and handle clicks between steps.
       await new Promise((resolve) => setTimeout(resolve, 0));
       if (stopped) break;
-      if (search.step() && !search.shortest) onProgress?.(search.solution);
+      if (search.step() && !search.done) onProgress?.(search.solution);
     }
     if (this.#stopSolving === stop) this.#stopSolving = undefined;
     return this.#finishSearch(search);
@@ -932,8 +957,9 @@ class Puzzle {
 
   /**
    * Whether the puzzle's solution is the one the last solve found and that solve made sure
-   * no shorter solution exists. Always true after solving a 2x2x2; on 3x3x3 only when the
-   * search finished within the time limit (see `setSolveTimeLimit`).
+   * no shorter solution exists. Always true after solving a 2x2x2, Pyraminx or Skewb; on
+   * 3x3x3 only when the search finished within the time limit (see `setSolveTimeLimit`);
+   * never on 4x4x4, Square-1 or FTO, whose solvers solve in phases (see `getSolverKind`).
    */
   isSolutionShortest(): boolean {
     const solved = this.#solved;
@@ -1041,14 +1067,14 @@ class Puzzle {
     return solvePattern(this.#scramble, pattern, this.#solveTimeLimit);
   }
 
-  #startSearch(): CubeSearch {
+  #startSearch(): PuzzleSearch {
     if (!this.hasSolver()) {
       throw new Error(`No solver for ${this.name} with "${this.getScrambleType()}" scrambles yet`);
     }
-    return new CubeSearch(this.#info.cubeSize!, this.#scramble);
+    return startSearch(this.id, this.#scramble);
   }
 
-  #finishSearch(search: CubeSearch): string {
+  #finishSearch(search: PuzzleSearch): string {
     if (search.scramble === this.#scramble) {
       this.#solution = search.solution;
       this.#solved = {
@@ -1213,6 +1239,7 @@ export type {
   SliceMoves,
   WideMoves,
   SolveStatus,
+  SolverKind,
   StepSolverId,
   StepSolverInfo,
   StepSolution,

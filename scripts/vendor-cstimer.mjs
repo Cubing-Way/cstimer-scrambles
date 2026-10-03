@@ -191,8 +191,8 @@ const FILES = [
     ['noob'],
     ['SCRAMBLE_NOOB* strings from en-us.js'],
   ],
-  ['scramble/pyraminx.js', ['mathlib', 'scrmgr']],
-  ['scramble/skewb.js', ['mathlib', 'scrmgr']],
+  ['scramble/pyraminx.js', ['mathlib', 'scrmgr'], 'pyraminx'],
+  ['scramble/skewb.js', ['mathlib', 'scrmgr'], 'skewb'],
   ['scramble/scramble_fto.js', ['mathlib', 'scrmgr', 'ftocta']],
   ['scramble/scramble_sq1_new.js', ['mathlib', 'scrmgr'], 'sq1'],
   ['scramble/1x3x3.js', ['mathlib', 'scrmgr']],
@@ -247,6 +247,41 @@ const EDITS = {
       '\treturn {\n\t\tgetEGLLImage:',
       '\treturn {\n\t\tsolveFacelet: function(f) {\n\t\t\tvar perm = [];\n\t\t\tvar ori = [];\n\t\t\tif (mathlib.detectFacelet(cFacelet, f, perm, ori, 4) == -1) {\n\t\t\t\treturn null;\n\t\t\t}\n\t\t\tvar sol = solv.search([mathlib.getNPerm(perm, 7), oriCoord.get(ori)], 0);\n\t\t\treturn sol && solv.toStr(sol, "URF", " 2\'").trim();\n\t\t},\n\t\tgetEGLLImage:',
       'exports solveFacelet (optimal solution of a 2x2x2 state)',
+    ],
+  ],
+  // Puzzle.solve needs the solvers these files only use for scrambles.
+  'scramble/scramble_444.js': [
+    [
+      '\t\tgetPartialScramble: getPartialScramble,\n',
+      '\t\tgetPartialScramble: getPartialScramble,\n\t\tgenFacelet: genFacelet,\n',
+      'exports genFacelet (moves that make a 4x4x4 state)',
+    ],
+  ],
+  'scramble/pyraminx.js': [
+    [
+      '(function() {\n\t/*\n\tx504x',
+      'var pyraminx = (function() {\n\t/*\n\tx504x',
+      'named pyraminx',
+    ],
+    [
+      'getL4EImage]);\n})();',
+      'getL4EImage]);\n\treturn {\n\t\tsolver: solv\n\t};\n})();',
+      'exports its optimal solver',
+    ],
+  ],
+  'scramble/skewb.js': [
+    ['(function() {\n\n\t/**', 'var skewb = (function() {\n\n\t/**', 'named skewb'],
+    [
+      'getScrambleIvy);\n\n})();',
+      'getScrambleIvy);\n\treturn {\n\t\tsolver: solv\n\t};\n})();',
+      'exports its optimal solver',
+    ],
+  ],
+  'scramble/scramble_sq1_new.js': [
+    [
+      '\t\tSqCubie: SqCubie,\n',
+      '\t\tSqCubie: SqCubie,\n\t\tsolve: function(c) {\n\t\t\tShape_$clinit();\n\t\t\tSquare_$clinit();\n\t\t\treturn Search_solution(search, c);\n\t\t},\n',
+      'exports solve (moves that make a Square-1 state)',
     ],
   ],
 };

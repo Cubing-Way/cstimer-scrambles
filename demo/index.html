@@ -851,7 +851,10 @@
         // while its solution is still the one in the box.
         const solveButton = $('solve');
         solveButton.disabled = !puzzle.hasSolver();
-        solveButton.title = puzzle.hasSolver() ? '' : 'Only 2x2x2 and 3x3x3 can be solved for now';
+        solveButton.title = puzzle.hasSolver()
+          ? ''
+          : 'csTimer has no solver for this puzzle or scramble type';
+        const solverKind = puzzle.getSolverKind();
         const running = searching && searching.puzzle === puzzle;
         solveButton.textContent = running ? 'Stop' : 'Solve';
         const solved =
@@ -865,17 +868,20 @@
             ? `Solved by the computer in ${lastSolve.ms.toFixed(0)} ms, ` +
               (puzzle.isSolutionShortest()
                 ? 'the shortest solution there is'
-                : 'the shortest it found in the time allowed')
+                : solverKind === 'phases'
+                  ? 'in phases, so not the shortest'
+                  : 'the shortest it found in the time allowed')
             : '';
         for (const button of limitButtons) {
           button.setAttribute(
             'aria-pressed',
             String((button.dataset.limit === 'seconds') === searchTime.limit),
           );
-          button.disabled = !puzzle.hasSolver();
+          button.disabled = solverKind !== 'search';
         }
-        $('search-seconds').disabled = !puzzle.hasSolver() || !searchTime.limit;
-        $('search-option').classList.toggle('off', !puzzle.hasSolver());
+        // Only a solver that searches for shorter solutions has a time limit.
+        $('search-seconds').disabled = solverKind !== 'search' || !searchTime.limit;
+        $('search-option').classList.toggle('off', solverKind !== 'search');
         $('solution-options-note').textContent = !cube
           ? 'Solution options and solve status are for the cubes only'
           : fmc
