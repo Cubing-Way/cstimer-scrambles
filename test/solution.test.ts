@@ -94,4 +94,14 @@ describe('solve status', () => {
     puzzle.setSolution("2Fw U' 3Rw'");
     expect(puzzle.getSolveStatus()).toBe('solved');
   });
+
+  it('leaves moves that aren’t allowed off the cube', () => {
+    const solved = new Puzzle('333').getStickers();
+    const puzzle = cube('', "M r' S E2 R").setFmcMode(true);
+    expect(puzzle.getStickers()).toEqual(cube('', 'R').getStickers());
+    expect(puzzle.getImage()).toBe(cube('', 'R').setFmcMode(true).getImage());
+    puzzle.setFmcMode(false);
+    expect(puzzle.getStickers()).not.toEqual(cube('', 'R').getStickers());
+    expect(cube('', 'Q').getStickers()).toEqual(solved);
+  });
 });

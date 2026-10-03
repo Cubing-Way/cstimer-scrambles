@@ -16,6 +16,7 @@ import {
   countSolutionMoves,
   cubeSolveStatus,
   invalidSolutionMoves,
+  allowedSolutionMoves,
 } from './solution.js';
 import type { SliceMoves, SolutionRules, SolveStatus, WideMoves } from './solution.js';
 import image from './vendor/cstimer/image.js';
@@ -813,7 +814,8 @@ class Puzzle {
   /**
    * The moves of the solution that aren't allowed by the solution options, or that can't be
    * read as cube moves at all, in the order they are typed, e.g. `['M', 'r']`. Always `[]`
-   * for puzzles other than the cubes.
+   * for puzzles other than the cubes. Moves the options don't allow aren't done on the
+   * cube: `getImage`, `getStickers` and `show3D` show it without them.
    */
   getInvalidMoves(): string[] {
     if (!this.#hasCubeNotation()) return [];
@@ -832,6 +834,18 @@ class Puzzle {
     if (this.getInvalidMoves().length > 0) return 'DNF';
     const moves = [this.#scramble, this.#solution].filter(Boolean).join(' ');
     return cubeSolveStatus(size, moves, !this.#fmc);
+  }
+
+  /**
+   * The scramble and then the solution, as done on the puzzle: on cubes, the solution's
+   * moves that the solution options don't allow (see `getInvalidMoves`) are left out, so
+   * `getStickers`, `getImage` and `show3D` show the cube without them.
+   */
+  #movesDone(): string {
+    const solution = this.#hasCubeNotation()
+      ? allowedSolutionMoves(this.#solution, this.#solutionRules())
+      : this.#solution;
+    return [this.#scramble, solution].filter(Boolean).join(' ');
   }
 
   /** The rules the solution follows: FMC's in FMC mode, the options set otherwise. */
@@ -871,7 +885,7 @@ class Puzzle {
   getStickers(): Record<string, string[]> {
     const size = this.#info.cubeSize;
     if (size === undefined) throw new Error(`${this.name} has no 3D view yet, only cubes do`);
-    const moves = [this.#scramble, this.#solution].filter(Boolean).join(' ');
+    const moves = this.#movesDone();
     // csTimer's stickers: per face (D L B U R F), the face each sticker's color comes from.
     const posit = image.nnnPosit(size, moves);
     const order = this.#info.cstimerOrder;
@@ -944,7 +958,7 @@ class Puzzle {
     const colors = this.#info.cstimerOrder
       .map((face) => toCstimerColor(this.#colors[face]!))
       .join('');
-    let moves = [this.#scramble, this.#solution].filter(Boolean).join(' ');
+    let moves = this.#movesDone();
     if (this.id === 'sq1') moves = joinSq1Turns(moves);
     try {
       const svg = drawImage(

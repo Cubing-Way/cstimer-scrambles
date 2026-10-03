@@ -74,6 +74,17 @@ function invalidSolutionMoves(moves: string, rules: SolutionRules): string[] {
   });
 }
 
+/**
+ * `moves` without the ones csTimer can read but `rules` don't allow (e.g. `M` with slice
+ * moves not allowed, `r` with wide moves only as `Rw`), so they aren't done on the cube.
+ */
+function allowedSolutionMoves(moves: string, rules: SolutionRules): string {
+  const notAllowed = new Set(invalidSolutionMoves(moves, rules).filter((move) => MOVE.test(move)));
+  return splitMoves(moves)
+    .filter((move) => !notAllowed.has(move))
+    .join(' ');
+}
+
 /** Whether every face of csTimer's sticker list (`size` x `size` per face) is one color. */
 function isSolved(posit: number[], size: number): boolean {
   const n = size * size;
@@ -111,6 +122,7 @@ export {
   FMC_RULES,
   countSolutionMoves,
   invalidSolutionMoves,
+  allowedSolutionMoves,
   cubeSolveStatus,
 };
 export type { SliceMoves, WideMoves, SolveStatus, SolutionRules };
