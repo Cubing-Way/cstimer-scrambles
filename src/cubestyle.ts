@@ -31,8 +31,8 @@ const CUBE_STYLES: readonly CubeStyle[] = [
 type Corners = [number, number, number, number];
 
 /** How round the rounded corners are, as a part of a tile's width. */
-const CLASSIC_RADIUS = 0.12;
-const RADIUS = 0.25;
+const CLASSIC_RADIUS = 0.15;
+const RADIUS = 0.28;
 const ROUND_RADIUS = 0.32;
 function isStickerless(style: CubeStyle): boolean {
   return style.startsWith('stickerless');
@@ -58,5 +58,5 @@ function tileCorners(style: CubeStyle, size: number, index: number): Corners {
   return [inner(top || left), inner(top || right), inner(bottom || right), inner(bottom || left)];
 }
 
-export { CUBE_STYLES, tileCorners, isStickerless };
+export { CUBE_STYLES, CLASSIC_RADIUS, tileCorners, isStickerless };
 export type { CubeStyle, Corners };
