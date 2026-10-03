@@ -17,6 +17,9 @@ export type {
   SliceMoves,
   WideMoves,
   SolveStatus,
+  StepSolverId,
+  StepSolverInfo,
+  StepSolution,
 } from './puzzle.js';
 
 // Each puzzle module registers its events when it loads; this order is listEvents()'s order.

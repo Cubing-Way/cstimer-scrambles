@@ -20,6 +20,15 @@ import {
 } from './solution.js';
 import type { SliceMoves, SolutionRules, SolveStatus, WideMoves } from './solution.js';
 import { CubeSearch, SOLVER_SIZES } from './solver.js';
+import {
+  DEFAULT_STEP_ORIENTATION,
+  ROTATIONS,
+  STEP_PATTERNS,
+  STEP_SOLVERS,
+  solvePattern,
+  solveStep,
+} from './stepsolver.js';
+import type { StepSolution, StepSolverId, StepSolverInfo } from './stepsolver.js';
 import image from './vendor/cstimer/image.js';
 import tools from './vendor/cstimer/toolsutil.js';
 
@@ -299,6 +308,8 @@ class Puzzle {
   #rules: SolutionRules = { countRotations: true, sliceMoves: 'one-move', wideMoves: 'Rw-or-r' };
   #fmc = false;
   #solveTimeLimit = 3000;
+  #stepOrientation = DEFAULT_STEP_ORIENTATION;
+  #stepNiss = false;
   /** The solution the last solve found, while it is still the puzzle's solution. */
   #solved: { scramble: string; solution: string; shortest: boolean } | undefined;
   /** Ends the running `solveAsync` early. */
@@ -934,6 +945,102 @@ class Puzzle {
     );
   }
 
+  /**
+   * csTimer's step solvers that work for this puzzle with its current scramble type (see
+   * `StepSolverId` for what each one solves): the 3x3x3 ones, 2x2x2's face, Square-1's
+   * shape and colors, Pyraminx's V and Skewb's face. Empty for other puzzles.
+   */
+  getStepSolvers(): StepSolverInfo[] {
+    const puzzle = tools.puzzleType(this.#scramble ? this.#scrambleType : this.getScrambleType());
+    return STEP_SOLVERS.filter((solver) => solver.puzzle === puzzle).map((solver) => ({
+      ...solver,
+    }));
+  }
+
+  /**
+   * The shortest way to do one step of a solve after the scramble, with csTimer's step
+   * solver `id` (see `StepSolverId`), one line per face, place or step: e.g. for
+   * `'cross'`, the shortest cross on each of the 6 faces. The scramble only, not the
+   * solution: these are ideas for the start of a solve, so the solution is left as it is.
+   * On 3x3x3 the scramble must only have face turns (no wide moves, slices or rotations),
+   * and on 2x2x2 only U, R and F turns, as csTimer's scramblers make them. Throws when the
+   * solver doesn't work for this puzzle (see `getStepSolvers`).
+   *
+   * `only` keeps just the lines with those labels, e.g. `solveStep('xxxcross', ['D'])`: the
+   * cross solvers then only solve those faces, which matters for `'xxxcross'`, as it takes
+   * several seconds per face (`'xxcross'` well under one). The first use of some solvers
+   * takes a little longer while they set up.
+   */
+  solveStep(id: StepSolverId, only?: readonly string[]): StepSolution[] {
+    if (!this.getStepSolvers().some((solver) => solver.id === id)) {
+      throw new Error(
+        `The "${id}" step solver doesn't work for ${this.name} with "${this.getScrambleType()}" scrambles`,
+      );
+    }
+    const options = { orientation: this.#stepOrientation, niss: this.#stepNiss };
+    return solveStep(id, this.#scramble, options, only);
+  }
+
+  /**
+   * How the 3x3x3 method solvers (`'333cf'`, `'333roux'`, `'333petrus'`, `'333zz'`,
+   * `'333eodr'`) hold the cube, as the rotations from the way it was scrambled, e.g. `''`
+   * (as scrambled: cross on D), `'x2'` or `'z2 y'`. Default `'z2'`, csTimer's: the cross on
+   * the U face's color (white). The first line of their answer starts with this rotation.
+   */
+  setStepOrientation(rotation: string): this {
+    if (!ROTATIONS.test(rotation)) {
+      throw new Error(`The step orientation is cube rotations like "z2 y", not "${rotation}"`);
+    }
+    this.#stepOrientation = rotation.trim().replace(/\s+/g, ' ');
+    return this;
+  }
+
+  getStepOrientation(): string {
+    return this.#stepOrientation;
+  }
+
+  /**
+   * Whether the `'333thistle'` solver may use NISS (default false): moves done on the
+   * inverse scramble, written in brackets before the others, e.g. `"(R') U F"`.
+   */
+  setStepNiss(niss: boolean): this {
+    this.#stepNiss = niss;
+    return this;
+  }
+
+  getStepNiss(): boolean {
+    return this.#stepNiss;
+  }
+
+  /**
+   * csTimer's patterns for `solvePattern`, by name (`'Cross'`, `'EOLine'`, `'Domino'`, ...):
+   * 54 stickers each, face by face in U R F D L B order, each face read row by row as in
+   * min2phase's facelet strings (U with its top row next to B, D with its top row next to F).
+   */
+  getStepPatterns(): Record<string, string> {
+    return { ...STEP_PATTERNS };
+  }
+
+  /**
+   * The fewest face turns that take the 3x3x3, after the scramble, to `pattern` (csTimer's
+   * "3x3x3 General" solver), searching up to the solve time limit (see
+   * `setSolveTimeLimit`), or null if it found nothing in that time. A pattern is 54
+   * stickers as in `getStepPatterns`: a face letter is a sticker that must end up where
+   * that letter is in the pattern, X, Y and Z mark groups of stickers that must end up
+   * within their own group's places (like edges that must be oriented), and "-" is any
+   * sticker. Easy patterns like a cross or a 2x2x2 block come in well under a second; whole
+   * layers or more can take far longer than `solve`. Like `solveStep`, it starts from the
+   * scramble only and needs face turns. Throws on puzzles other than 3x3x3.
+   */
+  solvePattern(pattern: string): string | null {
+    if (!this.getStepSolvers().some((solver) => solver.id === 'cross')) {
+      throw new Error(
+        `Patterns are for 3x3x3 only, not ${this.name} with "${this.getScrambleType()}" scrambles`,
+      );
+    }
+    return solvePattern(this.#scramble, pattern, this.#solveTimeLimit);
+  }
+
   #startSearch(): CubeSearch {
     if (!this.hasSolver()) {
       throw new Error(`No solver for ${this.name} with "${this.getScrambleType()}" scrambles yet`);
@@ -1106,4 +1213,7 @@ export type {
   SliceMoves,
   WideMoves,
   SolveStatus,
+  StepSolverId,
+  StepSolverInfo,
+  StepSolution,
 };
