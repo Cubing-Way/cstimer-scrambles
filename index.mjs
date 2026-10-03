@@ -2646,8 +2646,8 @@ const CUBE_STYLES = [
 	"stickerless-round"
 ];
 /** How round the rounded corners are, as a part of a tile's width. */
-const CLASSIC_RADIUS = .12;
-const RADIUS = .25;
+const CLASSIC_RADIUS = .15;
+const RADIUS = .28;
 const ROUND_RADIUS = .32;
 function isStickerless(style) {
 	return style.startsWith("stickerless");
@@ -2751,7 +2751,7 @@ function drawCubeNet(size, stickers, layout = "separated", width, style = "class
 	const gap = stickerless ? 0 : GAP;
 	const padding = stickerless ? 0 : PADDING;
 	const cell = (SIDE - 2 * padding - (size - 1) * gap) / size;
-	const radius = round(cell * .12);
+	const radius = round(cell * CLASSIC_RADIUS);
 	const parts = [];
 	if (layout === "joined") parts.push(`<rect class="cstimer-background" x="0" y="${SIDE}" width="${w}" height="${SIDE}" fill="${BLACK}"/>`, `<rect class="cstimer-background" x="${SIDE}" y="0" width="${SIDE}" height="${h}" fill="${BLACK}"/>`);
 	for (const [face, col, row] of NET) {
