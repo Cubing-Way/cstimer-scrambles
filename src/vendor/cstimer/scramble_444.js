@@ -1,5 +1,5 @@
 // Vendored from csTimer (src/js/scramble/scramble_444.js) @ 2547d82. GPL-3.0, (c) cs0x7f.
-// Changes: ESM import/export; $.now() -> plain JS; DEBUG disabled.
+// Changes: ESM import/export; $.now() -> plain JS; exports genFacelet (moves that make a 4x4x4 state); DEBUG disabled.
 import mathlib from './mathlib.js';
 import scrMgr from './scrmgr.js';
 import scramble_333 from './scramble_333_edit.js';
@@ -3085,6 +3085,7 @@ var scramble_444 = (function(Cnk, circle) {
 	return {
 		getRandomScramble: getRandomScramble,
 		getPartialScramble: getPartialScramble,
+		genFacelet: genFacelet,
 		testbench: testbench
 	}
 })(mathlib.Cnk, mathlib.circle);

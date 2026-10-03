@@ -1,11 +1,11 @@
 // Vendored from csTimer (src/js/scramble/pyraminx.js) @ 2547d82. GPL-3.0, (c) cs0x7f.
-// Changes: ESM import/export; $.now() -> plain JS; DEBUG disabled.
+// Changes: ESM import/export; $.now() -> plain JS; named pyraminx; exports its optimal solver; DEBUG disabled.
 import mathlib from './mathlib.js';
 import scrMgr from './scrmgr.js';
 var DEBUG = false;
 "use strict";
 
-(function() {
+var pyraminx = (function() {
 	/*
 	x504x x x504x
 	 132 231 132
@@ -211,6 +211,9 @@ var DEBUG = false;
 	}
 	scrMgr.reg(['pyro', 'pyrso', 'pyrnb', 'pyr4c'], getScramble)
 		('pyrl4e', getL4EScramble, [l4efilter, l4eprobs, getL4EImage]);
+	return {
+		solver: solv
+	};
 })();
 
 var mpyr = (function() {
@@ -633,3 +636,4 @@ var mpyr = (function() {
 		solveTest: solveTest
 	};
 })();
+export default pyraminx;
