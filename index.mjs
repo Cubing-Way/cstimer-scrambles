@@ -3195,6 +3195,14 @@ function invalidSolutionMoves(moves, rules) {
 		return false;
 	});
 }
+/**
+* `moves` without the ones csTimer can read but `rules` don't allow (e.g. `M` with slice
+* moves not allowed, `r` with wide moves only as `Rw`), so they aren't done on the cube.
+*/
+function allowedSolutionMoves(moves, rules) {
+	const notAllowed = new Set(invalidSolutionMoves(moves, rules).filter((move) => MOVE.test(move)));
+	return splitMoves(moves).filter((move) => !notAllowed.has(move)).join(" ");
+}
 /** Whether every face of csTimer's sticker list (`size` x `size` per face) is one color. */
 function isSolved(posit, size) {
 	const n = size * size;
@@ -4046,7 +4054,8 @@ var Puzzle = class {
 	/**
 	* The moves of the solution that aren't allowed by the solution options, or that can't be
 	* read as cube moves at all, in the order they are typed, e.g. `['M', 'r']`. Always `[]`
-	* for puzzles other than the cubes.
+	* for puzzles other than the cubes. Moves the options don't allow aren't done on the
+	* cube: `getImage`, `getStickers` and `show3D` show it without them.
 	*/
 	getInvalidMoves() {
 		if (!_assertClassBrand(_Puzzle_brand, this, _hasCubeNotation).call(this)) return [];
@@ -4084,7 +4093,7 @@ var Puzzle = class {
 	getStickers() {
 		const size = _classPrivateFieldGet2(_info, this).cubeSize;
 		if (size === void 0) throw new Error(`${this.name} has no 3D view yet, only cubes do`);
-		const moves = [_classPrivateFieldGet2(_scramble, this), _classPrivateFieldGet2(_solution, this)].filter(Boolean).join(" ");
+		const moves = _assertClassBrand(_Puzzle_brand, this, _movesDone).call(this);
 		const posit = image.nnnPosit(size, moves);
 		const order = _classPrivateFieldGet2(_info, this).cstimerOrder;
 		const stickers = {};
@@ -4142,7 +4151,7 @@ var Puzzle = class {
 		const size = _classPrivateFieldGet2(_info, this).cubeSize;
 		if (style !== "cstimer" && size !== void 0 && tools.puzzleType(type) === this.id) return styleSvg(drawCubeNet(size, this.getStickers(), style, _classPrivateFieldGet2(_imageSize, this), _classPrivateFieldGet2(_cubeStyle, this)), _classPrivateFieldGet2(_styles, this));
 		const colors = _classPrivateFieldGet2(_info, this).cstimerOrder.map((face) => toCstimerColor(_classPrivateFieldGet2(_colors, this)[face])).join("");
-		let moves = [_classPrivateFieldGet2(_scramble, this), _classPrivateFieldGet2(_solution, this)].filter(Boolean).join(" ");
+		let moves = _assertClassBrand(_Puzzle_brand, this, _movesDone).call(this);
 		if (this.id === "sq1") moves = joinSq1Turns(moves);
 		try {
 			const svg = drawImage(type, moves, _classPrivateFieldGet2(_info, this).colorSetting ? { [_classPrivateFieldGet2(_info, this).colorSetting]: colors } : {}, _classPrivateFieldGet2(_imageSize, this));
@@ -4165,6 +4174,15 @@ function _checkOffset(face, offset) {
 		if (typeof value !== "number" || !Number.isFinite(value)) throw new Error(`Offset ${key} must be a number, not ${value}`);
 	}
 	return full;
+}
+/**
+* The scramble and then the solution, as done on the puzzle: on cubes, the solution's
+* moves that the solution options don't allow (see `getInvalidMoves`) are left out, so
+* `getStickers`, `getImage` and `show3D` show the cube without them.
+*/
+function _movesDone() {
+	const solution = _assertClassBrand(_Puzzle_brand, this, _hasCubeNotation).call(this) ? allowedSolutionMoves(_classPrivateFieldGet2(_solution, this), _assertClassBrand(_Puzzle_brand, this, _solutionRules).call(this)) : _classPrivateFieldGet2(_solution, this);
+	return [_classPrivateFieldGet2(_scramble, this), solution].filter(Boolean).join(" ");
 }
 /** The rules the solution follows: FMC's in FMC mode, the options set otherwise. */
 function _solutionRules() {

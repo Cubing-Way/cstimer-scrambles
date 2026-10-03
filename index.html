@@ -43,21 +43,23 @@
         margin: 0 0 12px;
         font-size: 1.1rem;
       }
-      /* Two panels the full width of the page: making scrambles, then showing the puzzle. */
+      /* Two halves: the scramble, solution and solution options on the left, the
+         visualizer and its options on the right. One column on narrow screens. */
       .layout {
         display: grid;
-        grid-template-columns: minmax(0, 1fr);
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
         gap: 20px;
         margin-top: 20px;
+        align-items: start;
       }
-      /* The scramble and the solution side by side on wide screens. */
-      .move-boxes {
-        display: grid;
-        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-        gap: 0 20px;
+      .column {
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+        min-width: 0;
       }
       @media (max-width: 800px) {
-        .move-boxes {
+        .layout {
           grid-template-columns: minmax(0, 1fr);
         }
       }
@@ -71,27 +73,11 @@
       .panel .meta {
         margin: 12px 0 0;
       }
-      /* The visualizer: its options in a column right next to the picture, both centered. */
-      .viewer {
-        display: flex;
-        gap: 32px;
-        align-items: flex-start;
-        justify-content: center;
-      }
-      @media (max-width: 700px) {
-        .viewer {
-          flex-direction: column;
-        }
-      }
       .options {
         display: flex;
         flex-direction: column;
         gap: 14px;
-        flex: none;
         max-width: 100%;
-      }
-      .colors {
-        max-width: 240px;
       }
       .option > span {
         display: block;
@@ -102,10 +88,11 @@
       .option.off > span {
         opacity: 0.6;
       }
-      /* As wide as the Size box says, so the panel keeps its width between puzzles. */
+      /* As wide as the Size box says, centered, never wider than the panel. */
       .stage {
         min-width: 0;
         max-width: 100%;
+        margin: 0 auto;
         display: flex;
         justify-content: center;
       }
@@ -177,7 +164,9 @@
       }
       .moves {
         display: block;
-        margin: 16px 0 0;
+      }
+      .controls + .moves {
+        margin-top: 16px;
       }
       .moves > span {
         display: block;
@@ -204,11 +193,14 @@
         max-width: 100%;
       }
       /* Choices as a row of buttons, the one in use filled in. */
+      /* Never wider than its half of the page: buttons that don't fit go on a new row. */
       .toggle {
         display: inline-flex;
+        flex-wrap: wrap;
+        max-width: 100%;
       }
       .toggle button {
-        padding: 6px 10px;
+        padding: 6px 8px;
       }
       .toggle button {
         background: var(--card);
@@ -236,24 +228,11 @@
         opacity: 0.5;
         cursor: not-allowed;
       }
-      /* The solution options under the scramble and solution boxes, in a row. */
+      /* The solution options in rows that wrap. */
       .solution-options {
         display: flex;
         flex-wrap: wrap;
         gap: 12px 24px;
-        margin-top: 12px;
-      }
-      .status {
-        font-weight: 600;
-      }
-      .status.dnf {
-        color: #dc2626;
-      }
-      .status.plus2 {
-        color: #d97706;
-      }
-      .status.solved {
-        color: #16a34a;
       }
       /* Number boxes for the camera angle and the floating face's offset, in rows. */
       .xyz {
@@ -325,23 +304,27 @@
         <a href="https://github.com/Cubing-Way/cstimer-scrambles">Source on GitHub</a>
       </p>
       <div class="layout">
-        <section class="panel" aria-labelledby="scramble-heading">
-          <h2 id="scramble-heading">Scramble options</h2>
-          <div class="controls">
-            <select id="puzzle" aria-label="Puzzle"></select>
-            <select id="type" aria-label="Scramble type"></select>
-            <select id="method" aria-label="Scramble method"></select>
-            <label
-              >Length <input id="length" type="number" min="1" max="999" placeholder="n/a" />
-              <span class="note" id="length-note">set by this scramble type</span></label
-            >
-            <button id="next">New scramble</button>
-          </div>
-          <div class="move-boxes">
+        <div class="column">
+          <section class="panel" aria-labelledby="scramble-heading">
+            <h2 id="scramble-heading">Scramble</h2>
+            <div class="controls">
+              <select id="puzzle" aria-label="Puzzle"></select>
+              <select id="type" aria-label="Scramble type"></select>
+              <select id="method" aria-label="Scramble method"></select>
+              <label
+                >Length <input id="length" type="number" min="1" max="999" placeholder="n/a" />
+                <span class="note" id="length-note">set by this scramble type</span></label
+              >
+              <button id="next">New scramble</button>
+            </div>
             <label class="moves">
               <span id="scramble-label">Scramble</span>
               <textarea id="scramble" rows="2" spellcheck="false"></textarea>
             </label>
+            <p class="meta" id="info"></p>
+          </section>
+          <section class="panel" aria-labelledby="solution-heading">
+            <h2 id="solution-heading">Solution</h2>
             <label class="moves">
               <span id="solution-label">Solution</span>
               <textarea
@@ -351,44 +334,54 @@
                 placeholder="Type moves here"
               ></textarea>
             </label>
-          </div>
-          <div class="solution-options">
-            <div class="option" id="rotations-option">
-              <span>Rotations x y z</span>
-              <div class="toggle" role="group" aria-label="Rotations x y z">
-                <button type="button" data-rotations="count">Count</button>
-                <button type="button" data-rotations="free">Don’t count</button>
+            <p class="note" id="solution-note"></p>
+          </section>
+          <section class="panel" aria-labelledby="solution-options-heading">
+            <h2 id="solution-options-heading">Solution options</h2>
+            <div class="solution-options">
+              <div class="option" id="rotations-option">
+                <span>Rotations x y z</span>
+                <div class="toggle" role="group" aria-label="Rotations x y z">
+                  <button type="button" data-rotations="count">Count</button>
+                  <button type="button" data-rotations="free">Don’t count</button>
+                </div>
+              </div>
+              <div class="option" id="slice-option">
+                <span>Slice moves M S E</span>
+                <div class="toggle" role="group" aria-label="Slice moves M S E">
+                  <button type="button" data-slice="one-move">1 move</button>
+                  <button type="button" data-slice="two-moves">2 moves</button>
+                  <button type="button" data-slice="not-allowed">Not allowed</button>
+                </div>
+              </div>
+              <div class="option" id="wide-option">
+                <span>Wide moves</span>
+                <div class="toggle" role="group" aria-label="Wide moves">
+                  <button type="button" data-wide="Rw-or-r">Rw or r</button>
+                  <button type="button" data-wide="Rw-only">Rw only</button>
+                </div>
+              </div>
+              <div class="option" id="fmc-option">
+                <span>FMC mode</span>
+                <div class="toggle" role="group" aria-label="FMC mode">
+                  <button type="button" data-fmc="off">Off</button>
+                  <button type="button" data-fmc="on">On</button>
+                </div>
               </div>
             </div>
-            <div class="option" id="slice-option">
-              <span>Slice moves M S E</span>
-              <div class="toggle" role="group" aria-label="Slice moves M S E">
-                <button type="button" data-slice="one-move">1 move</button>
-                <button type="button" data-slice="two-moves">2 moves</button>
-                <button type="button" data-slice="not-allowed">Not allowed</button>
-              </div>
+            <p class="note" id="solution-options-note"></p>
+          </section>
+        </div>
+        <div class="column">
+          <section class="panel" aria-labelledby="viewer-heading">
+            <h2 id="viewer-heading">Visualizer</h2>
+            <div class="stage" id="stage">
+              <div id="image"></div>
+              <div id="cube3d"></div>
             </div>
-            <div class="option" id="wide-option">
-              <span>Wide moves</span>
-              <div class="toggle" role="group" aria-label="Wide moves">
-                <button type="button" data-wide="Rw-or-r">Rw or r</button>
-                <button type="button" data-wide="Rw-only">Rw only</button>
-              </div>
-            </div>
-            <div class="option" id="fmc-option">
-              <span>FMC mode</span>
-              <div class="toggle" role="group" aria-label="FMC mode">
-                <button type="button" data-fmc="off">Off</button>
-                <button type="button" data-fmc="on">On</button>
-              </div>
-            </div>
-          </div>
-          <p class="note" id="solution-note"></p>
-          <p class="meta" id="info"></p>
-        </section>
-        <section class="panel" aria-labelledby="viewer-heading">
-          <h2 id="viewer-heading">Visualizer options</h2>
-          <div class="viewer">
+          </section>
+          <section class="panel" aria-labelledby="viewer-options-heading">
+            <h2 id="viewer-options-heading">Visualizer options</h2>
             <div class="options">
               <div class="option">
                 <span>View</span>
@@ -561,12 +554,8 @@
                 <div class="colors" id="colors"></div>
               </div>
             </div>
-            <div class="stage" id="stage">
-              <div id="image"></div>
-              <div id="cube3d"></div>
-            </div>
-          </div>
-        </section>
+          </section>
+        </div>
       </div>
     </main>
     <script type="module">
@@ -672,7 +661,6 @@
       const sliceButtons = [...document.querySelectorAll('[data-slice]')];
       const wideButtons = [...document.querySelectorAll('[data-wide]')];
       const fmcButtons = [...document.querySelectorAll('[data-fmc]')];
-      const STATUS_CLASS = { solved: 'solved', '+2': 'plus2', DNF: 'dnf' };
       const STATUS_TEXT = { solved: 'Solved', '+2': '+2', DNF: 'DNF' };
 
       // Applies the solution options to the puzzle and shows them, with the solution's
@@ -703,20 +691,19 @@
           $(option).classList.toggle('off', off);
         }
         const status = puzzle.getSolveStatus();
-        solutionLabel.replaceChildren(`Solution · ${moves(puzzle.getSolutionMoveCount())}`);
-        if (status) {
-          const badge = document.createElement('span');
-          badge.className = `status ${STATUS_CLASS[status]}`;
-          badge.textContent = STATUS_TEXT[status];
-          solutionLabel.append(' · ', badge);
-        }
+        solutionLabel.textContent =
+          `Solution · ${moves(puzzle.getSolutionMoveCount())}` +
+          (status ? ` · ${STATUS_TEXT[status]}` : '');
+        // Moves that aren't allowed aren't done on the cube in the visualizer.
         const invalid = [...new Set(puzzle.getInvalidMoves())];
-        const note = $('solution-note');
-        if (!cube) note.textContent = 'Solution options and solve status are for the cubes only';
-        else if (invalid.length) note.textContent = `Not allowed: ${invalid.join(' ')}`;
-        else if (fmc)
-          note.textContent = 'FMC: rotations don’t count, no M S E, wide moves only as Rw, no +2';
-        else note.textContent = '';
+        $('solution-note').textContent = invalid.length
+          ? `Not allowed, so not done on the cube: ${invalid.join(' ')}`
+          : '';
+        $('solution-options-note').textContent = !cube
+          ? 'Solution options and solve status are for the cubes only'
+          : fmc
+            ? 'FMC: rotations don’t count, no M S E, wide moves only as Rw, no +2'
+            : '';
       }
 
       function draw() {
