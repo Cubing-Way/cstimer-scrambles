@@ -19,6 +19,7 @@ import {
   allowedSolutionMoves,
 } from './solution.js';
 import type { SliceMoves, SolutionRules, SolveStatus, WideMoves } from './solution.js';
+import { SOLVER_SIZES, solveCube } from './solver.js';
 import image from './vendor/cstimer/image.js';
 import tools from './vendor/cstimer/toolsutil.js';
 
@@ -834,6 +835,31 @@ class Puzzle {
     if (this.getInvalidMoves().length > 0) return 'DNF';
     const moves = [this.#scramble, this.#solution].filter(Boolean).join(' ');
     return cubeSolveStatus(size, moves, !this.#fmc);
+  }
+
+  /**
+   * Whether `solve` works for this puzzle with its current scramble type: 2x2x2 and 3x3x3,
+   * with their own scramble types (not relays or other notations). More puzzles later.
+   */
+  hasSolver(): boolean {
+    return SOLVER_SIZES.includes(this.#info.cubeSize ?? 0) && this.#hasCubeNotation();
+  }
+
+  /**
+   * Finds a solution for the scramble with csTimer's own solvers and makes it the puzzle's
+   * solution (replacing anything set with `setSolution`), so `getImage()` then shows the
+   * puzzle solved. Returns that solution, `''` if the scramble leaves the puzzle solved.
+   * It is a computer solution, not a human method: the fewest moves on 2x2x2 (only U, R
+   * and F turns), at most 21 face turns on 3x3x3 (min2phase). Only face turns, so it
+   * follows every solution option, FMC mode included. The first 3x3x3 solve takes a bit
+   * longer while the solver sets up. Throws on puzzles without a solver (see `hasSolver`).
+   */
+  solve(): string {
+    if (!this.hasSolver()) {
+      throw new Error(`No solver for ${this.name} with "${this.getScrambleType()}" scrambles yet`);
+    }
+    this.#solution = solveCube(this.#info.cubeSize!, this.#scramble);
+    return this.#solution;
   }
 
   /**

@@ -1,5 +1,5 @@
 // Vendored from csTimer (src/js/scramble/2x2x2.js) @ 2547d82. GPL-3.0, (c) cs0x7f.
-// Changes: ESM import/export; DEBUG disabled.
+// Changes: ESM import/export; exports solveFacelet (optimal solution of a 2x2x2 state); DEBUG disabled.
 import mathlib from './mathlib.js';
 import scrMgr from './scrmgr.js';
 var DEBUG = false;
@@ -449,6 +449,15 @@ var scramble_222 = (function(rn) {
 		('222eg', getScramble, [egfilter, egprobs]);
 
 	return {
+		solveFacelet: function(f) {
+			var perm = [];
+			var ori = [];
+			if (mathlib.detectFacelet(cFacelet, f, perm, ori, 4) == -1) {
+				return null;
+			}
+			var sol = solv.search([mathlib.getNPerm(perm, 7), oriCoord.get(ori)], 0);
+			return sol && solv.toStr(sol, "URF", " 2'").trim();
+		},
 		getEGLLImage: getLLImage.bind(null, false, egll_map, egllfilter)
 	}
 })(mathlib.rn);

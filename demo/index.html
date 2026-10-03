@@ -172,6 +172,10 @@
         gap: 6px;
         margin: 0;
       }
+      /* No gap above the Solve button while every move is allowed. */
+      #solution-note:empty {
+        display: none;
+      }
       input:disabled {
         opacity: 0.6;
         cursor: not-allowed;
@@ -365,6 +369,10 @@
               ></textarea>
             </label>
             <p class="note" id="solution-note"></p>
+            <div class="controls">
+              <button id="solve">Solve</button>
+              <p class="meta" id="solve-info"></p>
+            </div>
           </section>
         </div>
         <section class="panel" aria-labelledby="viewer-heading">
@@ -685,6 +693,9 @@
       const wideButtons = [...document.querySelectorAll('[data-wide]')];
       const fmcButtons = [...document.querySelectorAll('[data-fmc]')];
       const STATUS_TEXT = { solved: 'Solved', '+2': '+2', DNF: 'DNF' };
+      // The last solve done with the Solve button: which puzzle, scramble and solution, and
+      // how long it took.
+      let lastSolve;
 
       // Applies the solution options to the puzzle and shows them, with the solution's
       // move count, solve status and any moves the options don't allow.
@@ -721,6 +732,19 @@
         const invalid = [...new Set(puzzle.getInvalidMoves())];
         $('solution-note').textContent = invalid.length
           ? `Not allowed, so not done on the cube: ${invalid.join(' ')}`
+          : '';
+        // The Solve button, for the puzzles with a solver, and how long the last solve took
+        // while its solution is still the one in the box.
+        const solveButton = $('solve');
+        solveButton.disabled = !puzzle.hasSolver();
+        solveButton.title = puzzle.hasSolver() ? '' : 'Only 2x2x2 and 3x3x3 can be solved for now';
+        const solved =
+          lastSolve &&
+          lastSolve.puzzle === puzzle &&
+          lastSolve.scramble === puzzle.getScramble() &&
+          lastSolve.solution === puzzle.getSolution();
+        $('solve-info').textContent = solved
+          ? `Solved by the computer in ${lastSolve.ms.toFixed(0)} ms`
           : '';
         $('solution-options-note').textContent = !cube
           ? 'Solution options and solve status are for the cubes only'
@@ -1056,6 +1080,25 @@
         current().setScramble(scrambleInput.value);
         scrambleTimes.delete(current().id);
         fit(scrambleInput);
+        draw();
+      });
+      $('solve').addEventListener('click', () => {
+        const puzzle = current();
+        const start = performance.now();
+        try {
+          const solution = puzzle.solve();
+          lastSolve = {
+            puzzle,
+            scramble: puzzle.getScramble(),
+            solution,
+            ms: performance.now() - start,
+          };
+        } catch (error) {
+          info.classList.add('error');
+          info.textContent = error.message;
+          return;
+        }
+        solutionInput.value = puzzle.getSolution();
         draw();
       });
       solutionInput.addEventListener('input', () => {
