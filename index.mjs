@@ -4655,6 +4655,37 @@ var scramble_222$1 = (function(rn) {
 	};
 })(mathlib.rn);
 //#endregion
+//#region \0@oxc-project+runtime@0.152.0/helpers/esm/checkPrivateRedeclaration.js
+function _checkPrivateRedeclaration(e, t) {
+	if (t.has(e)) throw new TypeError("Cannot initialize the same private elements twice on an object");
+}
+//#endregion
+//#region \0@oxc-project+runtime@0.152.0/helpers/esm/classPrivateMethodInitSpec.js
+function _classPrivateMethodInitSpec(e, a) {
+	_checkPrivateRedeclaration(e, a), a.add(e);
+}
+//#endregion
+//#region \0@oxc-project+runtime@0.152.0/helpers/esm/classPrivateFieldInitSpec.js
+function _classPrivateFieldInitSpec(e, t, a) {
+	_checkPrivateRedeclaration(e, t), t.set(e, a);
+}
+//#endregion
+//#region \0@oxc-project+runtime@0.152.0/helpers/esm/assertClassBrand.js
+function _assertClassBrand(e, t, n) {
+	if ("function" == typeof e ? e === t : e.has(t)) return arguments.length < 3 ? t : n;
+	throw new TypeError("Private element is not present on this object");
+}
+//#endregion
+//#region \0@oxc-project+runtime@0.152.0/helpers/esm/classPrivateFieldSet2.js
+function _classPrivateFieldSet2(s, a, r) {
+	return s.set(_assertClassBrand(s, a), r), r;
+}
+//#endregion
+//#region \0@oxc-project+runtime@0.152.0/helpers/esm/classPrivateFieldGet2.js
+function _classPrivateFieldGet2(s, a) {
+	return s.get(_assertClassBrand(s, a));
+}
+//#endregion
 //#region src/solver.ts
 /** Face order of min2phase's facelet strings; a face's opposite is 3 places further. */
 const FACES = "URFDLB";
@@ -4695,28 +4726,46 @@ function holdBy(facelets, faces, at) {
 	});
 	return facelets.map((color) => name[color]);
 }
+/** Phase-2 tries min2phase makes per search step (each step takes well under 0.2 s). */
+const PROBES_PER_STEP = 500;
+var _facelets = /* @__PURE__ */ new WeakMap();
+var _search = /* @__PURE__ */ new WeakMap();
+var _CubeSearch_brand = /* @__PURE__ */ new WeakSet();
 /**
-* A short solution for a size x size x size cube after `moves` (cube notation as csTimer
-* reads it, rotations and wide moves included), for the cube as it is held after them:
-* optimal on 2x2x2 (only U, R and F turns), at most 21 face turns on 3x3x3.
-* `''` when it is already solved. Only for the sizes in SOLVER_SIZES.
+* A search for the shortest solution of a size x size x size cube after `moves` (cube
+* notation as csTimer reads it, rotations and wide moves included), for the cube as it is
+* held after them. It holds a solution from the start and finds shorter ones step by step:
+* - 2x2x2: csTimer's optimal solver (only U, R and F turns), so the first is the shortest.
+* - 3x3x3: min2phase finds a solution of at most 21 face turns, then is asked again and
+*   again for one at least a move shorter. When it has looked everywhere without finding
+*   one, the solution it has is the shortest there is (half-turn metric: R2 is one move).
+*   That can take minutes, but a solution of the usual 17 to 19 moves comes in seconds.
+* `solution` is `''` when the cube is already solved. Only for the sizes in SOLVER_SIZES.
 */
-function solveCube(size, moves) {
-	if (size === 2) {
-		const facelets = holdBy(cubeFacelets(2, moves), [
-			3,
-			4,
-			5
-		], [
-			14,
-			18,
-			23
-		]);
-		const solution = scramble_222$1.solveFacelet(facelets);
-		if (solution === null) throw new Error(`Can't solve this 2x2x2: "${moves}"`);
-		return solution;
-	}
-	if (size === 3) {
+var CubeSearch = class {
+	constructor(size, moves) {
+		_classPrivateMethodInitSpec(this, _CubeSearch_brand);
+		this.shortest = false;
+		_classPrivateFieldInitSpec(this, _facelets, "");
+		_classPrivateFieldInitSpec(this, _search, void 0);
+		this.scramble = moves;
+		if (size === 2) {
+			const facelets = holdBy(cubeFacelets(2, moves), [
+				3,
+				4,
+				5
+			], [
+				14,
+				18,
+				23
+			]);
+			const solution = scramble_222$1.solveFacelet(facelets);
+			if (solution === null) throw new Error(`Can't solve this 2x2x2: "${moves}"`);
+			this.solution = solution;
+			this.shortest = true;
+			return;
+		}
+		if (size !== 3) throw new Error(`No solver for ${size}x${size}x${size} cubes yet`);
 		const facelets = holdBy(cubeFacelets(3, moves), [
 			0,
 			1,
@@ -4726,42 +4775,49 @@ function solveCube(size, moves) {
 			13,
 			22
 		]);
-		const solution = min2phase.solve(facelets.map((f) => FACES[f]).join("")).trim().replace(/ +/g, " ");
-		if (solution.startsWith("Error")) throw new Error(`Can't solve this 3x3x3: "${moves}"`);
-		return solution;
+		_classPrivateFieldSet2(_facelets, this, facelets.map((f) => FACES[f]).join(""));
+		_classPrivateFieldSet2(_search, this, new min2phase.Search());
+		const first = _classPrivateFieldGet2(_search, this).solution(_classPrivateFieldGet2(_facelets, this));
+		if (first.startsWith("Error")) throw new Error(`Can't solve this 3x3x3: "${moves}"`);
+		this.solution = "";
+		_assertClassBrand(_CubeSearch_brand, this, _found).call(this, first);
 	}
-	throw new Error(`No solver for ${size}x${size}x${size} cubes yet`);
+	/**
+	* Searches a little more (well under 0.2 s each time min2phase is asked). Returns whether
+	* `solution` got shorter or is now known to be the shortest.
+	*/
+	step() {
+		if (this.shortest) return false;
+		const result = _classPrivateFieldGet2(_search, this).next(PROBES_PER_STEP, 0, 0);
+		if (result === "Error 8") return false;
+		if (result === "Error 7") this.shortest = true;
+		else _assertClassBrand(_CubeSearch_brand, this, _found).call(this, result);
+		return true;
+	}
+};
+/**
+* Takes `result`, a solution from min2phase, and asks for one at least a move shorter,
+* taking that too if it comes at once, and so on.
+*/
+function _found(result) {
+	for (;;) {
+		this.solution = _assertClassBrand(_CubeSearch_brand, this, _read).call(this, result);
+		const length = this.solution ? this.solution.split(" ").length : 0;
+		if (length === 0) {
+			this.shortest = true;
+			return;
+		}
+		result = _classPrivateFieldGet2(_search, this).solution(_classPrivateFieldGet2(_facelets, this), length - 1, PROBES_PER_STEP, 0, 0);
+		if (result === "Error 8") return;
+		if (result === "Error 7") {
+			this.shortest = true;
+			return;
+		}
+	}
 }
-//#endregion
-//#region \0@oxc-project+runtime@0.152.0/helpers/esm/checkPrivateRedeclaration.js
-function _checkPrivateRedeclaration(e, t) {
-	if (t.has(e)) throw new TypeError("Cannot initialize the same private elements twice on an object");
-}
-//#endregion
-//#region \0@oxc-project+runtime@0.152.0/helpers/esm/classPrivateMethodInitSpec.js
-function _classPrivateMethodInitSpec(e, a) {
-	_checkPrivateRedeclaration(e, a), a.add(e);
-}
-//#endregion
-//#region \0@oxc-project+runtime@0.152.0/helpers/esm/classPrivateFieldInitSpec.js
-function _classPrivateFieldInitSpec(e, t, a) {
-	_checkPrivateRedeclaration(e, t), t.set(e, a);
-}
-//#endregion
-//#region \0@oxc-project+runtime@0.152.0/helpers/esm/assertClassBrand.js
-function _assertClassBrand(e, t, n) {
-	if ("function" == typeof e ? e === t : e.has(t)) return arguments.length < 3 ? t : n;
-	throw new TypeError("Private element is not present on this object");
-}
-//#endregion
-//#region \0@oxc-project+runtime@0.152.0/helpers/esm/classPrivateFieldSet2.js
-function _classPrivateFieldSet2(s, a, r) {
-	return s.set(_assertClassBrand(s, a), r), r;
-}
-//#endregion
-//#region \0@oxc-project+runtime@0.152.0/helpers/esm/classPrivateFieldGet2.js
-function _classPrivateFieldGet2(s, a) {
-	return s.get(_assertClassBrand(s, a));
+/** min2phase pads its moves to two characters, e.g. "U  R2". */
+function _read(solution) {
+	return solution.trim().replace(/ +/g, " ");
 }
 //#endregion
 //#region src/puzzle.ts
@@ -5115,6 +5171,9 @@ var _scramble = /* @__PURE__ */ new WeakMap();
 var _solution = /* @__PURE__ */ new WeakMap();
 var _rules = /* @__PURE__ */ new WeakMap();
 var _fmc = /* @__PURE__ */ new WeakMap();
+var _solveTimeLimit = /* @__PURE__ */ new WeakMap();
+var _solved = /* @__PURE__ */ new WeakMap();
+var _stopSolving = /* @__PURE__ */ new WeakMap();
 var _scrambleType = /* @__PURE__ */ new WeakMap();
 var _type = /* @__PURE__ */ new WeakMap();
 var _Puzzle_brand = /* @__PURE__ */ new WeakSet();
@@ -5149,6 +5208,9 @@ var Puzzle = class {
 			wideMoves: "Rw-or-r"
 		});
 		_classPrivateFieldInitSpec(this, _fmc, false);
+		_classPrivateFieldInitSpec(this, _solveTimeLimit, 3e3);
+		_classPrivateFieldInitSpec(this, _solved, void 0);
+		_classPrivateFieldInitSpec(this, _stopSolving, void 0);
 		_classPrivateFieldInitSpec(this, _scrambleType, "");
 		_classPrivateFieldInitSpec(this, _type, void 0);
 		const info = puzzleInfo(id);
@@ -5583,18 +5645,76 @@ var Puzzle = class {
 		return SOLVER_SIZES.includes(_classPrivateFieldGet2(_info, this).cubeSize ?? 0) && _assertClassBrand(_Puzzle_brand, this, _hasCubeNotation).call(this);
 	}
 	/**
-	* Finds a solution for the scramble with csTimer's own solvers and makes it the puzzle's
-	* solution (replacing anything set with `setSolution`), so `getImage()` then shows the
-	* puzzle solved. Returns that solution, `''` if the scramble leaves the puzzle solved.
-	* It is a computer solution, not a human method: the fewest moves on 2x2x2 (only U, R
-	* and F turns), at most 21 face turns on 3x3x3 (min2phase). Only face turns, so it
-	* follows every solution option, FMC mode included. The first 3x3x3 solve takes a bit
-	* longer while the solver sets up. Throws on puzzles without a solver (see `hasSolver`).
+	* How long `solve` and `solveAsync` may search for a shorter 3x3x3 solution, in
+	* milliseconds (default 3000). A few seconds usually gets 17 to 19 moves, often the
+	* shortest there is, but proving that nothing shorter exists can take many minutes.
+	* `Infinity` searches until it has that proof, so the solution is always the shortest.
+	* 2x2x2 is always solved in the fewest moves at once.
+	*/
+	setSolveTimeLimit(ms) {
+		if (!(ms > 0)) throw new Error(`The solve time limit must be more than 0 ms, not ${ms}`);
+		_classPrivateFieldSet2(_solveTimeLimit, this, ms);
+		return this;
+	}
+	getSolveTimeLimit() {
+		return _classPrivateFieldGet2(_solveTimeLimit, this);
+	}
+	/**
+	* Finds the shortest solution it can for the scramble with csTimer's own solvers, in the
+	* half-turn metric (R2 counts as one move), and makes it the puzzle's solution (replacing
+	* anything set with `setSolution`), so `getImage()` then shows the puzzle solved. Returns
+	* that solution, `''` if the scramble leaves the puzzle solved. It is a computer
+	* solution, not a human method: the fewest moves on 2x2x2 (only U, R and F turns); on
+	* 3x3x3 the shortest found within the time limit (see `setSolveTimeLimit`), and
+	* `isSolutionShortest` says whether it is known to be the shortest. Only face turns, so
+	* it follows every solution option, FMC mode included. The page can't do anything else
+	* while it searches; `solveAsync` lets it. The first 3x3x3 solve takes a bit longer
+	* while the solver sets up. Throws on puzzles without a solver (see `hasSolver`).
 	*/
 	solve() {
-		if (!this.hasSolver()) throw new Error(`No solver for ${this.name} with "${this.getScrambleType()}" scrambles yet`);
-		_classPrivateFieldSet2(_solution, this, solveCube(_classPrivateFieldGet2(_info, this).cubeSize, _classPrivateFieldGet2(_scramble, this)));
-		return _classPrivateFieldGet2(_solution, this);
+		const search = _assertClassBrand(_Puzzle_brand, this, _startSearch).call(this);
+		const end = performance.now() + _classPrivateFieldGet2(_solveTimeLimit, this);
+		while (!search.shortest && performance.now() < end) search.step();
+		return _assertClassBrand(_Puzzle_brand, this, _finishSearch).call(this, search);
+	}
+	/**
+	* The same as `solve`, but searches in small steps, letting the page carry on between
+	* them, and calls `onProgress` with each shorter solution it finds. `stopSolving` ends it
+	* early with the shortest found so far. The solution only becomes the puzzle's if its
+	* scramble is still the same at the end.
+	*/
+	async solveAsync(onProgress) {
+		const search = _assertClassBrand(_Puzzle_brand, this, _startSearch).call(this);
+		_classPrivateFieldGet2(_stopSolving, this)?.call(this);
+		let stopped = false;
+		const stop = () => {
+			stopped = true;
+		};
+		_classPrivateFieldSet2(_stopSolving, this, stop);
+		const end = performance.now() + _classPrivateFieldGet2(_solveTimeLimit, this);
+		onProgress?.(search.solution);
+		while (!search.shortest && !stopped && performance.now() < end) {
+			await new Promise((resolve) => setTimeout(resolve, 0));
+			if (stopped) break;
+			if (search.step() && !search.shortest) onProgress?.(search.solution);
+		}
+		if (_classPrivateFieldGet2(_stopSolving, this) === stop) _classPrivateFieldSet2(_stopSolving, this, void 0);
+		return _assertClassBrand(_Puzzle_brand, this, _finishSearch).call(this, search);
+	}
+	/** Ends the running `solveAsync`, if any, with the shortest solution found so far. */
+	stopSolving() {
+		_classPrivateFieldGet2(_stopSolving, this)?.call(this);
+		_classPrivateFieldSet2(_stopSolving, this, void 0);
+		return this;
+	}
+	/**
+	* Whether the puzzle's solution is the one the last solve found and that solve made sure
+	* no shorter solution exists. Always true after solving a 2x2x2; on 3x3x3 only when the
+	* search finished within the time limit (see `setSolveTimeLimit`).
+	*/
+	isSolutionShortest() {
+		const solved = _classPrivateFieldGet2(_solved, this);
+		return solved !== void 0 && solved.shortest && solved.scramble === _classPrivateFieldGet2(_scramble, this) && solved.solution === _classPrivateFieldGet2(_solution, this);
 	}
 	/** Puts the puzzle back to solved: no scramble and no solution. */
 	reset() {
@@ -5697,6 +5817,21 @@ function _checkOffset(face, offset) {
 		if (typeof value !== "number" || !Number.isFinite(value)) throw new Error(`Offset ${key} must be a number, not ${value}`);
 	}
 	return full;
+}
+function _startSearch() {
+	if (!this.hasSolver()) throw new Error(`No solver for ${this.name} with "${this.getScrambleType()}" scrambles yet`);
+	return new CubeSearch(_classPrivateFieldGet2(_info, this).cubeSize, _classPrivateFieldGet2(_scramble, this));
+}
+function _finishSearch(search) {
+	if (search.scramble === _classPrivateFieldGet2(_scramble, this)) {
+		_classPrivateFieldSet2(_solution, this, search.solution);
+		_classPrivateFieldSet2(_solved, this, {
+			scramble: search.scramble,
+			solution: search.solution,
+			shortest: search.shortest
+		});
+	}
+	return search.solution;
 }
 /**
 * The scramble and then the solution, as done on the puzzle: on cubes, the solution's
