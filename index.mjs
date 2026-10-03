@@ -4335,6 +4335,11 @@ var sq1 = (function(setNPerm, getNPerm, circle, rn) {
 	return {
 		initialize: function() {},
 		SqCubie,
+		solve: function(c) {
+			Shape_$clinit();
+			Square_$clinit();
+			return Search_solution(search, c);
+		},
 		getRandomScramble: square1SolverGetRandomScramble
 	};
 })(mathlib.setNPerm, mathlib.getNPerm, mathlib.circle, mathlib.rn);
@@ -10550,1207 +10555,6 @@ var scramble_222$1 = (function(rn) {
 	};
 })(mathlib.rn);
 //#endregion
-//#region \0@oxc-project+runtime@0.152.0/helpers/esm/checkPrivateRedeclaration.js
-function _checkPrivateRedeclaration(e, t) {
-	if (t.has(e)) throw new TypeError("Cannot initialize the same private elements twice on an object");
-}
-//#endregion
-//#region \0@oxc-project+runtime@0.152.0/helpers/esm/classPrivateMethodInitSpec.js
-function _classPrivateMethodInitSpec(e, a) {
-	_checkPrivateRedeclaration(e, a), a.add(e);
-}
-//#endregion
-//#region \0@oxc-project+runtime@0.152.0/helpers/esm/classPrivateFieldInitSpec.js
-function _classPrivateFieldInitSpec(e, t, a) {
-	_checkPrivateRedeclaration(e, t), t.set(e, a);
-}
-//#endregion
-//#region \0@oxc-project+runtime@0.152.0/helpers/esm/assertClassBrand.js
-function _assertClassBrand(e, t, n) {
-	if ("function" == typeof e ? e === t : e.has(t)) return arguments.length < 3 ? t : n;
-	throw new TypeError("Private element is not present on this object");
-}
-//#endregion
-//#region \0@oxc-project+runtime@0.152.0/helpers/esm/classPrivateFieldSet2.js
-function _classPrivateFieldSet2(s, a, r) {
-	return s.set(_assertClassBrand(s, a), r), r;
-}
-//#endregion
-//#region \0@oxc-project+runtime@0.152.0/helpers/esm/classPrivateFieldGet2.js
-function _classPrivateFieldGet2(s, a) {
-	return s.get(_assertClassBrand(s, a));
-}
-//#endregion
-//#region src/solver.ts
-/** Face order of min2phase's facelet strings; a face's opposite is 3 places further. */
-const FACES = "URFDLB";
-/** Face order of csTimer's stickers (see `image.nnnPosit`). */
-const CSTIMER_FACES = "DLBURF";
-/** The cube sizes `solveCube` can solve. */
-const SOLVER_SIZES = [2, 3];
-/**
-* The stickers of a size x size x size cube after `moves`, as face numbers (0-5, the face in
-* FACES each sticker's color started on), face by face in FACES order, each face read row
-* by row as in min2phase's facelet strings: U with its top row next to B, D with its top
-* row next to F, and L and B as seen from their own side.
-*/
-function cubeFacelets(size, moves) {
-	const posit = image$1.nnnPosit(size, moves);
-	const facelets = [];
-	for (const face of FACES) {
-		const f = CSTIMER_FACES.indexOf(face);
-		for (let row = 0; row < size; row++) for (let col = 0; col < size; col++) {
-			const x = face === "L" || face === "B" ? size - 1 - col : col;
-			const y = face === "D" ? size - 1 - row : row;
-			facelets.push(FACES.indexOf(CSTIMER_FACES[posit[(f * size + y) * size + x]]));
-		}
-	}
-	return facelets;
-}
-/**
-* Renames the colors of `facelets` so each of `faces` gets the color its sticker at `at`
-* has now (and its opposite face the opposite color), which turns a cube held any way into
-* the same cube held with those stickers in place.
-*/
-function holdBy(facelets, faces, at) {
-	const name = [];
-	faces.forEach((face, i) => {
-		const color = facelets[at[i]];
-		name[color] = face;
-		name[(color + 3) % 6] = (face + 3) % 6;
-	});
-	return facelets.map((color) => name[color]);
-}
-/** Phase-2 tries min2phase makes per search step (each step takes well under 0.2 s). */
-const PROBES_PER_STEP = 500;
-var _facelets = /* @__PURE__ */ new WeakMap();
-var _search = /* @__PURE__ */ new WeakMap();
-var _CubeSearch_brand = /* @__PURE__ */ new WeakSet();
-/**
-* A search for the shortest solution of a size x size x size cube after `moves` (cube
-* notation as csTimer reads it, rotations and wide moves included), for the cube as it is
-* held after them. It holds a solution from the start and finds shorter ones step by step:
-* - 2x2x2: csTimer's optimal solver (only U, R and F turns), so the first is the shortest.
-* - 3x3x3: min2phase finds a solution of at most 21 face turns, then is asked again and
-*   again for one at least a move shorter. When it has looked everywhere without finding
-*   one, the solution it has is the shortest there is (half-turn metric: R2 is one move).
-*   That can take minutes, but a solution of the usual 17 to 19 moves comes in seconds.
-* `solution` is `''` when the cube is already solved. Only for the sizes in SOLVER_SIZES.
-*/
-var CubeSearch = class {
-	constructor(size, moves) {
-		_classPrivateMethodInitSpec(this, _CubeSearch_brand);
-		this.shortest = false;
-		_classPrivateFieldInitSpec(this, _facelets, "");
-		_classPrivateFieldInitSpec(this, _search, void 0);
-		this.scramble = moves;
-		if (size === 2) {
-			const facelets = holdBy(cubeFacelets(2, moves), [
-				3,
-				4,
-				5
-			], [
-				14,
-				18,
-				23
-			]);
-			const solution = scramble_222$1.solveFacelet(facelets);
-			if (solution === null) throw new Error(`Can't solve this 2x2x2: "${moves}"`);
-			this.solution = solution;
-			this.shortest = true;
-			return;
-		}
-		if (size !== 3) throw new Error(`No solver for ${size}x${size}x${size} cubes yet`);
-		const facelets = holdBy(cubeFacelets(3, moves), [
-			0,
-			1,
-			2
-		], [
-			4,
-			13,
-			22
-		]);
-		_classPrivateFieldSet2(_facelets, this, facelets.map((f) => FACES[f]).join(""));
-		_classPrivateFieldSet2(_search, this, new min2phase.Search());
-		const first = _classPrivateFieldGet2(_search, this).solution(_classPrivateFieldGet2(_facelets, this));
-		if (first.startsWith("Error")) throw new Error(`Can't solve this 3x3x3: "${moves}"`);
-		this.solution = "";
-		_assertClassBrand(_CubeSearch_brand, this, _found).call(this, first);
-	}
-	/**
-	* Searches a little more (well under 0.2 s each time min2phase is asked). Returns whether
-	* `solution` got shorter or is now known to be the shortest.
-	*/
-	step() {
-		if (this.shortest) return false;
-		const result = _classPrivateFieldGet2(_search, this).next(PROBES_PER_STEP, 0, 0);
-		if (result === "Error 8") return false;
-		if (result === "Error 7") this.shortest = true;
-		else _assertClassBrand(_CubeSearch_brand, this, _found).call(this, result);
-		return true;
-	}
-};
-/**
-* Takes `result`, a solution from min2phase, and asks for one at least a move shorter,
-* taking that too if it comes at once, and so on.
-*/
-function _found(result) {
-	for (;;) {
-		this.solution = _assertClassBrand(_CubeSearch_brand, this, _read).call(this, result);
-		const length = this.solution ? this.solution.split(" ").length : 0;
-		if (length === 0) {
-			this.shortest = true;
-			return;
-		}
-		result = _classPrivateFieldGet2(_search, this).solution(_classPrivateFieldGet2(_facelets, this), length - 1, PROBES_PER_STEP, 0, 0);
-		if (result === "Error 8") return;
-		if (result === "Error 7") {
-			this.shortest = true;
-			return;
-		}
-	}
-}
-/** min2phase pads its moves to two characters, e.g. "U  R2". */
-function _read(solution) {
-	return solution.trim().replace(/ +/g, " ");
-}
-//#endregion
-//#region src/puzzle.ts
-const IMAGE_STYLES = [
-	"separated",
-	"joined",
-	"cstimer"
-];
-const HIDDEN_FACES = ["hidden", "floating"];
-const CAMERA_MODES = ["mouse", "fixed"];
-const CUBE_FACES = [
-	"U",
-	"R",
-	"F",
-	"D",
-	"L",
-	"B"
-];
-const NO_OFFSET = {
-	x: 0,
-	y: 0,
-	z: 0,
-	rotateX: 0,
-	rotateY: 0,
-	rotateZ: 0
-};
-function cube(n, methods) {
-	return {
-		name: `${n}x${n}x${n}`,
-		colorSetting: "colcube",
-		defaultColors: {
-			U: "#fff",
-			R: "#f00",
-			F: "#0d0",
-			D: "#ff0",
-			L: "#fa0",
-			B: "#00f"
-		},
-		cstimerOrder: [
-			"D",
-			"L",
-			"B",
-			"U",
-			"R",
-			"F"
-		],
-		methods,
-		cubeSize: n
-	};
-}
-/** The puzzles `Puzzle` supports, by id (the same ids as `ScrambleEvent.puzzle`). */
-const PUZZLES = {
-	"222": cube(2, {
-		default: "222so",
-		"random-state": "222so",
-		"random-move": "2223"
-	}),
-	"333": cube(3, {
-		default: "333",
-		"random-state": "333",
-		"random-move": "333o"
-	}),
-	"444": cube(4, {
-		default: "444wca",
-		"random-state": "444wca",
-		"random-move": "444m"
-	}),
-	"555": cube(5, {
-		default: "555wca",
-		"random-move": "555wca"
-	}),
-	"666": cube(6, {
-		default: "666wca",
-		"random-move": "666wca"
-	}),
-	"777": cube(7, {
-		default: "777wca",
-		"random-move": "777wca"
-	}),
-	clock: {
-		name: "Clock",
-		colorSetting: "colclk",
-		defaultColors: {
-			front: "#5cf",
-			back: "#37b",
-			hand: "#ff0",
-			handOutline: "#f00",
-			pin: "#850"
-		},
-		cstimerOrder: [
-			"handOutline",
-			"back",
-			"front",
-			"hand",
-			"pin"
-		],
-		methods: {
-			default: "clkwca",
-			"random-state": "clkwca"
-		}
-	},
-	minx: {
-		name: "Megaminx",
-		colorSetting: "colmgm",
-		defaultColors: {
-			U: "#fff",
-			F: "#060",
-			R: "#d00",
-			L: "#81f",
-			BR: "#00b",
-			BL: "#fc0",
-			DR: "#ffb",
-			DL: "#8df",
-			DBR: "#f9f",
-			DBL: "#f83",
-			B: "#7e0",
-			D: "#999"
-		},
-		cstimerOrder: [
-			"U",
-			"R",
-			"F",
-			"L",
-			"BL",
-			"BR",
-			"DR",
-			"DL",
-			"DBL",
-			"B",
-			"DBR",
-			"D"
-		],
-		methods: {
-			default: "mgmp",
-			"random-state": "mgmso",
-			"random-move": "mgmp"
-		}
-	},
-	pyram: {
-		name: "Pyraminx",
-		colorSetting: "colpyr",
-		defaultColors: {
-			F: "#0f0",
-			L: "#f00",
-			R: "#00f",
-			D: "#ff0"
-		},
-		cstimerOrder: [
-			"F",
-			"L",
-			"R",
-			"D"
-		],
-		methods: {
-			default: "pyrso",
-			"random-state": "pyrso",
-			"random-move": "pyrm"
-		}
-	},
-	skewb: {
-		name: "Skewb",
-		colorSetting: "colskb",
-		defaultColors: {
-			U: "#fff",
-			R: "#f00",
-			F: "#0f0",
-			D: "#ff0",
-			L: "#f80",
-			B: "#00f"
-		},
-		cstimerOrder: [
-			"U",
-			"B",
-			"R",
-			"D",
-			"F",
-			"L"
-		],
-		methods: {
-			default: "skbso",
-			"random-state": "skbso",
-			"random-move": "skb"
-		}
-	},
-	sq1: {
-		name: "Square-1",
-		colorSetting: "colsq1",
-		defaultColors: {
-			U: "#ff0",
-			R: "#f80",
-			F: "#0f0",
-			D: "#fff",
-			L: "#f00",
-			B: "#00f"
-		},
-		cstimerOrder: [
-			"U",
-			"R",
-			"F",
-			"D",
-			"L",
-			"B"
-		],
-		methods: {
-			default: "sqrs",
-			"random-state": "sqrs",
-			"random-move": "sq1h"
-		}
-	}
-};
-/** Cubes bigger than 7x7x7: csTimer only has random-move scrambles for them. */
-const BIG_CUBES = Object.fromEntries([
-	8,
-	9,
-	10,
-	11
-].map((n) => {
-	const id = String(n).repeat(3);
-	return [id, cube(n, {
-		default: id,
-		"random-move": id
-	})];
-}));
-/** Names of the other puzzles, by the `puzzle` group of their scramble types. */
-const OTHER_NAMES = {
-	fto: "FTO",
-	"15p": "15 puzzle",
-	"8p": "8 puzzle",
-	"133": "1x3x3 (Floppy Cube)",
-	"223": "2x2x3 (Tower Cube)",
-	"233": "2x3x3 (Domino)",
-	nnn: "NxNxN",
-	mrbl: "Mirror Blocks",
-	gear: "Gear Cube",
-	klm: "Kilominx",
-	giga: "Gigaminx",
-	crz3a: "Crazy 3x3x3",
-	cmetrick: "Cmetrick",
-	heli: "Helicopter Cube",
-	redi: "Redi Cube",
-	dino: "Dino Cube",
-	ivy: "Ivy Cube",
-	mpyr: "Master Pyraminx",
-	prc: "Pyraminx Crystal",
-	sia: "Siamese Cube",
-	sq2: "Square-2",
-	sfl: "Super Floppy",
-	ufo: "UFO",
-	ico: "Icosahedron",
-	bandaged: "Bandaged puzzles",
-	dmd: "Diamond",
-	relay: "Relays",
-	joke: "Joke scrambles"
-};
-/**
-* The puzzle info for an id: a WCA puzzle, a big cube, or any other `puzzle` group of
-* csTimer's scramble types. The others have csTimer's colors only, and their methods
-* come from their types' names ("random state", "random move").
-*/
-function puzzleInfo(id) {
-	const known = PUZZLES[id] ?? BIG_CUBES[id];
-	if (known) return known;
-	const types = listEvents().filter((event) => event.puzzle === id);
-	if (types.length === 0) return void 0;
-	const methods = { default: types[0].id };
-	const state = types.find((type) => /random state/.test(type.name));
-	const move = types.find((type) => /random move/.test(type.name));
-	if (state) methods["random-state"] = state.id;
-	if (move) methods["random-move"] = move.id;
-	return {
-		name: OTHER_NAMES[id] ?? types[0].name,
-		colorSetting: "",
-		defaultColors: {},
-		cstimerOrder: [],
-		methods
-	};
-}
-const METHODS = [
-	"default",
-	"random-state",
-	"random-move"
-];
-const HEX_COLOR = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i;
-/**
-* csTimer draws with 3-digit colors (#rgb), so a 6-digit color becomes the nearest one,
-* e.g. "#ff8000" -> "#f80".
-*/
-function toCstimerColor(color) {
-	const hex = color.slice(1);
-	if (hex.length === 3) return color;
-	let short = "#";
-	for (let i = 0; i < 6; i += 2) short += Math.round(parseInt(hex.slice(i, i + 2), 16) / 17).toString(16);
-	return short;
-}
-/**
-* csTimer's Square-1 drawing reads one turn like `(1,0)` between slashes, so turns in a
-* row, e.g. where a scramble ends and a solution starts, are added up into one turn.
-* Anything else is left as it is.
-*/
-function joinSq1Turns(moves) {
-	const tokens = moves.match(/\(\s*-?\d+\s*,\s*-?\d+\s*\)|\/|\S/g) ?? [];
-	if (tokens.some((token) => token !== "/" && !token.startsWith("("))) return moves;
-	const out = [];
-	for (const token of tokens) {
-		const last = out[out.length - 1];
-		if (token === "/") out.push(token);
-		else {
-			const [top, bottom] = token.slice(1, -1).split(",").map(Number);
-			if (Array.isArray(last)) {
-				last[0] += top;
-				last[1] += bottom;
-			} else out.push([top, bottom]);
-		}
-	}
-	const turn = (n) => ((n + 5) % 12 + 12) % 12 - 5;
-	return out.map((token) => typeof token === "string" ? token : ` (${turn(token[0])},${turn(token[1])})`).join("").trim();
-}
-/**
-* Counts the moves in `moves`, written in the puzzle's notation: the moves between
-* spaces, except on Square-1, where each slash `/` is one move (twist metric) and the
-* turns between them are free. Relay numbers like `2)` are not moves.
-*/
-function countMoves(puzzleId, moves) {
-	if (puzzleId === "sq1") return (moves.match(/\//g) ?? []).length;
-	return moves.split(/\s+/).filter((move) => move && !/^\w+\)$/.test(move)).length;
-}
-/**
-* Ids of the puzzles `new Puzzle(id)` accepts, e.g. `'333'`, `'pyram'`: the WCA puzzles
-* first, then every other puzzle csTimer has scrambles for (the `puzzle` groups of
-* `listEvents()`, in the same order).
-*/
-function listPuzzles() {
-	const ids = new Set(Object.keys(PUZZLES));
-	for (const event of listEvents()) ids.add(event.puzzle);
-	return [...ids];
-}
-var _info = /* @__PURE__ */ new WeakMap();
-var _colors = /* @__PURE__ */ new WeakMap();
-var _imageSize = /* @__PURE__ */ new WeakMap();
-var _imageStyle = /* @__PURE__ */ new WeakMap();
-var _hiddenFaces = /* @__PURE__ */ new WeakMap();
-var _cubeStyle = /* @__PURE__ */ new WeakMap();
-var _cameraMode = /* @__PURE__ */ new WeakMap();
-var _cameraAngle = /* @__PURE__ */ new WeakMap();
-var _floatingOffsets = /* @__PURE__ */ new WeakMap();
-var _faceOffsets = /* @__PURE__ */ new WeakMap();
-var _styles = /* @__PURE__ */ new WeakMap();
-var _method = /* @__PURE__ */ new WeakMap();
-var _length = /* @__PURE__ */ new WeakMap();
-var _scramble = /* @__PURE__ */ new WeakMap();
-var _solution = /* @__PURE__ */ new WeakMap();
-var _rules = /* @__PURE__ */ new WeakMap();
-var _fmc = /* @__PURE__ */ new WeakMap();
-var _solveTimeLimit = /* @__PURE__ */ new WeakMap();
-var _solved = /* @__PURE__ */ new WeakMap();
-var _stopSolving = /* @__PURE__ */ new WeakMap();
-var _scrambleType = /* @__PURE__ */ new WeakMap();
-var _type = /* @__PURE__ */ new WeakMap();
-var _Puzzle_brand = /* @__PURE__ */ new WeakSet();
-/**
-* One physical puzzle, e.g. `new Puzzle('333')`. Each puzzle keeps its own settings
-* (colors, image size, scramble method and length), so two puzzles never affect each other.
-*
-* Settings are changed with `set...` methods, which return the puzzle so they can be
-* chained: `new Puzzle('333').setColor('U', '#ff0').setImageSize(200)`.
-*/
-var Puzzle = class {
-	constructor(id) {
-		_classPrivateMethodInitSpec(this, _Puzzle_brand);
-		_classPrivateFieldInitSpec(this, _info, void 0);
-		_classPrivateFieldInitSpec(this, _colors, void 0);
-		_classPrivateFieldInitSpec(this, _imageSize, void 0);
-		_classPrivateFieldInitSpec(this, _imageStyle, "separated");
-		_classPrivateFieldInitSpec(this, _hiddenFaces, "hidden");
-		_classPrivateFieldInitSpec(this, _cubeStyle, "classic");
-		_classPrivateFieldInitSpec(this, _cameraMode, "mouse");
-		_classPrivateFieldInitSpec(this, _cameraAngle, { ...DEFAULT_CAMERA_ANGLE });
-		_classPrivateFieldInitSpec(this, _floatingOffsets, {});
-		_classPrivateFieldInitSpec(this, _faceOffsets, {});
-		_classPrivateFieldInitSpec(this, _styles, []);
-		_classPrivateFieldInitSpec(this, _method, "default");
-		_classPrivateFieldInitSpec(this, _length, void 0);
-		_classPrivateFieldInitSpec(this, _scramble, "");
-		_classPrivateFieldInitSpec(this, _solution, "");
-		_classPrivateFieldInitSpec(this, _rules, {
-			countRotations: true,
-			sliceMoves: "one-move",
-			wideMoves: "Rw-or-r"
-		});
-		_classPrivateFieldInitSpec(this, _fmc, false);
-		_classPrivateFieldInitSpec(this, _solveTimeLimit, 3e3);
-		_classPrivateFieldInitSpec(this, _solved, void 0);
-		_classPrivateFieldInitSpec(this, _stopSolving, void 0);
-		_classPrivateFieldInitSpec(this, _scrambleType, "");
-		_classPrivateFieldInitSpec(this, _type, void 0);
-		const info = puzzleInfo(id);
-		if (!info) throw new Error(`Unknown puzzle "${id}". Puzzles: ${listPuzzles().join(", ")}`);
-		this.id = id;
-		this.name = info.name;
-		_classPrivateFieldSet2(_info, this, info);
-		_classPrivateFieldSet2(_colors, this, { ...info.defaultColors });
-	}
-	/** Names `setColor` accepts, e.g. `['U', 'R', 'F', 'D', 'L', 'B']` for cubes. */
-	getFaces() {
-		return Object.keys(_classPrivateFieldGet2(_info, this).defaultColors);
-	}
-	/**
-	* Sets the color of one face (or part, for clock), as a hex color like `'#ff0'` or
-	* `'#ffaa00'`. csTimer draws with 3-digit colors, so 6-digit ones are rounded to the
-	* nearest of those.
-	*/
-	setColor(face, color) {
-		if (!Object.prototype.hasOwnProperty.call(_classPrivateFieldGet2(_colors, this), face)) throw new Error(`${this.name} has no face "${face}". Faces: ${this.getFaces().join(", ")}`);
-		if (!HEX_COLOR.test(color)) throw new Error(`"${color}" is not a hex color like "#ff0" or "#ffaa00"`);
-		_classPrivateFieldGet2(_colors, this)[face] = color.toLowerCase();
-		return this;
-	}
-	/** Sets several colors at once, e.g. `{ U: '#ff0', D: '#fff' }`. */
-	setColors(colors) {
-		for (const [face, color] of Object.entries(colors)) this.setColor(face, color);
-		return this;
-	}
-	/** Every face's color, e.g. `{ D: '#ff0', L: '#fa0', ... }`. */
-	getColors() {
-		return { ..._classPrivateFieldGet2(_colors, this) };
-	}
-	/** Goes back to csTimer's default colors. */
-	resetColors() {
-		_classPrivateFieldSet2(_colors, this, { ..._classPrivateFieldGet2(_info, this).defaultColors });
-		return this;
-	}
-	/**
-	* Sets the width of `getImage()`'s SVG in pixels; the height follows the picture's
-	* shape. Without it the SVG keeps csTimer's own size. It can still be resized with CSS.
-	* For cubes it sets the size of a face, `width / 4` pixels, the same in the picture (with
-	* any style but `'cstimer'`) and in the `show3D` view: the joined picture and the 3D view
-	* with floating faces are `width` pixels wide, the separated picture a little wider for
-	* its gaps and the 3D view with hidden faces a little over half as wide.
-	*/
-	setImageSize(width) {
-		if (!(width > 0) || !Number.isFinite(width)) throw new Error(`Image size must be a positive number of pixels, not ${width}`);
-		_classPrivateFieldSet2(_imageSize, this, width);
-		return this;
-	}
-	/** The width set with `setImageSize`, or `undefined` for the default sizes. */
-	getImageSize() {
-		return _classPrivateFieldGet2(_imageSize, this);
-	}
-	/**
-	* Picks how `getImage()` draws the puzzle: `'separated'` (the default), `'joined'` or
-	* `'cstimer'` (see `ImageStyle`). Cubes are drawn by this library in the style of the
-	* 3D view; the other puzzles keep csTimer's drawing, with thicker black borders.
-	*/
-	setImageStyle(style) {
-		if (!IMAGE_STYLES.includes(style)) throw new Error(`Unknown image style "${style}". Styles: ${IMAGE_STYLES.join(", ")}`);
-		_classPrivateFieldSet2(_imageStyle, this, style);
-		return this;
-	}
-	/** The style set with `setImageStyle`, `'separated'` by default. */
-	getImageStyle() {
-		return _classPrivateFieldGet2(_imageStyle, this);
-	}
-	/**
-	* Picks a ready-made look for a cube's tiles, in `getImage()` (with any image style but
-	* `'cstimer'`) and in `show3D` alike: `'classic'` (the default), `'stickered'`,
-	* `'stickered-round'`, `'stickerless'` or `'stickerless-round'` (see `CubeStyle`).
-	* Styles from `setElementStyle` still win over it. Only cubes have it (see `has3DView`);
-	* the other puzzles are drawn as before.
-	*/
-	setCubeStyle(style) {
-		if (!CUBE_STYLES.includes(style)) throw new Error(`Unknown cube style "${style}". Styles: ${CUBE_STYLES.join(", ")}`);
-		_classPrivateFieldSet2(_cubeStyle, this, style);
-		return this;
-	}
-	/** The style set with `setCubeStyle`, `'classic'` by default. */
-	getCubeStyle() {
-		return _classPrivateFieldGet2(_cubeStyle, this);
-	}
-	/**
-	* Picks what `show3D` does with the faces you can't see from where you look:
-	* - `'hidden'` (the default): they are hidden behind the cube, as on a real one.
-	* - `'floating'`: a copy of each of them, as big as the face, floats one cube side out
-	*   from it, seen as through a glass cube, so every face can be seen at once. A face
-	*   pointing straight away from you can still have its copy partly behind the cube.
-	*   Turning the cube swaps which faces float. `setFloatingFaceOffset` moves and turns
-	*   the copies.
-	*/
-	setHiddenFaces(mode) {
-		if (!HIDDEN_FACES.includes(mode)) throw new Error(`Unknown hidden faces mode "${mode}". Modes: ${HIDDEN_FACES.join(", ")}`);
-		_classPrivateFieldSet2(_hiddenFaces, this, mode);
-		return this;
-	}
-	/** The mode set with `setHiddenFaces`, `'hidden'` by default. */
-	getHiddenFaces() {
-		return _classPrivateFieldGet2(_hiddenFaces, this);
-	}
-	/**
-	* Moves and turns the floating copy of one face of the `show3D` view (with
-	* `setHiddenFaces('floating')`) from where it floats by default, e.g.
-	* `setFloatingFaceOffset('L', { x: 1, rotateY: 45 })`. Positions are in face widths and
-	* turns in degrees, in the cube's directions: x toward R, y toward U, z toward F (see
-	* `FaceOffset`). Values left out are 0, and it replaces the face's earlier offset.
-	* Any of the six faces can be moved; a copy only shows while its face is at the back.
-	* Only for cubes (see `has3DView`).
-	*/
-	setFloatingFaceOffset(face, offset) {
-		_classPrivateFieldGet2(_floatingOffsets, this)[face] = _assertClassBrand(_Puzzle_brand, this, _checkOffset).call(this, face, offset);
-		return this;
-	}
-	/** The offset set with `setFloatingFaceOffset` for one face, all 0 by default. */
-	getFloatingFaceOffset(face) {
-		return { ..._classPrivateFieldGet2(_floatingOffsets, this)[face] ?? NO_OFFSET };
-	}
-	/** Puts every floating face back where it floats by default. */
-	resetFloatingFaceOffsets() {
-		_classPrivateFieldSet2(_floatingOffsets, this, {});
-		return this;
-	}
-	/**
-	* Moves and turns one face of the cube itself in the `show3D` view, the way
-	* `setFloatingFaceOffset` moves a floating copy, e.g. `setFaceOffset('U', { y: 0.5 })` to
-	* lift the top face off the cube. It works with hidden and floating back faces alike.
-	* Only for cubes (see `has3DView`).
-	*/
-	setFaceOffset(face, offset) {
-		_classPrivateFieldGet2(_faceOffsets, this)[face] = _assertClassBrand(_Puzzle_brand, this, _checkOffset).call(this, face, offset);
-		return this;
-	}
-	/** The offset set with `setFaceOffset` for one face, all 0 by default. */
-	getFaceOffset(face) {
-		return { ..._classPrivateFieldGet2(_faceOffsets, this)[face] ?? NO_OFFSET };
-	}
-	/** Puts every face of the cube back in its place. */
-	resetFaceOffsets() {
-		_classPrivateFieldSet2(_faceOffsets, this, {});
-		return this;
-	}
-	/**
-	* Adds a style of your own to some parts of the picture, in `getImage()`'s SVG and in the
-	* `show3D` view: the whole picture (`'image'`), the faces (`'face'`) or the tiles
-	* (`'tile'`), all of them or only those of one face, or one tile by its number on its face
-	* (counted row by row from the top left, from 0). `css` holds CSS properties and values,
-	* e.g. `setElementStyle('tile', { stroke: '#fff', strokeWidth: '2' })` or
-	* `setElementStyle('face', { opacity: '0.4' }, { face: 'B' })`. Styles add up, and a later
-	* one wins over an earlier one on the same property.
-	*
-	* The SVG takes SVG properties (`fill`, `stroke`, `rx`, `opacity`...) and the 3D view
-	* HTML ones (`background`, `border-radius`, `opacity`...). A face of the SVG is a group:
-	* its `fill` colors its black background, its `stroke` outlines its background and tiles.
-	* Faces and tile numbers are for cubes drawn by this library (any image style but
-	* `'cstimer'`, and the 3D view); csTimer's pictures only have the image and its tiles. The
-	* same parts carry class names and data attributes (`cstimer-image`, `cstimer-face`,
-	* `cstimer-tile`, `data-face`, `data-tile`) for styling with a page's own CSS instead.
-	*/
-	setElementStyle(part, css, where = {}) {
-		if (!IMAGE_PARTS.includes(part)) throw new Error(`Unknown part "${part}". Parts: ${IMAGE_PARTS.join(", ")}`);
-		for (const [property, value] of Object.entries(css)) if (typeof value !== "string" || !/^[a-zA-Z-]+$/.test(property)) throw new Error(`CSS must be property names with text values, not ${property}: ${value}`);
-		if ((where.face !== void 0 || where.tile !== void 0) && !this.has3DView()) throw new Error(`Only cubes have faces and tile numbers to style, not ${this.name}`);
-		if (where.face !== void 0 && !CUBE_FACES.includes(where.face)) throw new Error(`${this.name} has no face "${where.face}". Faces: ${CUBE_FACES.join(", ")}`);
-		if (where.tile !== void 0 && !(Number.isInteger(where.tile) && where.tile >= 0)) throw new Error(`A tile number must be a whole number from 0, not ${where.tile}`);
-		const style = {
-			part,
-			css: { ...css }
-		};
-		if (where.face !== void 0) style.face = where.face;
-		if (where.tile !== void 0) style.tile = where.tile;
-		_classPrivateFieldGet2(_styles, this).push(style);
-		return this;
-	}
-	/** The styles added with `setElementStyle`, in the order they were added. */
-	getElementStyles() {
-		return _classPrivateFieldGet2(_styles, this).map((style) => ({
-			...style,
-			css: { ...style.css }
-		}));
-	}
-	/** Takes away every style added with `setElementStyle`. */
-	resetElementStyles() {
-		_classPrivateFieldSet2(_styles, this, []);
-		return this;
-	}
-	/**
-	* Picks how the camera of the `show3D` view moves: `'mouse'` (the default) lets the
-	* cube be dragged with the mouse or a finger to look at every side, `'fixed'` keeps it
-	* at the camera angle (see `setCameraAngle`).
-	*/
-	setCameraMode(mode) {
-		if (!CAMERA_MODES.includes(mode)) throw new Error(`Unknown camera mode "${mode}". Modes: ${CAMERA_MODES.join(", ")}`);
-		_classPrivateFieldSet2(_cameraMode, this, mode);
-		return this;
-	}
-	/** The mode set with `setCameraMode`, `'mouse'` by default. */
-	getCameraMode() {
-		return _classPrivateFieldGet2(_cameraMode, this);
-	}
-	/**
-	* Sets where the camera of the `show3D` view looks from, in degrees: `x` tilts the cube
-	* (negative shows its top), then `y` turns it sideways (negative shows its right side).
-	* By default the U R F corner is in the middle, pointing straight at the camera
-	* (`{ x: -35.26..., y: -45 }`). With the `'mouse'` camera the view goes there the next
-	* time `show3D` is called, and can then be dragged away from it.
-	*/
-	setCameraAngle(angle) {
-		for (const value of [angle.x, angle.y]) if (typeof value !== "number" || !Number.isFinite(value)) throw new Error(`Camera angles must be numbers of degrees, not ${value}`);
-		_classPrivateFieldSet2(_cameraAngle, this, {
-			x: angle.x,
-			y: angle.y
-		});
-		return this;
-	}
-	/** The angle set with `setCameraAngle`, the U R F corner by default. */
-	getCameraAngle() {
-		return { ..._classPrivateFieldGet2(_cameraAngle, this) };
-	}
-	/** Goes back to the default camera angle, the U R F corner. */
-	resetCameraAngle() {
-		_classPrivateFieldSet2(_cameraAngle, this, { ...DEFAULT_CAMERA_ANGLE });
-		return this;
-	}
-	/** Which methods `setScrambleMethod` accepts for this puzzle. */
-	getScrambleMethods() {
-		return METHODS.filter((method) => method in _classPrivateFieldGet2(_info, this).methods);
-	}
-	/**
-	* Picks how `scramble()` makes scrambles: `'default'` (the WCA way), `'random-state'`
-	* or `'random-move'`. Throws if csTimer has no such scrambler for this puzzle
-	* (see `getScrambleMethods`). It replaces a type picked with `setScrambleType`.
-	*/
-	setScrambleMethod(method) {
-		if (!(method in _classPrivateFieldGet2(_info, this).methods)) throw new Error(`${this.name} has no "${method}" scrambles. Methods: ${this.getScrambleMethods().join(", ")}`);
-		_classPrivateFieldSet2(_method, this, method);
-		_classPrivateFieldSet2(_type, this, void 0);
-		return this;
-	}
-	/** The method `scramble()` uses, or `undefined` when a type was picked with `setScrambleType`. */
-	getScrambleMethod() {
-		return _classPrivateFieldGet2(_type, this) === void 0 ? _classPrivateFieldGet2(_method, this) : void 0;
-	}
-	/**
-	* The csTimer scramble type `scramble()` uses, e.g. `'333o'`: the one picked with
-	* `setScrambleType`, or else the current method's.
-	*/
-	getScrambleType() {
-		return _classPrivateFieldGet2(_type, this) ?? _classPrivateFieldGet2(_info, this).methods[_classPrivateFieldGet2(_method, this)];
-	}
-	/**
-	* Every csTimer scramble type for this puzzle, e.g. for 3x3x3 `{ id: 'pll', name:
-	* '3x3x3 CFOP PLL' }` and 48 more, in csTimer's menu order. Any of them can be picked with
-	* `setScrambleType`.
-	*/
-	getScrambleTypes() {
-		return listEvents().filter((event) => event.puzzle === this.id).map(({ id, name }) => ({
-			id,
-			name
-		}));
-	}
-	/**
-	* Makes `scramble()` use one of csTimer's scramble types for this puzzle, e.g.
-	* `setScrambleType('pll')` for PLL cases (see `getScrambleTypes`), instead of the
-	* method's. `setScrambleMethod` goes back to the methods.
-	*/
-	setScrambleType(type) {
-		if (getEvent(type)?.puzzle !== this.id) throw new Error(`"${type}" is not a ${this.name} scramble type`);
-		_classPrivateFieldSet2(_type, this, type);
-		return this;
-	}
-	/**
-	* Sets how many moves `scramble()` makes, e.g. `setScrambleLength(30)`. It is used by
-	* methods that make random moves; random-state scrambles are as long as they need to
-	* be, so they ignore it (see `getScrambleLength`). Megaminx rounds it up to whole
-	* lines of 10 moves.
-	*/
-	setScrambleLength(length) {
-		if (!Number.isInteger(length) || length < 1) throw new Error(`Scramble length must be a whole number of moves, at least 1, not ${length}`);
-		_classPrivateFieldSet2(_length, this, length);
-		return this;
-	}
-	/**
-	* How many moves `scramble()` will make with the current method: the length set with
-	* `setScrambleLength`, or csTimer's default for the method. `undefined` when the method
-	* picks its own length (random-state scrambles).
-	*/
-	getScrambleLength() {
-		const defaultLength = getEvent(this.getScrambleType())?.length;
-		return defaultLength === void 0 ? void 0 : _classPrivateFieldGet2(_length, this) ?? defaultLength;
-	}
-	/** Goes back to csTimer's default scramble length. */
-	resetScrambleLength() {
-		_classPrivateFieldSet2(_length, this, void 0);
-		return this;
-	}
-	/**
-	* Makes a new scramble with the current method and length, and scrambles the puzzle
-	* with it (clearing any solution), so `getImage()` then shows it.
-	*/
-	scramble() {
-		_classPrivateFieldSet2(_scrambleType, this, this.getScrambleType());
-		_classPrivateFieldSet2(_scramble, this, getScramble(_classPrivateFieldGet2(_scrambleType, this), this.getScrambleLength()));
-		_classPrivateFieldSet2(_solution, this, "");
-		return _classPrivateFieldGet2(_scramble, this);
-	}
-	/**
-	* Scrambles the puzzle with a scramble of your own, e.g. `setScramble("R U R' U'")`,
-	* written in csTimer's notation for this puzzle. The solution is kept.
-	*/
-	setScramble(scramble) {
-		_classPrivateFieldSet2(_scrambleType, this, this.getScrambleType());
-		_classPrivateFieldSet2(_scramble, this, scramble.trim());
-		return this;
-	}
-	/** The scramble the puzzle was last scrambled with, or `''` when it is solved. */
-	getScramble() {
-		return _classPrivateFieldGet2(_scramble, this);
-	}
-	/**
-	* Sets the moves done after the scramble, e.g. a solution being typed, so `getImage()`
-	* shows the puzzle after the scramble and then these moves. Same notation as the scramble.
-	*/
-	setSolution(moves) {
-		_classPrivateFieldSet2(_solution, this, moves.trim());
-		return this;
-	}
-	/** The moves set with `setSolution`, or `''`. */
-	getSolution() {
-		return _classPrivateFieldGet2(_solution, this);
-	}
-	/**
-	* How many moves the scramble has. Moves are counted between spaces, except on
-	* Square-1, where each slash is one move (twist metric).
-	*/
-	getScrambleMoveCount() {
-		return countMoves(this.id, _classPrivateFieldGet2(_scramble, this));
-	}
-	/**
-	* How many moves the solution has, counted like `getScrambleMoveCount`. On cubes the
-	* solution options change this: rotations may be free (`setCountRotations`) and slice
-	* moves may count as 2 (`setSliceMoves`), and FMC mode (`setFmcMode`) uses its own rules.
-	*/
-	getSolutionMoveCount() {
-		if (!_assertClassBrand(_Puzzle_brand, this, _hasCubeNotation).call(this)) return countMoves(this.id, _classPrivateFieldGet2(_solution, this));
-		return countSolutionMoves(_classPrivateFieldGet2(_solution, this), _assertClassBrand(_Puzzle_brand, this, _solutionRules).call(this));
-	}
-	/**
-	* Whether the rotations x, y and z count toward the solution's move count: `true` (the
-	* default) or `false`. Cubes only; FMC mode never counts them.
-	*/
-	setCountRotations(count) {
-		_classPrivateFieldGet2(_rules, this).countRotations = count;
-		return this;
-	}
-	/** What was set with `setCountRotations`, `true` by default. */
-	getCountRotations() {
-		return _classPrivateFieldGet2(_rules, this).countRotations;
-	}
-	/**
-	* Whether the slice moves M, S and E are allowed in the solution, and if so whether each
-	* counts as 1 or 2 moves: `'one-move'` (the default), `'two-moves'` or `'not-allowed'`
-	* (see `SliceMoves`). Cubes only; FMC mode never allows them.
-	*/
-	setSliceMoves(mode) {
-		if (!SLICE_MOVES.includes(mode)) throw new Error(`Unknown slice moves mode "${mode}". Modes: ${SLICE_MOVES.join(", ")}`);
-		_classPrivateFieldGet2(_rules, this).sliceMoves = mode;
-		return this;
-	}
-	/** The mode set with `setSliceMoves`, `'one-move'` by default. */
-	getSliceMoves() {
-		return _classPrivateFieldGet2(_rules, this).sliceMoves;
-	}
-	/**
-	* How wide moves may be written in the solution: `'Rw-or-r'` (the default) or
-	* `'Rw-only'`, where `r` is not allowed (see `WideMoves`). Cubes only; FMC mode always
-	* uses `'Rw-only'`.
-	*/
-	setWideMoves(mode) {
-		if (!WIDE_MOVES.includes(mode)) throw new Error(`Unknown wide moves mode "${mode}". Modes: ${WIDE_MOVES.join(", ")}`);
-		_classPrivateFieldGet2(_rules, this).wideMoves = mode;
-		return this;
-	}
-	/** The mode set with `setWideMoves`, `'Rw-or-r'` by default. */
-	getWideMoves() {
-		return _classPrivateFieldGet2(_rules, this).wideMoves;
-	}
-	/**
-	* Turns FMC mode on or off (off by default). While it is on, the solution follows the WCA
-	* Fewest Moves rules, whatever the other solution options say: rotations don't count,
-	* M, S and E are not allowed, wide moves are written only as `Rw`, and the solve status is
-	* only `'solved'` or `'DNF'`, never `'+2'`. The other options are kept and apply again
-	* when it is turned off. Cubes only.
-	*/
-	setFmcMode(on) {
-		_classPrivateFieldSet2(_fmc, this, on);
-		return this;
-	}
-	/** Whether FMC mode is on, `false` by default. */
-	getFmcMode() {
-		return _classPrivateFieldGet2(_fmc, this);
-	}
-	/**
-	* The moves of the solution that aren't allowed by the solution options, or that can't be
-	* read as cube moves at all, in the order they are typed, e.g. `['M', 'r']`. Always `[]`
-	* for puzzles other than the cubes. Moves the options don't allow aren't done on the
-	* cube: `getImage`, `getStickers` and `show3D` show it without them.
-	*/
-	getInvalidMoves() {
-		if (!_assertClassBrand(_Puzzle_brand, this, _hasCubeNotation).call(this)) return [];
-		return invalidSolutionMoves(_classPrivateFieldGet2(_solution, this), _assertClassBrand(_Puzzle_brand, this, _solutionRules).call(this));
-	}
-	/**
-	* Whether the scramble and then the solution leave the cube solved: `'solved'`, `'+2'`
-	* when one more outer block turn would solve it, or `'DNF'` (see `SolveStatus`). A
-	* solution with a move that isn't allowed is a DNF (see `getInvalidMoves`), and FMC mode
-	* has no +2. `undefined` for puzzles other than the cubes, which can't be checked yet.
-	*/
-	getSolveStatus() {
-		const size = _classPrivateFieldGet2(_info, this).cubeSize;
-		if (size === void 0 || !_assertClassBrand(_Puzzle_brand, this, _hasCubeNotation).call(this)) return void 0;
-		if (this.getInvalidMoves().length > 0) return "DNF";
-		return cubeSolveStatus(size, [_classPrivateFieldGet2(_scramble, this), _classPrivateFieldGet2(_solution, this)].filter(Boolean).join(" "), !_classPrivateFieldGet2(_fmc, this));
-	}
-	/**
-	* Whether `solve` works for this puzzle with its current scramble type: 2x2x2 and 3x3x3,
-	* with their own scramble types (not relays or other notations). More puzzles later.
-	*/
-	hasSolver() {
-		return SOLVER_SIZES.includes(_classPrivateFieldGet2(_info, this).cubeSize ?? 0) && _assertClassBrand(_Puzzle_brand, this, _hasCubeNotation).call(this);
-	}
-	/**
-	* How long `solve` and `solveAsync` may search for a shorter 3x3x3 solution, in
-	* milliseconds (default 3000). A few seconds usually gets 17 to 19 moves, often the
-	* shortest there is, but proving that nothing shorter exists can take many minutes.
-	* `Infinity` searches until it has that proof, so the solution is always the shortest.
-	* 2x2x2 is always solved in the fewest moves at once.
-	*/
-	setSolveTimeLimit(ms) {
-		if (!(ms > 0)) throw new Error(`The solve time limit must be more than 0 ms, not ${ms}`);
-		_classPrivateFieldSet2(_solveTimeLimit, this, ms);
-		return this;
-	}
-	getSolveTimeLimit() {
-		return _classPrivateFieldGet2(_solveTimeLimit, this);
-	}
-	/**
-	* Finds the shortest solution it can for the scramble with csTimer's own solvers, in the
-	* half-turn metric (R2 counts as one move), and makes it the puzzle's solution (replacing
-	* anything set with `setSolution`), so `getImage()` then shows the puzzle solved. Returns
-	* that solution, `''` if the scramble leaves the puzzle solved. It is a computer
-	* solution, not a human method: the fewest moves on 2x2x2 (only U, R and F turns); on
-	* 3x3x3 the shortest found within the time limit (see `setSolveTimeLimit`), and
-	* `isSolutionShortest` says whether it is known to be the shortest. Only face turns, so
-	* it follows every solution option, FMC mode included. The page can't do anything else
-	* while it searches; `solveAsync` lets it. The first 3x3x3 solve takes a bit longer
-	* while the solver sets up. Throws on puzzles without a solver (see `hasSolver`).
-	*/
-	solve() {
-		const search = _assertClassBrand(_Puzzle_brand, this, _startSearch).call(this);
-		const end = performance.now() + _classPrivateFieldGet2(_solveTimeLimit, this);
-		while (!search.shortest && performance.now() < end) search.step();
-		return _assertClassBrand(_Puzzle_brand, this, _finishSearch).call(this, search);
-	}
-	/**
-	* The same as `solve`, but searches in small steps, letting the page carry on between
-	* them, and calls `onProgress` with each shorter solution it finds. `stopSolving` ends it
-	* early with the shortest found so far. The solution only becomes the puzzle's if its
-	* scramble is still the same at the end.
-	*/
-	async solveAsync(onProgress) {
-		const search = _assertClassBrand(_Puzzle_brand, this, _startSearch).call(this);
-		_classPrivateFieldGet2(_stopSolving, this)?.call(this);
-		let stopped = false;
-		const stop = () => {
-			stopped = true;
-		};
-		_classPrivateFieldSet2(_stopSolving, this, stop);
-		const end = performance.now() + _classPrivateFieldGet2(_solveTimeLimit, this);
-		onProgress?.(search.solution);
-		while (!search.shortest && !stopped && performance.now() < end) {
-			await new Promise((resolve) => setTimeout(resolve, 0));
-			if (stopped) break;
-			if (search.step() && !search.shortest) onProgress?.(search.solution);
-		}
-		if (_classPrivateFieldGet2(_stopSolving, this) === stop) _classPrivateFieldSet2(_stopSolving, this, void 0);
-		return _assertClassBrand(_Puzzle_brand, this, _finishSearch).call(this, search);
-	}
-	/** Ends the running `solveAsync`, if any, with the shortest solution found so far. */
-	stopSolving() {
-		_classPrivateFieldGet2(_stopSolving, this)?.call(this);
-		_classPrivateFieldSet2(_stopSolving, this, void 0);
-		return this;
-	}
-	/**
-	* Whether the puzzle's solution is the one the last solve found and that solve made sure
-	* no shorter solution exists. Always true after solving a 2x2x2; on 3x3x3 only when the
-	* search finished within the time limit (see `setSolveTimeLimit`).
-	*/
-	isSolutionShortest() {
-		const solved = _classPrivateFieldGet2(_solved, this);
-		return solved !== void 0 && solved.shortest && solved.scramble === _classPrivateFieldGet2(_scramble, this) && solved.solution === _classPrivateFieldGet2(_solution, this);
-	}
-	/** Puts the puzzle back to solved: no scramble and no solution. */
-	reset() {
-		_classPrivateFieldSet2(_scramble, this, "");
-		_classPrivateFieldSet2(_solution, this, "");
-		return this;
-	}
-	/** Whether `getStickers` and `show3D` work for this puzzle: the cubes, 2x2x2 to 11x11x11. */
-	has3DView() {
-		return _classPrivateFieldGet2(_info, this).cubeSize !== void 0;
-	}
-	/**
-	* The color of every sticker of a cube as it is now (after the scramble and then the
-	* solution), by face: `{ U: [...], R: [...], F, D, L, B }`, each with size x size colors.
-	* Each face is read row by row, from the top left, as you see it in `getImage()`'s
-	* unfolded picture: U with its top row next to B, D with its top row next to F, and the
-	* side faces upright. Only for cubes (see `has3DView`).
-	*/
-	getStickers() {
-		const size = _classPrivateFieldGet2(_info, this).cubeSize;
-		if (size === void 0) throw new Error(`${this.name} has no 3D view yet, only cubes do`);
-		const moves = _assertClassBrand(_Puzzle_brand, this, _movesDone).call(this);
-		const posit = image$1.nnnPosit(size, moves);
-		const order = _classPrivateFieldGet2(_info, this).cstimerOrder;
-		const stickers = {};
-		for (const face of this.getFaces()) {
-			const f = order.indexOf(face);
-			const colors = [];
-			for (let row = 0; row < size; row++) for (let col = 0; col < size; col++) {
-				const x = face === "L" || face === "B" ? size - 1 - col : col;
-				const y = face === "D" ? size - 1 - row : row;
-				colors.push(_classPrivateFieldGet2(_colors, this)[order[posit[(f * size + y) * size + x]]]);
-			}
-			stickers[face] = colors;
-		}
-		return stickers;
-	}
-	/**
-	* Shows the cube in 3D inside `element` on a web page, as it is now (the same state as
-	* `getImage()`), with this puzzle's colors. Its faces are as big as in `getImage()` at the
-	* size set with `setImageSize` (see there), never wider than the element, or it fills
-	* the element's width without one. It starts at the camera angle (see `setCameraAngle`,
-	* the U R F corner by default); drag it with the mouse or a finger to look at every side,
-	* unless the camera is fixed (see `setCameraMode`). Call it again after changing the
-	* puzzle to update the view: the cube keeps the angle it was dragged to. Only for cubes
-	* (see `has3DView`), and only in a browser. `setHiddenFaces('floating')` also shows the
-	* faces at the back, and `setFloatingFaceOffset` moves them. `setFaceOffset` moves the
-	* cube's own faces and `setElementStyle` styles the view.
-	*/
-	show3D(element) {
-		drawCube3D(element, _classPrivateFieldGet2(_info, this).cubeSize ?? 0, this.getStickers(), {
-			width: _classPrivateFieldGet2(_imageSize, this),
-			hidden: _classPrivateFieldGet2(_hiddenFaces, this),
-			camera: _classPrivateFieldGet2(_cameraMode, this),
-			angle: _classPrivateFieldGet2(_cameraAngle, this),
-			offsets: _classPrivateFieldGet2(_floatingOffsets, this),
-			faceOffsets: _classPrivateFieldGet2(_faceOffsets, this),
-			styles: _classPrivateFieldGet2(_styles, this),
-			cubeStyle: _classPrivateFieldGet2(_cubeStyle, this)
-		});
-		return this;
-	}
-	/** Whether `getImage()` can draw the puzzle with its current scramble type. */
-	hasImage() {
-		return hasScrambleImage(_classPrivateFieldGet2(_scramble, this) ? _classPrivateFieldGet2(_scrambleType, this) : this.getScrambleType());
-	}
-	/**
-	* Draws the puzzle as it is now (solved, or after the scramble and then the solution)
-	* as an SVG string, with this puzzle's colors, image size and image style (see
-	* `setImageStyle`). With the `'cstimer'` style it is the same picture as
-	* `getScrambleImage`. Throws if csTimer can't read the moves.
-	*/
-	getImage() {
-		const type = _classPrivateFieldGet2(_scramble, this) ? _classPrivateFieldGet2(_scrambleType, this) : this.getScrambleType();
-		if (!hasScrambleImage(type)) throw new Error(`csTimer has no picture for "${type}" scrambles`);
-		const style = _classPrivateFieldGet2(_imageStyle, this);
-		const size = _classPrivateFieldGet2(_info, this).cubeSize;
-		if (style !== "cstimer" && size !== void 0 && tools.puzzleType(type) === this.id) return styleSvg(drawCubeNet(size, this.getStickers(), style, _classPrivateFieldGet2(_imageSize, this), _classPrivateFieldGet2(_cubeStyle, this)), _classPrivateFieldGet2(_styles, this));
-		const colors = _classPrivateFieldGet2(_info, this).cstimerOrder.map((face) => toCstimerColor(_classPrivateFieldGet2(_colors, this)[face])).join("");
-		let moves = _assertClassBrand(_Puzzle_brand, this, _movesDone).call(this);
-		if (this.id === "sq1") moves = joinSq1Turns(moves);
-		try {
-			const svg = drawImage(type, moves, _classPrivateFieldGet2(_info, this).colorSetting ? { [_classPrivateFieldGet2(_info, this).colorSetting]: colors } : {}, _classPrivateFieldGet2(_imageSize, this));
-			return styleSvg(style === "cstimer" ? svg : thickenBorders(svg), _classPrivateFieldGet2(_styles, this));
-		} catch {
-			throw new Error(`Can't read these moves as ${this.name} moves: "${moves}"`);
-		}
-	}
-};
-/** Checks a face offset, filling in 0 for the values left out. */
-function _checkOffset(face, offset) {
-	if (!this.has3DView()) throw new Error(`${this.name} has no 3D view yet, only cubes do`);
-	if (!CUBE_FACES.includes(face)) throw new Error(`${this.name} has no face "${face}". Faces: ${CUBE_FACES.join(", ")}`);
-	const full = {
-		...NO_OFFSET,
-		...offset
-	};
-	for (const [key, value] of Object.entries(full)) {
-		if (!(key in NO_OFFSET)) throw new Error(`Unknown offset "${key}". Offsets: ${Object.keys(NO_OFFSET).join(", ")}`);
-		if (typeof value !== "number" || !Number.isFinite(value)) throw new Error(`Offset ${key} must be a number, not ${value}`);
-	}
-	return full;
-}
-function _startSearch() {
-	if (!this.hasSolver()) throw new Error(`No solver for ${this.name} with "${this.getScrambleType()}" scrambles yet`);
-	return new CubeSearch(_classPrivateFieldGet2(_info, this).cubeSize, _classPrivateFieldGet2(_scramble, this));
-}
-function _finishSearch(search) {
-	if (search.scramble === _classPrivateFieldGet2(_scramble, this)) {
-		_classPrivateFieldSet2(_solution, this, search.solution);
-		_classPrivateFieldSet2(_solved, this, {
-			scramble: search.scramble,
-			solution: search.solution,
-			shortest: search.shortest
-		});
-	}
-	return search.solution;
-}
-/**
-* The scramble and then the solution, as done on the puzzle: on cubes, the solution's
-* moves that the solution options don't allow (see `getInvalidMoves`) are left out, so
-* `getStickers`, `getImage` and `show3D` show the cube without them.
-*/
-function _movesDone() {
-	const solution = _assertClassBrand(_Puzzle_brand, this, _hasCubeNotation).call(this) ? allowedSolutionMoves(_classPrivateFieldGet2(_solution, this), _assertClassBrand(_Puzzle_brand, this, _solutionRules).call(this)) : _classPrivateFieldGet2(_solution, this);
-	return [_classPrivateFieldGet2(_scramble, this), solution].filter(Boolean).join(" ");
-}
-/** The rules the solution follows: FMC's in FMC mode, the options set otherwise. */
-function _solutionRules() {
-	return _classPrivateFieldGet2(_fmc, this) ? FMC_RULES : _classPrivateFieldGet2(_rules, this);
-}
-/**
-* Whether the moves are written in cube notation: on a cube, with one of its own scramble
-* types (not, say, 3x3x3's relays or its words-only "noob" scrambles).
-*/
-function _hasCubeNotation() {
-	if (_classPrivateFieldGet2(_info, this).cubeSize === void 0) return false;
-	const type = _classPrivateFieldGet2(_scramble, this) ? _classPrivateFieldGet2(_scrambleType, this) : this.getScrambleType();
-	return tools.puzzleType(type) === this.id;
-}
-//#endregion
 //#region src/vendor/cstimer/grouplib.js
 var DEBUG$2 = false;
 var grouplib = (function(rn) {
@@ -15442,1937 +14246,8 @@ var scramble_333$1 = (function(getNPerm, setNPerm, getNParity, rn, rndEl) {
 	};
 })(mathlib.getNPerm, mathlib.setNPerm, mathlib.getNParity, mathlib.rn, mathlib.rndEl);
 //#endregion
-//#region src/vendor/cstimer/megascramble.js
-(function(mega, rn, rndEl) {
-	var cubesuff = [
-		"",
-		"2",
-		"'"
-	];
-	var minxsuff = [
-		"",
-		"2",
-		"'",
-		"2'"
-	];
-	var args = {
-		"111": [[
-			["x"],
-			["y"],
-			["z"]
-		], cubesuff],
-		"2223": [[
-			["U"],
-			["R"],
-			["F"]
-		], cubesuff],
-		"2226": [[
-			[["U", "D"]],
-			[["R", "L"]],
-			[["F", "B"]]
-		], cubesuff],
-		"333o": [[
-			["U", "D"],
-			["R", "L"],
-			["F", "B"]
-		], cubesuff],
-		"334": [[
-			[[
-				"U",
-				"U'",
-				"U2"
-			], [
-				"u",
-				"u'",
-				"u2"
-			]],
-			[[
-				"R2",
-				"L2",
-				"M2"
-			]],
-			[[
-				"F2",
-				"B2",
-				"S2"
-			]]
-		]],
-		"336": [[
-			[
-				[
-					"U",
-					"U'",
-					"U2"
-				],
-				[
-					"u",
-					"u'",
-					"u2"
-				],
-				[
-					"3u",
-					"3u2",
-					"3u'"
-				]
-			],
-			[[
-				"R2",
-				"L2",
-				"M2"
-			]],
-			[[
-				"F2",
-				"B2",
-				"S2"
-			]]
-		]],
-		"888": [[
-			[
-				"U",
-				"D",
-				"u",
-				"d",
-				"3u",
-				"3d",
-				"4u"
-			],
-			[
-				"R",
-				"L",
-				"r",
-				"l",
-				"3r",
-				"3l",
-				"4r"
-			],
-			[
-				"F",
-				"B",
-				"f",
-				"b",
-				"3f",
-				"3b",
-				"4f"
-			]
-		], cubesuff],
-		"999": [[
-			[
-				"U",
-				"D",
-				"u",
-				"d",
-				"3u",
-				"3d",
-				"4u",
-				"4d"
-			],
-			[
-				"R",
-				"L",
-				"r",
-				"l",
-				"3r",
-				"3l",
-				"4r",
-				"4l"
-			],
-			[
-				"F",
-				"B",
-				"f",
-				"b",
-				"3f",
-				"3b",
-				"4f",
-				"4b"
-			]
-		], cubesuff],
-		"101010": [[
-			[
-				"U",
-				"D",
-				"u",
-				"d",
-				"3u",
-				"3d",
-				"4u",
-				"4d",
-				"5u"
-			],
-			[
-				"R",
-				"L",
-				"r",
-				"l",
-				"3r",
-				"3l",
-				"4r",
-				"4l",
-				"5r"
-			],
-			[
-				"F",
-				"B",
-				"f",
-				"b",
-				"3f",
-				"3b",
-				"4f",
-				"4b",
-				"5f"
-			]
-		], cubesuff],
-		"111111": [[
-			[
-				"U",
-				"D",
-				"u",
-				"d",
-				"3u",
-				"3d",
-				"4u",
-				"4d",
-				"5u",
-				"5d"
-			],
-			[
-				"R",
-				"L",
-				"r",
-				"l",
-				"3r",
-				"3l",
-				"4r",
-				"4l",
-				"5r",
-				"5l"
-			],
-			[
-				"F",
-				"B",
-				"f",
-				"b",
-				"3f",
-				"3b",
-				"4f",
-				"4b",
-				"5f",
-				"5b"
-			]
-		], cubesuff],
-		"444": [[
-			[
-				"U",
-				"D",
-				"u"
-			],
-			[
-				"R",
-				"L",
-				"r"
-			],
-			[
-				"F",
-				"B",
-				"f"
-			]
-		], cubesuff],
-		"444m": [[
-			[
-				"U",
-				"D",
-				"Uw"
-			],
-			[
-				"R",
-				"L",
-				"Rw"
-			],
-			[
-				"F",
-				"B",
-				"Fw"
-			]
-		], cubesuff],
-		"555": [[
-			[
-				"U",
-				"D",
-				"u",
-				"d"
-			],
-			[
-				"R",
-				"L",
-				"r",
-				"l"
-			],
-			[
-				"F",
-				"B",
-				"f",
-				"b"
-			]
-		], cubesuff],
-		"555wca": [[
-			[
-				"U",
-				"D",
-				"Uw",
-				"Dw"
-			],
-			[
-				"R",
-				"L",
-				"Rw",
-				"Lw"
-			],
-			[
-				"F",
-				"B",
-				"Fw",
-				"Bw"
-			]
-		], cubesuff],
-		"666p": [[
-			[
-				"U",
-				"D",
-				"2U",
-				"2D",
-				"3U"
-			],
-			[
-				"R",
-				"L",
-				"2R",
-				"2L",
-				"3R"
-			],
-			[
-				"F",
-				"B",
-				"2F",
-				"2B",
-				"3F"
-			]
-		], cubesuff],
-		"666wca": [[
-			[
-				"U",
-				"D",
-				"Uw",
-				"Dw",
-				"3Uw"
-			],
-			[
-				"R",
-				"L",
-				"Rw",
-				"Lw",
-				"3Rw"
-			],
-			[
-				"F",
-				"B",
-				"Fw",
-				"Bw",
-				"3Fw"
-			]
-		], cubesuff],
-		"666s": [[
-			[
-				"U",
-				"D",
-				"U&sup2;",
-				"D&sup2;",
-				"U&sup3;"
-			],
-			[
-				"R",
-				"L",
-				"R&sup2;",
-				"L&sup2;",
-				"R&sup3;"
-			],
-			[
-				"F",
-				"B",
-				"F&sup2;",
-				"B&sup2;",
-				"F&sup3;"
-			]
-		], cubesuff],
-		"666si": [[
-			[
-				"U",
-				"D",
-				"u",
-				"d",
-				"3u"
-			],
-			[
-				"R",
-				"L",
-				"r",
-				"l",
-				"3r"
-			],
-			[
-				"F",
-				"B",
-				"f",
-				"b",
-				"3f"
-			]
-		], cubesuff],
-		"777p": [[
-			[
-				"U",
-				"D",
-				"2U",
-				"2D",
-				"3U",
-				"3D"
-			],
-			[
-				"R",
-				"L",
-				"2R",
-				"2L",
-				"3R",
-				"3L"
-			],
-			[
-				"F",
-				"B",
-				"2F",
-				"2B",
-				"3F",
-				"3B"
-			]
-		], cubesuff],
-		"777wca": [[
-			[
-				"U",
-				"D",
-				"Uw",
-				"Dw",
-				"3Uw",
-				"3Dw"
-			],
-			[
-				"R",
-				"L",
-				"Rw",
-				"Lw",
-				"3Rw",
-				"3Lw"
-			],
-			[
-				"F",
-				"B",
-				"Fw",
-				"Bw",
-				"3Fw",
-				"3Bw"
-			]
-		], cubesuff],
-		"777s": [[
-			[
-				"U",
-				"D",
-				"U&sup2;",
-				"D&sup2;",
-				"U&sup3;",
-				"D&sup3;"
-			],
-			[
-				"R",
-				"L",
-				"R&sup2;",
-				"L&sup2;",
-				"R&sup3;",
-				"L&sup3;"
-			],
-			[
-				"F",
-				"B",
-				"F&sup2;",
-				"B&sup2;",
-				"F&sup3;",
-				"B&sup3;"
-			]
-		], cubesuff],
-		"777si": [[
-			[
-				"U",
-				"D",
-				"u",
-				"d",
-				"3u",
-				"3d"
-			],
-			[
-				"R",
-				"L",
-				"r",
-				"l",
-				"3r",
-				"3l"
-			],
-			[
-				"F",
-				"B",
-				"f",
-				"b",
-				"3f",
-				"3b"
-			]
-		], cubesuff],
-		"crz3a": [[
-			["U", "D"],
-			["R", "L"],
-			["F", "B"]
-		], cubesuff],
-		"cm3": [[[
-			[
-				"U<",
-				"U>",
-				"U2"
-			],
-			[
-				"E<",
-				"E>",
-				"E2"
-			],
-			[
-				"D<",
-				"D>",
-				"D2"
-			]
-		], [
-			[
-				"R^",
-				"Rv",
-				"R2"
-			],
-			[
-				"M^",
-				"Mv",
-				"M2"
-			],
-			[
-				"L^",
-				"Lv",
-				"L2"
-			]
-		]]],
-		"cm2": [[[[
-			"U<",
-			"U>",
-			"U2"
-		], [
-			"D<",
-			"D>",
-			"D2"
-		]], [[
-			"R^",
-			"Rv",
-			"R2"
-		], [
-			"L^",
-			"Lv",
-			"L2"
-		]]]],
-		"233": [[
-			[[
-				"U",
-				"U'",
-				"U2"
-			]],
-			["R2", "L2"],
-			["F2", "B2"]
-		]],
-		"fto": [[
-			["U", "D"],
-			["F", "B"],
-			["L", "BR"],
-			["R", "BL"]
-		], ["", "'"]],
-		"gear": [[
-			["U"],
-			["R"],
-			["F"]
-		], [
-			"",
-			"2",
-			"3",
-			"4",
-			"5",
-			"6",
-			"'",
-			"2'",
-			"3'",
-			"4'",
-			"5'"
-		]],
-		"sfl": [[["R", "L"], ["U", "D"]], cubesuff],
-		"ufo": [[
-			["A"],
-			["B"],
-			["C"],
-			[[
-				"U",
-				"U'",
-				"U2'",
-				"U2",
-				"U3"
-			]]
-		]],
-		"RrUu": [[["U", "u"], ["R", "r"]], cubesuff],
-		"minx2g": [[["U"], ["R"]], minxsuff],
-		"lsll": [[
-			[[
-				"R U R'",
-				"R U2 R'",
-				"R U' R'"
-			]],
-			[[
-				"F' U F",
-				"F' U2 F",
-				"F' U' F"
-			]],
-			[[
-				"U",
-				"U2",
-				"U'"
-			]]
-		]],
-		"prco": [[
-			["F", "B"],
-			["U", "D"],
-			["L", "DBR"],
-			["R", "DBL"],
-			["BL", "DR"],
-			["BR", "DL"]
-		], minxsuff],
-		"skb": [[
-			["R"],
-			["L"],
-			["B"],
-			["U"]
-		], ["", "'"]],
-		"ivy": [[
-			["R"],
-			["L"],
-			["D"],
-			["B"]
-		], ["", "'"]],
-		"112": [[["R"], ["R"]], cubesuff],
-		"eide": [[
-			["OMG"],
-			["WOW"],
-			["WTF"],
-			[[
-				"WOO-HOO",
-				"WOO-HOO",
-				"MATYAS",
-				"YES",
-				"YES",
-				"YAY",
-				"YEEEEEEEEEEEES"
-			]],
-			["HAHA"],
-			["XD"],
-			[":D"],
-			["LOL"]
-		], [
-			"",
-			"",
-			"",
-			"!!!"
-		]]
-	};
-	var args2 = {
-		"sia113": "#{[[\"U\",\"u\"],[\"R\",\"r\"]],%c,%l} z2 #{[[\"U\",\"u\"],[\"R\",\"r\"]],%c,%l}",
-		"sia123": "#{[[\"U\"],[\"R\",\"r\"]],%c,%l} z2 #{[[\"U\"],[\"R\",\"r\"]],%c,%l}",
-		"sia222": "#{[[\"U\"],[\"R\"],[\"F\"]],%c,%l} z2 y #{[[\"U\"],[\"R\"],[\"F\"]],%c,%l}",
-		"335": "#{[[[\"U\",\"U'\",\"U2\"],[\"D\",\"D'\",\"D2\"]],[\"R2\",\"L2\"],[\"F2\",\"B2\"]],0,%l} / ${333}",
-		"337": "#{[[[\"U\",\"U'\",\"U2\",\"u\",\"u'\",\"u2\",\"U u\",\"U u'\",\"U u2\",\"U' u\",\"U' u'\",\"U' u2\",\"U2 u\",\"U2 u'\",\"U2 u2\"],[\"D\",\"D'\",\"D2\",\"d\",\"d'\",\"d2\",\"D d\",\"D d'\",\"D d2\",\"D' d\",\"D' d'\",\"D' d2\",\"D2 d\",\"D2 d'\",\"D2 d2\"]],[\"R2\",\"L2\"],[\"F2\",\"B2\"]],0,%l} / ${333}",
-		"r234": "2) ${222so}\\n3) ${333}\\n4) ${[444,40]}",
-		"r2345": "${r234}\\n5) ${[\"555\",60]}",
-		"r23456": "${r2345}\\n6) ${[\"666p\",80]}",
-		"r234567": "${r23456}\\n7) ${[\"777p\",100]}",
-		"r234w": "2) ${222so}\\n3) ${333}\\n4) ${[\"444m\",40]}",
-		"r2345w": "${r234w}\\n5) ${[\"555wca\",60]}",
-		"r23456w": "${r2345w}\\n6) ${[\"666wca\",80]}",
-		"r234567w": "${r23456w}\\n7) ${[\"777wca\",100]}",
-		"rmngf": "${r2345w}\\n3oh) ${333}\\npyr) ${[\"pyrso\",10]}\\n skb) ${skbso}\\nsq1) ${sqrs}\\nclk) ${clkwca}\\nmgm) ${[\"mgmp\",70]}",
-		"333ni": "${333}#{[[\"\"]],[\"\",\"Rw \",\"Rw2 \",\"Rw' \",\"Fw \",\"Fw' \"],1}#{[[\"\"]],[\"\",\"Uw\",\"Uw2\",\"Uw'\"],1}",
-		"444bld": "${444wca}#{[[\"\"]],[\"\",\" x\",\" x2\",\" x'\",\" z\",\" z'\"],1}#{[[\"\"]],[\"\",\" y\",\" y2\",\" y'\"],1}",
-		"555bld": "${[\"555wca\",%l]}#{[[\"\"]],[\"\",\" 3Rw\",\" 3Rw2\",\" 3Rw'\",\" 3Fw\",\" 3Fw'\"],1}#{[[\"\"]],[\"\",\" 3Uw\",\" 3Uw2\",\" 3Uw'\"],1}"
-	};
-	var edges = {
-		"5edge": [
-			"r R b B",
-			["B' b' R' r'", "B' b' R' U2 r U2 r U2 r U2 r"],
-			["u", "d"]
-		],
-		"6edge": [
-			"3r r 3b b",
-			[
-				"3b' b' 3r' r'",
-				"3b' b' 3r' U2 r U2 r U2 r U2 r",
-				"3b' b' r' U2 3r U2 3r U2 3r U2 3r",
-				"3b' b' r2 U2 3r U2 3r U2 3r U2 3r U2 r"
-			],
-			[
-				"u",
-				"3u",
-				"d"
-			]
-		],
-		"7edge": [
-			"3r r 3b b",
-			[
-				"3b' b' 3r' r'",
-				"3b' b' 3r' U2 r U2 r U2 r U2 r",
-				"3b' b' r' U2 3r U2 3r U2 3r U2 3r",
-				"3b' b' r2 U2 3r U2 3r U2 3r U2 3r U2 r"
-			],
-			[
-				"u",
-				"3u",
-				"3d",
-				"d"
-			]
-		]
-	};
-	function megascramble(type, length) {
-		var value = args[type];
-		switch (value.length) {
-			case 1: return mega(value[0], [""], length);
-			case 2: return mega(value[0], value[1], length);
-			case 3: return mega(value[0], value[1], value[2]);
-		}
-	}
-	function edgescramble(type, length) {
-		var value = edges[type];
-		return edge(value[0], value[1], value[2], length);
-	}
-	function formatScramble(type, length) {
-		var value = args2[type].replace(/%l/g, length).replace(/%c/g, "[\"\",\"2\",\"'\"]");
-		return scrMgr.formatScramble(value);
-	}
-	for (var i in args) scrMgr.reg(i, megascramble);
-	for (var i in args2) scrMgr.reg(i, formatScramble);
-	for (var i in edges) scrMgr.reg(i, edgescramble);
-	function cubeNNN(type, len) {
-		var size = len;
-		if (size <= 1) return "N/A";
-		var data = [
-			[],
-			[],
-			[]
-		];
-		for (var i = 0; i < len - 1; i++) if (i % 2 == 0) {
-			data[0].push((i < 4 ? "" : ~~(i / 2 + 1)) + (i < 2 ? "U" : "u"));
-			data[1].push((i < 4 ? "" : ~~(i / 2 + 1)) + (i < 2 ? "R" : "r"));
-			data[2].push((i < 4 ? "" : ~~(i / 2 + 1)) + (i < 2 ? "F" : "f"));
-		} else {
-			data[0].push((i < 4 ? "" : ~~(i / 2 + 1)) + (i < 2 ? "D" : "d"));
-			data[1].push((i < 4 ? "" : ~~(i / 2 + 1)) + (i < 2 ? "L" : "l"));
-			data[2].push((i < 4 ? "" : ~~(i / 2 + 1)) + (i < 2 ? "B" : "b"));
-		}
-		return mega(data, cubesuff, size * 10);
-	}
-	scrMgr.reg("cubennn", cubeNNN);
-	function edge(start, end, moves, len) {
-		var u = 0, d = 0, movemis = [];
-		var triggers = [
-			["R", "R'"],
-			["R'", "R"],
-			["L", "L'"],
-			["L'", "L"],
-			["F'", "F"],
-			["F", "F'"],
-			["B", "B'"],
-			["B'", "B"]
-		];
-		var ud = ["U", "D"];
-		var scramble = start;
-		for (var i = 0; i < moves.length; i++) movemis[i] = 0;
-		for (var i = 0; i < len; i++) {
-			var done = false;
-			while (!done) {
-				var v = "";
-				for (var j = 0; j < moves.length; j++) {
-					var x = rn(4);
-					movemis[j] += x;
-					if (x != 0) {
-						done = true;
-						v += " " + moves[j] + cubesuff[x - 1];
-					}
-				}
-			}
-			var trigger = rn(8);
-			var layer = rn(2);
-			var turn = rn(3);
-			scramble += v + " " + triggers[trigger][0] + " " + ud[layer] + cubesuff[turn] + " " + triggers[trigger][1];
-			if (layer == 0) u += turn + 1;
-			if (layer == 1) d += turn + 1;
-		}
-		for (var i = 0; i < moves.length; i++) {
-			var x = 4 - movemis[i] % 4;
-			if (x < 4) scramble += " " + moves[i] + cubesuff[x - 1];
-		}
-		u = 4 - u % 4;
-		d = 4 - d % 4;
-		if (u < 4) scramble += " U" + cubesuff[u - 1];
-		if (d < 4) scramble += " D" + cubesuff[d - 1];
-		scramble += " " + rndEl(end);
-		return scramble;
-	}
-})(scrMgr.mega, mathlib.rn, mathlib.rndEl);
-//#endregion
-//#region src/vendor/cstimer/utilscramble.js
-var SCRAMBLE_NOOBST = [
-	["turn the top face", "turn the bottom face"],
-	["turn the right face", "turn the left face"],
-	["turn the front face", "turn the back face"]
-];
-var SCRAMBLE_NOOBSS = " clockwise by 90 degrees,| counterclockwise by 90 degrees,| by 180 degrees,";
-(function(rn, rndEl, mega) {
-	var cubesuff = [
-		"",
-		"2",
-		"'"
-	];
-	var minxsuff = [
-		"",
-		"2",
-		"'",
-		"2'"
-	];
-	var seq = [];
-	var p = [];
-	function adjScramble(faces, adj, len, suffixes, probs) {
-		suffixes = suffixes || [""];
-		var used = 0;
-		var face;
-		var ret = [];
-		for (var j = 0; j < len; j++) {
-			do
-				face = probs ? mathlib.rndProb(probs) : rn(faces.length);
-			while (used >> face & 1);
-			ret.push(faces[face] + rndEl(suffixes));
-			used &= ~adj[face];
-			used |= 1 << face;
-		}
-		return ret.join(" ");
-	}
-	function yj4x4(type, len) {
-		var turns = [
-			["U", "D"],
-			[
-				"R",
-				"L",
-				"r"
-			],
-			[
-				"F",
-				"B",
-				"f"
-			]
-		];
-		var donemoves = [];
-		var lastaxis;
-		var fpos = 0;
-		var j, k;
-		var s = "";
-		lastaxis = -1;
-		for (j = 0; j < len; j++) {
-			var done = 0;
-			do {
-				var first = rn(turns.length);
-				var second = rn(turns[first].length);
-				if (first != lastaxis || donemoves[second] == 0) {
-					if (first == lastaxis) {
-						donemoves[second] = 1;
-						var rs = rn(cubesuff.length);
-						if (first == 0 && second == 0) fpos = (fpos + 4 + rs) % 4;
-						if (first == 1 && second == 2) {
-							if (fpos == 0 || fpos == 3) s += "l" + cubesuff[rs] + " ";
-							else s += "r" + cubesuff[rs] + " ";
-						} else if (first == 2 && second == 2) {
-							if (fpos == 0 || fpos == 1) s += "b" + cubesuff[rs] + " ";
-							else s += "f" + cubesuff[rs] + " ";
-						} else s += turns[first][second] + cubesuff[rs] + " ";
-					} else {
-						for (k = 0; k < turns[first].length; k++) donemoves[k] = 0;
-						lastaxis = first;
-						donemoves[second] = 1;
-						var rs = rn(cubesuff.length);
-						if (first == 0 && second == 0) fpos = (fpos + 4 + rs) % 4;
-						if (first == 1 && second == 2) {
-							if (fpos == 0 || fpos == 3) s += "l" + cubesuff[rs] + " ";
-							else s += "r" + cubesuff[rs] + " ";
-						} else if (first == 2 && second == 2) {
-							if (fpos == 0 || fpos == 1) s += "b" + cubesuff[rs] + " ";
-							else s += "f" + cubesuff[rs] + " ";
-						} else s += turns[first][second] + cubesuff[rs] + " ";
-					}
-					done = 1;
-				}
-			} while (done == 0);
-		}
-		return s;
-	}
-	scrMgr.reg("444yj", yj4x4);
-	function bicube(type, len) {
-		function canMove(face) {
-			var u = [], i, j, done, z = 0;
-			for (i = 0; i < 9; i++) {
-				done = 0;
-				for (j = 0; j < u.length; j++) if (u[j] == start[d[face][i]]) done = 1;
-				if (done == 0) {
-					u[u.length] = start[d[face][i]];
-					if (start[d[face][i]] == 0) z = 1;
-				}
-			}
-			return u.length == 5 && z == 1;
-		}
-		function doMove(face, amount) {
-			for (var i = 0; i < amount; i++) {
-				var t = start[d[face][0]];
-				start[d[face][0]] = start[d[face][6]];
-				start[d[face][6]] = start[d[face][4]];
-				start[d[face][4]] = start[d[face][2]];
-				start[d[face][2]] = t;
-				t = start[d[face][7]];
-				start[d[face][7]] = start[d[face][5]];
-				start[d[face][5]] = start[d[face][3]];
-				start[d[face][3]] = start[d[face][1]];
-				start[d[face][1]] = t;
-			}
-		}
-		var d = [
-			[
-				0,
-				1,
-				2,
-				5,
-				8,
-				7,
-				6,
-				3,
-				4
-			],
-			[
-				6,
-				7,
-				8,
-				13,
-				20,
-				19,
-				18,
-				11,
-				12
-			],
-			[
-				0,
-				3,
-				6,
-				11,
-				18,
-				17,
-				16,
-				9,
-				10
-			],
-			[
-				8,
-				5,
-				2,
-				15,
-				22,
-				21,
-				20,
-				13,
-				14
-			]
-		];
-		var start = [
-			1,
-			1,
-			2,
-			3,
-			3,
-			2,
-			4,
-			4,
-			0,
-			5,
-			6,
-			7,
-			8,
-			9,
-			10,
-			10,
-			5,
-			6,
-			7,
-			8,
-			9,
-			11,
-			11
-		], move = "UFLR", s = "", arr = [], poss, done, i, j, x, y;
-		while (arr.length < len) {
-			poss = [
-				1,
-				1,
-				1,
-				1
-			];
-			for (j = 0; j < 4; j++) if (poss[j] == 1 && !canMove(j)) poss[j] = 0;
-			done = 0;
-			while (done == 0) {
-				x = rn(4);
-				if (poss[x] == 1) {
-					y = rn(3) + 1;
-					doMove(x, y);
-					done = 1;
-				}
-			}
-			arr[arr.length] = [x, y];
-			if (arr.length >= 2) {
-				if (arr.at(-1)[0] == arr.at(-2)[0]) {
-					arr.at(-2)[1] = (arr.at(-2)[1] + arr.at(-1)[1]) % 4;
-					arr = arr.slice(0, arr.length - 1);
-				}
-			}
-			if (arr.length >= 1) {
-				if (arr.at(-1)[1] == 0) arr = arr.slice(0, arr.length - 1);
-			}
-		}
-		for (i = 0; i < len; i++) s += move[arr[i][0]] + cubesuff[arr[i][1] - 1] + " ";
-		return s;
-	}
-	scrMgr.reg("bic", bicube);
-	function c(s) {
-		return " " + rndEl([
-			s + "=0",
-			s + "+1",
-			s + "+2",
-			s + "+3",
-			s + "+4",
-			s + "+5",
-			s + "+6",
-			s + "-5",
-			s + "-4",
-			s + "-3",
-			s + "-2",
-			s + "-1"
-		]) + " ";
-	}
-	function c2() {
-		return rndEl(["U", "d"]) + rndEl(["U", "d"]);
-	}
-	function c3() {
-		return "     ";
-	}
-	function do15puzzle(mirrored, len, arrow, tiny) {
-		var effect = [
-			[0, -1],
-			[1, 0],
-			[-1, 0],
-			[0, 1]
-		];
-		var x = 0, y = 3, r, lastr = 5, ret = [];
-		for (var i = 0; i < len; i++) {
-			do
-				r = rn(4);
-			while (x + effect[r][0] < 0 || x + effect[r][0] > 3 || y + effect[r][1] < 0 || y + effect[r][1] > 3 || r + lastr == 3);
-			x += effect[r][0];
-			y += effect[r][1];
-			if (ret.length > 0 && ret.at(-1)[0] == r) ret.at(-1)[1]++;
-			else ret.push([r, 1]);
-			lastr = r;
-		}
-		var retstr = "";
-		for (var i = 0; i < ret.length; i++) {
-			var m = mirrored ? ret[i][0] : 3 - ret[i][0];
-			m = (arrow ? "￪￩￫￬" : "ULRD").charAt(m);
-			if (tiny) retstr += m + (ret[i][1] == 1 ? "" : ret[i][1]) + " ";
-			else for (var j = 0; j < ret[i][1]; j++) retstr += m + " ";
-		}
-		return retstr;
-	}
-	function pochscramble(x, y) {
-		var ret = "";
-		var i = 0, j;
-		for (; i < y; i++) {
-			ret += "  ";
-			for (j = 0; j < x; j++) ret += (j % 2 == 0 ? "R" : "D") + rndEl(["++", "--"]) + " ";
-			ret += "U" + (ret.endsWith("-- ") ? "'\\n" : "~\\n");
-		}
-		return ret;
-	}
-	function carrotscramble(x, y) {
-		var ret = "";
-		var i = 0, j;
-		for (; i < y; i++) {
-			ret += " ";
-			for (j = 0; j < x / 2; j++) ret += rndEl(["+", "-"]) + rndEl(["+", "-"]) + " ";
-			ret += "U" + (ret.endsWith("- ") ? "'\\n" : "~\\n");
-		}
-		return ret;
-	}
-	function gigascramble(len) {
-		var ret = "";
-		var i = 0, j;
-		for (; i < Math.ceil(len / 10); i++) {
-			ret += "  ";
-			for (j = 0; j < 10; j++) ret += (j % 2 == 0 ? "Rr".charAt(rn(2)) : "Dd".charAt(rn(2))) + rndEl([
-				"+ ",
-				"++",
-				"- ",
-				"--"
-			]) + " ";
-			ret += "y" + rndEl(minxsuff).padEnd(2, "~") + "\\n";
-		}
-		return ret;
-	}
-	function sq1_scramble(type, len) {
-		seq = [];
-		var i, k;
-		sq1_getseq(1, type, len);
-		var s = "";
-		for (i = 0; i < seq[0].length; i++) {
-			k = seq[0][i];
-			if (k[0] == 7) s += "/";
-			else s += " (" + k[0] + "," + k[1] + ")";
-		}
-		return s;
-	}
-	function ssq1t_scramble(len) {
-		seq = [];
-		var i;
-		sq1_getseq(2, 0, len);
-		var s = seq[0], t = seq[1], u = "";
-		if (s[0][0] == 7) s = [[0, 0]].concat(s);
-		if (t[0][0] == 7) t = [[0, 0]].concat(t);
-		for (i = 0; i < len; i++) u += "(" + s[2 * i][0] + "," + t[2 * i][0] + "," + t[2 * i][1] + "," + s[2 * i][1] + ")/ ";
-		return u;
-	}
-	function sq1_getseq(num, type, len) {
-		for (var n = 0; n < num; n++) {
-			p = [
-				1,
-				0,
-				0,
-				1,
-				0,
-				0,
-				1,
-				0,
-				0,
-				1,
-				0,
-				0,
-				0,
-				1,
-				0,
-				0,
-				1,
-				0,
-				0,
-				1,
-				0,
-				0,
-				1,
-				0
-			];
-			seq[n] = [];
-			var cnt = 0;
-			while (cnt < len) {
-				var x = rn(12) - 5;
-				var y = type == 2 ? 0 : rn(12) - 5;
-				var size = (x == 0 ? 0 : 1) + (y == 0 ? 0 : 1);
-				if ((cnt + size <= len || type != 1) && (size > 0 || cnt == 0)) {
-					if (sq1_domove(x, y)) {
-						if (type == 1) cnt += size;
-						if (size > 0) seq[n][seq[n].length] = [x, y];
-						if (cnt < len || type != 1) {
-							cnt++;
-							seq[n][seq[n].length] = [7, 0];
-							sq1_domove(7, 0);
-						}
-					}
-				}
-			}
-		}
-	}
-	function sq1_domove(x, y) {
-		var i, px, py;
-		if (x == 7) {
-			for (i = 0; i < 6; i++) mathlib.circle(p, i + 6, i + 12);
-			return true;
-		} else if (p[(17 - x) % 12] || p[(11 - x) % 12] || p[12 + (17 - y) % 12] || p[12 + (11 - y) % 12]) return false;
-		else {
-			px = p.slice(0, 12);
-			py = p.slice(12, 24);
-			for (i = 0; i < 12; i++) {
-				p[i] = px[(12 + i - x) % 12];
-				p[i + 12] = py[(12 + i - y) % 12];
-			}
-			return true;
-		}
-	}
-	function moyuRedi(length) {
-		var ret = [];
-		for (var i = 0; i < length; i++) ret.push(mega([["R"], ["L"]], ["", "'"], 3 + rn(3)));
-		return ret.join(" x ");
-	}
-	function addPyrTips(scramble, moveLen) {
-		var cnt = 0;
-		var rnd = [];
-		for (var i = 0; i < 4; i++) {
-			rnd[i] = rn(3);
-			if (rnd[i] > 0) {
-				rnd[i] = "ulrb".charAt(i) + ["! ", "' "][rnd[i] - 1];
-				cnt++;
-			} else rnd[i] = "";
-		}
-		return scramble.substr(0, scramble.length - moveLen * cnt) + " " + rnd.join("");
-	}
-	function PolyScrambler(puzzle, validMoves, move2str) {
-		var pobj = poly3d.getFamousPuzzle(puzzle);
-		puzzle = poly3d.makePuzzle.apply(poly3d, pobj.polyParam);
-		var permLen = puzzle.moveTable[0].length;
-		var e = [];
-		for (var i = 0; i < permLen; i++) e[i] = i;
-		var gens = [];
-		for (var i = 0; i < validMoves.length; i++) {
-			var move = pobj.parser.parseScramble(validMoves[i]);
-			var perm = e.slice();
-			for (var j = 0; j < move.length; j++) {
-				var pow = move[j][1];
-				if (pow == 0) continue;
-				var operm = puzzle.moveTable[puzzle.getTwistyIdx(move[j][0])].slice();
-				for (var k = 0; k < operm.length; k++) operm[k] = operm[k] >= 0 ? operm[k] : k;
-				if (pow < 0) {
-					operm = grouplib.permInv(operm);
-					pow = -pow;
-				}
-				while (--pow >= 0) perm = grouplib.permMult(perm, operm);
-			}
-			gens.push(perm);
-		}
-		this.solv = new grouplib.SubgroupSolver(gens);
-		this.move2str = move2str;
-		this.moves = validMoves;
-		this.solv.initTables();
-	}
-	PolyScrambler.prototype.getScramble = function(minLen, maxLen) {
-		var solution = "";
-		do {
-			var state = this.solv.sgsG.rndElem();
-			solution = (this.solv.DissectionSolve(state, minLen, maxLen) || []).map((mvpow) => this.move2str(this.moves[mvpow[0]], mvpow[1])).join(" ");
-		} while (solution.length <= 2);
-		return solution.replace(/ +/g, " ");
-	};
-	var polyObjs = {};
-	function getPolyScrambler(puzzle, validMoves, move2str) {
-		var key = JSON.stringify([puzzle, validMoves]);
-		if (!(key in polyObjs)) polyObjs[key] = new PolyScrambler(puzzle, validMoves, move2str);
-		return polyObjs[key];
-	}
-	function utilscramble(type, len) {
-		var ret = "";
-		switch (type) {
-			case "15p": return do15puzzle(false, len);
-			case "15pm": return do15puzzle(true, len);
-			case "15pat": return do15puzzle(false, len, true, true);
-			case "clkwca":
-			case "clkwcab":
-			case "clknf":
-				var clkapp = [
-					"0+",
-					"1+",
-					"2+",
-					"3+",
-					"4+",
-					"5+",
-					"6+",
-					"1-",
-					"2-",
-					"3-",
-					"4-",
-					"5-"
-				];
-				ret = type == "clknf" ? "UR? DR? DL? UL? U(?,?) R(?,?) D(?,?) L(?,?) ALL? all?????" : "UR? DR? DL? UL? U? R? D? L? ALL? y2 U? R? D? L? ALL?????";
-				for (var i = 0; i < 14; i++) ret = ret.replace("?", rndEl(clkapp));
-				if (type == "clkwca") ret = ret.slice(0, -4);
-				return ret.replace("?", rndEl(["", " UR"])).replace("?", rndEl(["", " DR"])).replace("?", rndEl(["", " DL"])).replace("?", rndEl(["", " UL"]));
-			case "clk": return "UU" + c("u") + "dU" + c("u") + "dd" + c("u") + "Ud" + c("u") + "dU" + c("u") + "Ud" + c("u") + "UU" + c("u") + "UU" + c("u") + "UU" + c("u") + "dd" + c3() + c2() + "\\ndd" + c("d") + "dU" + c("d") + "UU" + c("d") + "Ud" + c("d") + "UU" + c3() + "UU" + c3() + "Ud" + c3() + "dU" + c3() + "UU" + c3() + "dd" + c("d") + c2();
-			case "clkc":
-				ret = "";
-				for (var i = 0; i < 4; i++) ret += "(" + (rn(12) - 5) + ", " + (rn(12) - 5) + ") / ";
-				for (var i = 0; i < 6; i++) ret += "(" + (rn(12) - 5) + ") / ";
-				for (var i = 0; i < 4; i++) ret += rndEl(["d", "U"]);
-				return ret;
-			case "clke": return "UU" + c("u") + "dU" + c("u") + "dU" + c("u") + "UU" + c("u") + "UU" + c("u") + "UU" + c("u") + "Ud" + c("u") + "Ud" + c("u") + "dd" + c("u") + "dd" + c3() + c2() + "\\nUU" + c3() + "UU" + c3() + "dU" + c("d") + "dU" + c3() + "dd" + c("d") + "Ud" + c3() + "Ud" + c("d") + "UU" + c3() + "UU" + c("d") + "dd" + c("d") + c2();
-			case "giga": return gigascramble(len);
-			case "mgmo": return adjScramble([
-				"F",
-				"B",
-				"U",
-				"D",
-				"L",
-				"DBR",
-				"DL",
-				"BR",
-				"DR",
-				"BL",
-				"R",
-				"DBL"
-			], [
-				1364,
-				2728,
-				1681,
-				2402,
-				2629,
-				1418,
-				2329,
-				1574,
-				1129,
-				2198,
-				421,
-				602
-			], len, minxsuff);
-			case "mgms2l": return adjScramble([
-				"F",
-				"R",
-				"BR",
-				"BL",
-				"L",
-				"U"
-			], [
-				50,
-				37,
-				42,
-				52,
-				41,
-				31
-			], len, minxsuff);
-			case "mgmp": return pochscramble(10, Math.ceil(len / 10));
-			case "mgmc": return carrotscramble(10, Math.ceil(len / 10));
-			case "klmp": return pochscramble(10, Math.ceil(len / 10));
-			case "heli":
-			case "helicv": return adjScramble([
-				"UF",
-				"UR",
-				"UB",
-				"UL",
-				"FR",
-				"BR",
-				"BL",
-				"FL",
-				"DF",
-				"DR",
-				"DB",
-				"DL"
-			], [
-				154,
-				53,
-				106,
-				197,
-				771,
-				1542,
-				3084,
-				2313,
-				2704,
-				1328,
-				2656,
-				1472
-			], len);
-			case "heli2x2":
-				ret = adjScramble([
-					"UR",
-					"UF",
-					"UL",
-					"UB",
-					"DR",
-					"DF",
-					"DL",
-					"DB",
-					"FR",
-					"FL",
-					"BL",
-					"BR",
-					"UFR",
-					"UFL",
-					"UBL",
-					"UBR",
-					"DFR",
-					"DFL",
-					"DBL",
-					"DBR",
-					"U",
-					"R",
-					"F"
-				], [
-					40931328,
-					24129536,
-					55599104,
-					53526528,
-					48824320,
-					31653888,
-					63307776,
-					61603840,
-					15798272,
-					30547968,
-					60047360,
-					45645824,
-					7340291,
-					22020614,
-					51381260,
-					36702217,
-					14680368,
-					29360736,
-					58721472,
-					44042384,
-					56688399,
-					47815099,
-					28521335,
-					57610224,
-					47605486,
-					29150429
-				], len, null, [
-					1,
-					1,
-					1,
-					1,
-					1,
-					1,
-					1,
-					1,
-					1,
-					1,
-					1,
-					1,
-					1,
-					1,
-					1,
-					1,
-					1,
-					1,
-					1,
-					1,
-					3,
-					3,
-					3
-				]).split(" ");
-				for (var i = 0; i < ret.length; i++) if (ret[i].length == 3) ret[i] += mathlib.rndEl(["", "'"]);
-				else if (ret[i].length == 1) ret[i] += mathlib.rndEl([
-					"",
-					"'",
-					"2"
-				]);
-				return ret.join(" ");
-			case "heli2x2g":
-				var lastMove = -1;
-				ret = [];
-				var cornMoves = [
-					"UFR",
-					"UFL",
-					"UBL",
-					"UBR",
-					"DFR",
-					"DFL",
-					"DBL",
-					"DBR"
-				];
-				var edgeMoves = [
-					"UF",
-					"UL",
-					"UB",
-					"UR",
-					"FR",
-					"FL",
-					"BL",
-					"BR",
-					"DF",
-					"DL",
-					"DB",
-					"DR"
-				];
-				var maxWidth = 0;
-				for (var i = 0; i < len; i++) {
-					var facePerm;
-					do
-						facePerm = mathlib.rndPerm(3);
-					while (facePerm[0] == lastMove);
-					lastMove = facePerm[2];
-					var cornPerm = mathlib.rndPerm(8).slice(0, 4).sort();
-					var edgePerm = mathlib.rndPerm(12).slice(0, mathlib.rn(2) + 6).sort(function(a, b) {
-						return a - b;
-					});
-					var line = [];
-					for (var j = 0; j < 3; j++) line.push("URF".charAt(facePerm[j]) + mathlib.rndEl([
-						" ",
-						"2",
-						"'"
-					]));
-					line.push("");
-					for (var j = 0; j < cornPerm.length; j++) line.push(cornMoves[cornPerm[j]] + mathlib.rndEl([" ", "'"]));
-					line.push("");
-					for (var j = 0; j < edgePerm.length; j++) line.push(edgeMoves[edgePerm[j]]);
-					ret[i] = line.join(" ");
-					maxWidth = Math.max(maxWidth, ret[i].length);
-				}
-				for (var i = 0; i < ret.length; i++) ret[i] = ret[i].padEnd(maxWidth, "~");
-				return ret.join("\\n");
-			case "redi": return adjScramble([
-				"L",
-				"R",
-				"F",
-				"B",
-				"l",
-				"r",
-				"f",
-				"b"
-			], [
-				28,
-				44,
-				67,
-				131,
-				193,
-				194,
-				52,
-				56
-			], len, ["", "'"]);
-			case "redim": return moyuRedi(len);
-			case "dmdso": return getPolyScrambler("dmd", [
-				"U",
-				"R",
-				"L",
-				"F"
-			], (mv, pow) => mv + ["", "'"][pow - 1]).getScramble(7, 10);
-			case "pyrm":
-				ret = mega([
-					["U"],
-					["L"],
-					["R"],
-					["B"]
-				], ["!", "'"], len);
-				return addPyrTips(ret, 3).replace(/!/g, "");
-			case "prcp": return pochscramble(10, Math.ceil(len / 10));
-			case "mpyr":
-				ret = adjScramble([
-					"U!",
-					"L!",
-					"R!",
-					"B!",
-					"Uw",
-					"Lw",
-					"Rw",
-					"Bw"
-				], [
-					224,
-					208,
-					176,
-					112,
-					238,
-					221,
-					187,
-					119
-				], len, ["!", "'"]);
-				return addPyrTips(ret, 4).replace(/!/g, "");
-			case "r3":
-				for (var i = 0; i < len; i++) ret += (i == 0 ? "" : "\\n") + (i + 1) + ") ${333}";
-				return scrMgr.formatScramble(ret);
-			case "r3ni":
-				for (var i = 0; i < len; i++) ret += (i == 0 ? "" : "\\n") + (i + 1) + ") ${333ni}";
-				return scrMgr.formatScramble(ret);
-			case "sq1h": return sq1_scramble(1, len);
-			case "sq1t": return sq1_scramble(0, len);
-			case "sq2":
-				var i = 0;
-				while (i < len) {
-					var rndu = rn(12) - 5;
-					var rndd = rn(12) - 5;
-					if (rndu != 0 || rndd != 0) {
-						i++;
-						ret += "(" + rndu + "," + rndd + ")/ ";
-					}
-				}
-				return ret;
-			case "ssq1t": return ssq1t_scramble(len);
-			case "bsq": return sq1_scramble(2, len);
-			case "ctico": return adjScramble([
-				"UL",
-				"UR",
-				"UrUl",
-				"FlFr",
-				"LBl",
-				"RBr"
-			], [
-				63,
-				63,
-				63,
-				63,
-				63,
-				63
-			], len, minxsuff);
-			case "-1":
-				for (var i = 0; i < len; i++) ret += String.fromCharCode(32 + rn(224));
-				ret += "Error: subscript out of range";
-				return ret;
-			case "333noob":
-				ret = mega(SCRAMBLE_NOOBST, SCRAMBLE_NOOBSS.split("|"), len).replace(/t/, "T");
-				return ret.substr(0, ret.length - 2) + ".";
-			case "lol":
-				ret = mega([["L"], ["O"]], 0, len);
-				return ret.replace(/ /g, "");
-		}
-		console.log("Error");
-	}
-	scrMgr.reg([
-		"15p",
-		"15pm",
-		"15pat",
-		"clkwca",
-		"clkwcab",
-		"clknf",
-		"clk",
-		"clkc",
-		"clke",
-		"giga",
-		"mgmo",
-		"mgmp",
-		"mgmc",
-		"mgms2l",
-		"klmp",
-		"heli",
-		"helicv",
-		"heli2x2",
-		"heli2x2g",
-		"redi",
-		"redim",
-		"pyrm",
-		"prcp",
-		"mpyr",
-		"r3",
-		"r3ni",
-		"sq1h",
-		"sq1t",
-		"sq2",
-		"ssq1t",
-		"bsq",
-		"ctico",
-		"dmdso",
-		"-1",
-		"333noob",
-		"lol"
-	], utilscramble);
-})(mathlib.rn, mathlib.rndEl, scrMgr.mega);
-//#endregion
-//#region src/cstimer.ts
-const ENTITIES = {
-	"&sup2;": "²",
-	"&sup3;": "³",
-	"&nbsp;": " ",
-	"&lt;": "<",
-	"&gt;": ">",
-	"&amp;": "&"
-};
-/** Plain text: single spaces between moves, one trimmed line per row, no blank lines at the ends. */
-function cleanScramble(scramble) {
-	return scramble.replace(/&(sup2|sup3|nbsp|lt|gt|amp);/g, (entity) => ENTITIES[entity]).split("\n").map((line) => line.replace(/\s+/g, " ").trim()).join("\n").trim();
-}
-/**
-* Runs csTimer's scrambler for a scramble type id, e.g. `cstimerScramble('222so')`.
-* The vendored file that registers that type must have been imported first.
-*/
-function cstimerScramble(type, length = 0) {
-	const scrambler = scrMgr.scramblers[type];
-	if (!scrambler) throw new Error(`csTimer scrambler "${type}" is not loaded`);
-	const state = scrMgr.rndState(void 0, scrMgr.getExtra(type, 1));
-	return cleanScramble(scrMgr.toTxt(scrambler(type, length, state, 0)));
-}
-/**
-* Describes a csTimer scramble type that needs no extra code: generating it just
-* runs csTimer's scrambler. `length` is csTimer's default for types whose length
-* can be changed (number of moves, or of puzzles for relays).
-*/
-function cstimerEvent(id, name, puzzle, length) {
-	return {
-		id,
-		name,
-		puzzle,
-		...length ? { length } : {},
-		generate: (len = length) => cstimerScramble(id, len)
-	};
-}
-//#endregion
-//#region src/vendor/cstimer/333lse.js
-(function() {
-	var edgePerms = [[
-		0,
-		1,
-		2,
-		3
-	], [
-		0,
-		2,
-		5,
-		4
-	]];
-	var edgeOris = [[
-		0,
-		0,
-		0,
-		0,
-		2
-	], [
-		0,
-		1,
-		0,
-		1,
-		2
-	]];
-	function doPermMove(idx, m) {
-		var edge = idx >> 3;
-		var corn = idx;
-		var cent = idx << 1 | mathlib.getNParity(edge, 6) ^ corn >> 1 & 1;
-		var g = mathlib.setNPerm([], edge, 6);
-		mathlib.acycle(g, edgePerms[m]);
-		if (m == 0) corn = corn + 2;
-		if (m == 1) cent = cent + 1;
-		return mathlib.getNPerm(g, 6) << 3 | corn & 6 | cent >> 1 & 1;
-	}
-	function doOriMove(arr, m) {
-		mathlib.acycle(arr, edgePerms[m], 1, edgeOris[m]);
-	}
-	var solv = new mathlib.Solver(2, 3, [[
-		0,
-		doPermMove,
-		5760
-	], [
-		0,
-		[
-			doOriMove,
-			"o",
-			6,
-			-2
-		],
-		32
-	]]);
-	function generateScramble() {
-		var b, c;
-		do {
-			c = mathlib.rn(5760);
-			b = mathlib.rn(32);
-		} while (b + c == 0);
-		return solv.toStr(solv.search([c, b], 0), "UM", " 2'").replace(/ +/g, " ");
-	}
-	scrMgr.reg("lsemu", generateScramble);
-})();
-//#endregion
-//#region src/events/333/variants.ts
-/**
-* csTimer's other 3x3x3 scramble types: random move, CFOP / Roux / Mehta training cases and move subsets.
-* Registered by ./index.ts, after the WCA 3x3 events.
-*/
-const events333Variants = [
-	cstimerEvent("333o", "3x3x3 random move", "333", 25),
-	cstimerEvent("333noob", "3x3x3 for noobs", "333", 25),
-	cstimerEvent("333ft", "3x3x3 with feet", "333"),
-	cstimerEvent("pll", "3x3x3 CFOP PLL", "333"),
-	cstimerEvent("oll", "3x3x3 CFOP OLL", "333"),
-	cstimerEvent("lsll2", "3x3x3 CFOP last slot + last layer", "333"),
-	cstimerEvent("zbll", "3x3x3 CFOP ZBLL", "333"),
-	cstimerEvent("coll", "3x3x3 CFOP COLL", "333"),
-	cstimerEvent("cll", "3x3x3 CFOP CLL", "333"),
-	cstimerEvent("ell", "3x3x3 CFOP ELL", "333"),
-	cstimerEvent("2gll", "3x3x3 CFOP 2GLL", "333"),
-	cstimerEvent("zzll", "3x3x3 CFOP ZZLL", "333"),
-	cstimerEvent("zbls", "3x3x3 CFOP ZBLS", "333"),
-	cstimerEvent("eols", "3x3x3 CFOP EOLS", "333"),
-	cstimerEvent("wvls", "3x3x3 CFOP WVLS", "333"),
-	cstimerEvent("vls", "3x3x3 CFOP VLS", "333"),
-	cstimerEvent("f2l", "3x3x3 CFOP cross solved", "333"),
-	cstimerEvent("eoline", "3x3x3 CFOP EOLine", "333"),
-	cstimerEvent("eocross", "3x3x3 CFOP EO Cross", "333"),
-	cstimerEvent("easyc", "3x3x3 CFOP easy cross", "333", 3),
-	cstimerEvent("easyxc", "3x3x3 CFOP easy xcross", "333", 4),
-	cstimerEvent("sbrx", "3x3x3 Roux 2nd Block", "333"),
-	cstimerEvent("cmll", "3x3x3 Roux CMLL", "333"),
-	cstimerEvent("lse", "3x3x3 Roux LSE", "333"),
-	cstimerEvent("lsemu", "3x3x3 Roux LSE <M, U>", "333"),
-	cstimerEvent("mt3qb", "3x3x3 Mehta 3QB", "333"),
-	cstimerEvent("mteole", "3x3x3 Mehta EOLE", "333"),
-	cstimerEvent("mttdr", "3x3x3 Mehta TDR", "333"),
-	cstimerEvent("mt6cp", "3x3x3 Mehta 6CP", "333"),
-	cstimerEvent("mtcdrll", "3x3x3 Mehta CDRLL", "333"),
-	cstimerEvent("mtl5ep", "3x3x3 Mehta L5EP", "333"),
-	cstimerEvent("ttll", "3x3x3 Mehta TTLL", "333"),
-	cstimerEvent("2gen", "3x3x3 subsets 2-generator R,U", "333"),
-	cstimerEvent("2genl", "3x3x3 subsets 2-generator L,U", "333"),
-	cstimerEvent("roux", "3x3x3 subsets Roux-generator M,U", "333"),
-	cstimerEvent("3gen_F", "3x3x3 subsets 3-generator F,R,U", "333"),
-	cstimerEvent("3gen_L", "3x3x3 subsets 3-generator R,U,L", "333"),
-	cstimerEvent("RrU", "3x3x3 subsets 3-generator R,r,U", "333"),
-	cstimerEvent("333drud", "3x3x3 subsets Domino Subgroup", "333"),
-	cstimerEvent("half", "3x3x3 subsets half turns only", "333"),
-	cstimerEvent("lsll", "3x3x3 subsets last slot + last layer (old)", "333", 15)
-];
-//#endregion
-//#region src/events/333/state.ts
-/** Move indices for `rndApp` / `rndPre`, as used by csTimer (face * 3 + power). */
-const Move = {
-	U: 0,
-	U2: 1,
-	Ui: 2,
-	R: 3,
-	R2: 4,
-	Ri: 5,
-	F: 6,
-	F2: 7,
-	Fi: 8,
-	D: 9,
-	D2: 10,
-	Di: 11,
-	L: 12,
-	L2: 13,
-	Li: 14,
-	B: 15,
-	B2: 16,
-	Bi: 17
-};
-/**
-* Scramble to a random state where the pieces in the masks are fixed, e.g.
-* `getAnyScramble({ cp: 0x76543210, co: 0 })` for edges only. Unset masks are random.
-*/
-function getAnyScramble(options = {}) {
-	return cleanScramble(scramble_333$1.getAnyScramble(options.ep ?? 0xffffffffffff, options.eo ?? 0xffffffffffff, options.cp ?? 4294967295, options.co ?? 4294967295, options.neut, options.rndApp, options.rndPre, options.firstAxisFilter, options.lastAxisFilter));
-}
-//#endregion
-//#region src/events/333/index.ts
-/** WCA 3x3: random-state scramble. */
-function get333Scramble() {
-	return cstimerScramble("333");
-}
-/** WCA one-handed: the same random-state scramble as 3x3. */
-function get333OhScramble() {
-	return cstimerScramble("333oh");
-}
-/** WCA FMC: random state, wrapped in R' U' F so it cannot start or end with trivial cancellations. */
-function get333FmcScramble() {
-	return cstimerScramble("333fm");
-}
-/** WCA 3x3 blindfolded: random state plus random wide moves, so the solver can't rely on orientation. */
-function get333BldScramble() {
-	return cstimerScramble("333ni");
-}
-/** WCA multi-blind: one numbered blindfolded scramble per cube, one per line. */
-function get333MultiBldScramble(cubes = 5) {
-	return cstimerScramble("r3ni", cubes);
-}
-/** Only edges scrambled; corners solved. */
-function get333EdgesScramble() {
-	return cstimerScramble("edges");
-}
-/** Only corners scrambled; edges solved. */
-function get333CornersScramble() {
-	return cstimerScramble("corners");
-}
-/** Last layer: first two layers solved, U layer random. */
-function get333LLScramble() {
-	return cstimerScramble("ll");
-}
-const events333 = [
-	{
-		id: "333",
-		name: "3x3x3 random state",
-		puzzle: "333",
-		generate: get333Scramble
-	},
-	{
-		id: "333oh",
-		name: "3x3x3 one-handed",
-		puzzle: "333",
-		generate: get333OhScramble
-	},
-	{
-		id: "333fm",
-		name: "3x3x3 fewest moves",
-		puzzle: "333",
-		generate: get333FmcScramble
-	},
-	{
-		id: "333ni",
-		name: "3x3x3 blindfolded",
-		puzzle: "333",
-		generate: get333BldScramble
-	},
-	{
-		id: "r3ni",
-		name: "3x3x3 multi-blind",
-		puzzle: "333",
-		length: 5,
-		generate: get333MultiBldScramble
-	},
-	{
-		id: "edges",
-		name: "3x3x3 edges only",
-		puzzle: "333",
-		generate: get333EdgesScramble
-	},
-	{
-		id: "corners",
-		name: "3x3x3 corners only",
-		puzzle: "333",
-		generate: get333CornersScramble
-	},
-	{
-		id: "ll",
-		name: "3x3x3 last layer",
-		puzzle: "333",
-		generate: get333LLScramble
-	}
-];
-registerEvents(...events333, ...events333Variants);
-//#endregion
-//#region src/events/222/index.ts
-/** WCA 2x2: random-state scramble (at least 4 moves from solved, as in csTimer). */
-function get222Scramble() {
-	return cstimerScramble("222so");
-}
-const events222 = [
-	{
-		id: "222so",
-		name: "2x2x2 random state",
-		puzzle: "222",
-		generate: get222Scramble
-	},
-	cstimerEvent("222o", "2x2x2 optimal", "222"),
-	cstimerEvent("2223", "2x2x2 3-gen", "222", 25),
-	cstimerEvent("222eg", "2x2x2 EG", "222"),
-	cstimerEvent("222eg0", "2x2x2 CLL", "222"),
-	cstimerEvent("222eg1", "2x2x2 EG1", "222"),
-	cstimerEvent("222eg2", "2x2x2 EG2", "222"),
-	cstimerEvent("222tcp", "2x2x2 TCLL+", "222"),
-	cstimerEvent("222tcn", "2x2x2 TCLL-", "222"),
-	cstimerEvent("222tc", "2x2x2 TCLL", "222"),
-	cstimerEvent("222lsall", "2x2x2 LS", "222"),
-	cstimerEvent("222nb", "2x2x2 No Bar", "222")
-];
-registerEvents(...events222);
-(function(Cnk, circle) {
+//#region src/vendor/cstimer/scramble_444.js
+var scramble_444 = (function(Cnk, circle) {
 	var PHASE1_SOLS = 1e4;
 	var PHASE2_ATTS = 500;
 	var PHASE2_SOLS = 100;
@@ -21660,1455 +18535,13 @@ registerEvents(...events222);
 	return {
 		getRandomScramble,
 		getPartialScramble,
+		genFacelet,
 		testbench
 	};
 })(mathlib.Cnk, mathlib.circle);
 //#endregion
-//#region src/events/444/index.ts
-/**
-* WCA 4x4: random-state scramble. The first call builds the solver's tables,
-* which takes a second or two; later calls are fast.
-*/
-function get444Scramble() {
-	return cstimerScramble("444wca");
-}
-/** WCA 4x4 blindfolded: random state plus a random cube rotation. */
-function get444BldScramble() {
-	return cstimerScramble("444bld");
-}
-const events444 = [
-	{
-		id: "444wca",
-		name: "4x4x4 random state",
-		puzzle: "444",
-		generate: get444Scramble
-	},
-	{
-		id: "444bld",
-		name: "4x4x4 blindfolded",
-		puzzle: "444",
-		generate: get444BldScramble
-	},
-	cstimerEvent("444m", "4x4x4 random move", "444", 40),
-	cstimerEvent("444", "4x4x4 SiGN", "444", 40),
-	cstimerEvent("444yj", "4x4x4 YJ", "444", 40),
-	cstimerEvent("4edge", "4x4x4 edges", "444"),
-	cstimerEvent("RrUu", "4x4x4 R,r,U,u", "444", 40),
-	cstimerEvent("444ll", "4x4x4 Last layer", "444"),
-	cstimerEvent("444ell", "4x4x4 ELL", "444"),
-	cstimerEvent("444edo", "4x4x4 Edge only", "444"),
-	cstimerEvent("444cto", "4x4x4 Center only", "444"),
-	cstimerEvent("444ctud", "4x4x4 Yau/Hoya UD center solved", "444"),
-	cstimerEvent("444ud3c", "4x4x4 Yau/Hoya UD+3E solved", "444"),
-	cstimerEvent("444l8e", "4x4x4 Yau/Hoya Last 8 dedges", "444"),
-	cstimerEvent("444ctrl", "4x4x4 Yau/Hoya RL center solved", "444"),
-	cstimerEvent("444rlda", "4x4x4 Yau/Hoya RLDX center solved", "444"),
-	cstimerEvent("444rlca", "4x4x4 Yau/Hoya RLDX cross solved", "444"),
-	cstimerEvent("444poll", "4x4x4 Yau/Hoya POLL", "444"),
-	cstimerEvent("444ppll", "4x4x4 Yau/Hoya PPLL", "444")
-];
-registerEvents(...events444);
-//#endregion
-//#region src/events/555/index.ts
-/** WCA 5x5: 60 random moves (or `length`) in WCA notation. */
-function get555Scramble(length = 60) {
-	return cstimerScramble("555wca", length);
-}
-/** WCA 5x5 blindfolded: 60 random moves plus random wide moves for orientation. */
-function get555BldScramble() {
-	return cstimerScramble("555bld", 60);
-}
-const events555 = [
-	{
-		id: "555wca",
-		name: "5x5x5 WCA",
-		puzzle: "555",
-		length: 60,
-		generate: get555Scramble
-	},
-	{
-		id: "555bld",
-		name: "5x5x5 blindfolded",
-		puzzle: "555",
-		generate: get555BldScramble
-	},
-	cstimerEvent("555", "5x5x5 SiGN", "555", 60),
-	cstimerEvent("5edge", "5x5x5 edges", "555", 8)
-];
-registerEvents(...events555);
-//#endregion
-//#region src/events/666/index.ts
-/** WCA 6x6: 80 random moves (or `length`) in WCA notation. */
-function get666Scramble(length = 80) {
-	return cstimerScramble("666wca", length);
-}
-const events666 = [
-	{
-		id: "666wca",
-		name: "6x6x6 WCA",
-		puzzle: "666",
-		length: 80,
-		generate: get666Scramble
-	},
-	cstimerEvent("666si", "6x6x6 SiGN", "666", 80),
-	cstimerEvent("666p", "6x6x6 prefix", "666", 80),
-	cstimerEvent("666s", "6x6x6 suffix", "666", 80),
-	cstimerEvent("6edge", "6x6x6 edges", "666", 8)
-];
-registerEvents(...events666);
-//#endregion
-//#region src/events/777/index.ts
-/** WCA 7x7: 100 random moves (or `length`) in WCA notation. */
-function get777Scramble(length = 100) {
-	return cstimerScramble("777wca", length);
-}
-const events777 = [
-	{
-		id: "777wca",
-		name: "7x7x7 WCA",
-		puzzle: "777",
-		length: 100,
-		generate: get777Scramble
-	},
-	cstimerEvent("777si", "7x7x7 SiGN", "777", 100),
-	cstimerEvent("777p", "7x7x7 prefix", "777", 100),
-	cstimerEvent("777s", "7x7x7 suffix", "777", 100),
-	cstimerEvent("7edge", "7x7x7 edges", "777", 8)
-];
-registerEvents(...events777);
-//#endregion
-//#region src/events/clock/index.ts
-/** WCA Clock: random pin turns in WCA notation, e.g. "UR5- DR2+ ... ALL3+ y2 ... UL". */
-function getClockScramble() {
-	return cstimerScramble("clkwca");
-}
-const eventsClock = [
-	{
-		id: "clkwca",
-		name: "Clock WCA",
-		puzzle: "clock",
-		generate: getClockScramble
-	},
-	cstimerEvent("clkwcab", "Clock WCA (old)", "clock"),
-	cstimerEvent("clknf", "Clock WCA w/o y2", "clock"),
-	cstimerEvent("clk", "Clock Jaap", "clock"),
-	cstimerEvent("clko", "Clock optimal", "clock"),
-	cstimerEvent("clkc", "Clock concise", "clock"),
-	cstimerEvent("clke", "Clock efficient pin order", "clock")
-];
-registerEvents(...eventsClock);
-//#endregion
-//#region src/vendor/cstimer/mgmsolver.js
-var DEBUG$1 = false;
-var mgmsolver = (function() {
-	function MgmCubie() {
-		this.corn = [];
-		this.twst = [];
-		this.edge = [];
-		this.flip = [];
-		for (var i = 0; i < 20; i++) {
-			this.corn[i] = i;
-			this.twst[i] = 0;
-		}
-		for (var i = 0; i < 30; i++) {
-			this.edge[i] = i;
-			this.flip[i] = 0;
-		}
-	}
-	MgmCubie.SOLVED = new MgmCubie();
-	var U = 0, R = 10, F = 20, L = 30, BL = 40, BR = 50, DR = 60, DL = 70, DBL = 80, B = 90, DBR = 100, D = 110;
-	var cornFacelet = [
-		[
-			U + 2,
-			R + 3,
-			F + 4
-		],
-		[
-			U + 3,
-			F + 3,
-			L + 4
-		],
-		[
-			U + 4,
-			L + 3,
-			BL + 4
-		],
-		[
-			U + 0,
-			BL + 3,
-			BR + 4
-		],
-		[
-			U + 1,
-			BR + 3,
-			R + 4
-		],
-		[
-			D + 3,
-			B + 0,
-			DBL + 1
-		],
-		[
-			D + 2,
-			DBR + 0,
-			B + 1
-		],
-		[
-			D + 1,
-			DR + 0,
-			DBR + 1
-		],
-		[
-			D + 0,
-			DL + 0,
-			DR + 1
-		],
-		[
-			D + 4,
-			DBL + 0,
-			DL + 1
-		],
-		[
-			DR + 3,
-			F + 0,
-			R + 2
-		],
-		[
-			L + 0,
-			F + 2,
-			DL + 3
-		],
-		[
-			BL + 0,
-			L + 2,
-			DBL + 3
-		],
-		[
-			BR + 0,
-			BL + 2,
-			B + 3
-		],
-		[
-			R + 0,
-			BR + 2,
-			DBR + 3
-		],
-		[
-			B + 4,
-			BL + 1,
-			DBL + 2
-		],
-		[
-			DBR + 4,
-			BR + 1,
-			B + 2
-		],
-		[
-			DR + 4,
-			R + 1,
-			DBR + 2
-		],
-		[
-			DL + 4,
-			F + 1,
-			DR + 2
-		],
-		[
-			DBL + 4,
-			L + 1,
-			DL + 2
-		]
-	];
-	var edgeFacelet = [
-		[U + 6, R + 8],
-		[U + 7, F + 8],
-		[U + 8, L + 8],
-		[U + 9, BL + 8],
-		[U + 5, BR + 8],
-		[D + 8, DBL + 5],
-		[D + 7, B + 5],
-		[D + 6, DBR + 5],
-		[D + 5, DR + 5],
-		[D + 9, DL + 5],
-		[F + 9, R + 7],
-		[F + 5, DR + 7],
-		[L + 9, F + 7],
-		[L + 5, DL + 7],
-		[BL + 9, L + 7],
-		[BL + 5, DBL + 7],
-		[BR + 9, BL + 7],
-		[BR + 5, B + 7],
-		[BR + 7, R + 9],
-		[DBR + 7, R + 5],
-		[B + 9, DBL + 6],
-		[B + 8, BL + 6],
-		[DBR + 9, B + 6],
-		[DBR + 8, BR + 6],
-		[DR + 9, DBR + 6],
-		[DR + 8, R + 6],
-		[DL + 9, DR + 6],
-		[DL + 8, F + 6],
-		[DBL + 9, DL + 6],
-		[DBL + 8, L + 6]
-	];
-	MgmCubie.prototype.toFaceCube = function(cFacelet, eFacelet) {
-		cFacelet = cFacelet || cornFacelet;
-		eFacelet = eFacelet || edgeFacelet;
-		var f = [];
-		mathlib.fillFacelet(cFacelet, f, this.corn, this.twst, 10);
-		mathlib.fillFacelet(eFacelet, f, this.edge, this.flip, 10);
-		return f;
-	};
-	MgmCubie.prototype.fromFacelet = function(facelet, cFacelet, eFacelet) {
-		cFacelet = cFacelet || cornFacelet;
-		eFacelet = eFacelet || edgeFacelet;
-		var count = 0;
-		var f = [];
-		for (var i = 0; i < 120; ++i) {
-			f[i] = facelet[i];
-			count += Math.pow(16, f[i]);
-		}
-		if (count != 0xaaaaaaaaaaaa) return -1;
-		if (mathlib.detectFacelet(cFacelet, f, this.corn, this.twst, 10) == -1 || mathlib.detectFacelet(eFacelet, f, this.edge, this.flip, 10) == -1) return -1;
-		return this;
-	};
-	MgmCubie.prototype.hashCode = function() {
-		var ret = 0;
-		for (var i = 0; i < 20; i++) {
-			ret = 0 | ret * 31 + this.corn[i] * 3 + this.twst[i];
-			ret = 0 | ret * 31 + this.edge[i] * 2 + this.flip[i];
-		}
-		return ret;
-	};
-	MgmCubie.MgmMult = function(a, b, prod) {
-		for (var i = 0; i < 20; i++) {
-			prod.corn[i] = a.corn[b.corn[i]];
-			prod.twst[i] = (a.twst[b.corn[i]] + b.twst[i]) % 3;
-		}
-		for (var i = 0; i < 30; i++) {
-			prod.edge[i] = a.edge[b.edge[i]];
-			prod.flip[i] = a.flip[b.edge[i]] ^ b.flip[i];
-		}
-	};
-	MgmCubie.MgmMult3 = function(a, b, c, prod) {
-		for (var i = 0; i < 20; i++) {
-			prod.corn[i] = a.corn[b.corn[c.corn[i]]];
-			prod.twst[i] = (a.twst[b.corn[c.corn[i]]] + b.twst[c.corn[i]] + c.twst[i]) % 3;
-		}
-		for (var i = 0; i < 30; i++) {
-			prod.edge[i] = a.edge[b.edge[c.edge[i]]];
-			prod.flip[i] = a.flip[b.edge[c.edge[i]]] ^ b.flip[c.edge[i]] ^ c.flip[i];
-		}
-	};
-	MgmCubie.prototype.invFrom = function(cc) {
-		for (var i = 0; i < 20; i++) {
-			this.corn[cc.corn[i]] = i;
-			this.twst[cc.corn[i]] = (3 - cc.twst[i]) % 3;
-		}
-		for (var i = 0; i < 30; i++) {
-			this.edge[cc.edge[i]] = i;
-			this.flip[cc.edge[i]] = cc.flip[i];
-		}
-		return this;
-	};
-	MgmCubie.prototype.copy = function(cc) {
-		this.corn = cc.corn.slice();
-		this.twst = cc.twst.slice();
-		this.edge = cc.edge.slice();
-		this.flip = cc.flip.slice();
-		return this;
-	};
-	MgmCubie.prototype.isEqual = function(c) {
-		for (var i = 0; i < 20; i++) if (this.corn[i] != c.corn[i] || this.twst[i] != c.twst[i]) return false;
-		for (var i = 0; i < 30; i++) if (this.edge[i] != c.edge[i] || this.flip[i] != c.flip[i]) return false;
-		return true;
-	};
-	function getComb(perm, ori, n, r, base) {
-		var thres = r;
-		var idxComb = 0;
-		var idxOri = 0;
-		var permR = [];
-		for (var i = n - 1; i >= 0; i--) if (perm[i] < thres) {
-			idxComb += mathlib.Cnk[i][r--];
-			idxOri = idxOri * base + ori[i];
-			permR[r] = perm[i];
-		}
-		return [
-			idxComb,
-			mathlib.getNPerm(permR, thres),
-			idxOri
-		];
-	}
-	function setComb(perm, ori, idx, n, r) {
-		var fill = n - 1;
-		for (var i = n - 1; i >= 0; i--) {
-			if (idx >= mathlib.Cnk[i][r]) {
-				idx -= mathlib.Cnk[i][r--];
-				perm[i] = r;
-			} else perm[i] = fill--;
-			ori[i] = 0;
-		}
-	}
-	function doCombMove4(moveTable, N_PERM, N_ORI, TT_OFFSET, idx, move) {
-		var slice = ~~(idx / N_ORI / N_PERM);
-		var perm = ~~(idx / N_ORI) % N_PERM;
-		var twst = idx % N_ORI;
-		var val = moveTable[move][slice];
-		slice = val[0];
-		perm = perm4Mult[perm][val[1]];
-		twst = N_ORI & 1 ? perm4TT[perm4MulT[val[1]][twst * TT_OFFSET] / TT_OFFSET][val[2]] : perm4MulF[val[1]][twst * TT_OFFSET] / TT_OFFSET ^ val[2];
-		return (slice * N_PERM + perm) * N_ORI + twst;
-	}
-	MgmCubie.prototype.setCComb = function(idx, r) {
-		setComb(this.corn, this.twst, idx, 20, r || 4);
-	};
-	MgmCubie.prototype.getCComb = function(r) {
-		return getComb(this.corn, this.twst, 20, r || 4, 3);
-	};
-	MgmCubie.prototype.setEComb = function(idx, r) {
-		setComb(this.edge, this.flip, idx, 30, r || 4);
-	};
-	MgmCubie.prototype.getEComb = function(r) {
-		return getComb(this.edge, this.flip, 30, r || 4, 2);
-	};
-	MgmCubie.prototype.faceletMove = function(face, pow, wide) {
-		var facelet = this.toFaceCube();
-		var state = [];
-		for (var i = 0; i < 12; i++) {
-			for (var j = 0; j < 10; j++) state[i * 11 + j] = facelet[i * 10 + j];
-			state[i * 11 + 10] = 0;
-		}
-		mathlib.minx.doMove(state, face, pow, wide);
-		for (var i = 0; i < 12; i++) for (var j = 0; j < 10; j++) facelet[i * 10 + j] = state[i * 11 + j];
-		this.fromFacelet(facelet);
-	};
-	function createMoveCube() {
-		var moveCube = [];
-		var moveHash = [];
-		for (var i = 0; i < 48; i++) moveCube[i] = new MgmCubie();
-		for (var a = 0; a < 48; a += 4) {
-			moveCube[a].faceletMove(a >> 2, 1, 0);
-			moveHash[a] = moveCube[a].hashCode();
-			for (var p = 0; p < 3; p++) {
-				MgmCubie.MgmMult(moveCube[a + p], moveCube[a], moveCube[a + p + 1]);
-				moveHash[a + p + 1] = moveCube[a + p + 1].hashCode();
-			}
-		}
-		MgmCubie.moveCube = moveCube;
-		var symCube = [];
-		var symMult = [];
-		var symMulI = [];
-		var symMulM = [];
-		var symHash = [];
-		var tmp = new MgmCubie();
-		for (var s = 0; s < 60; s++) {
-			symCube[s] = new MgmCubie().copy(tmp);
-			symHash[s] = symCube[s].hashCode();
-			symMult[s] = [];
-			symMulI[s] = [];
-			tmp.faceletMove(0, 1, 1);
-			if (s % 5 == 4) tmp.faceletMove(s % 10 == 4 ? 1 : 2, 1, 1);
-			if (s % 30 == 29) {
-				tmp.faceletMove(1, 2, 1);
-				tmp.faceletMove(2, 1, 1);
-				tmp.faceletMove(0, 3, 1);
-			}
-		}
-		for (var i = 0; i < 60; i++) for (var j = 0; j < 60; j++) {
-			MgmCubie.MgmMult(symCube[i], symCube[j], tmp);
-			var k = symHash.indexOf(tmp.hashCode());
-			symMult[i][j] = k;
-			symMulI[k][j] = i;
-		}
-		for (var s = 0; s < 60; s++) {
-			symMulM[s] = [];
-			for (var j = 0; j < 12; j++) {
-				MgmCubie.MgmMult3(symCube[symMulI[0][s]], moveCube[j * 4], symCube[s], tmp);
-				var k = moveHash.indexOf(tmp.hashCode());
-				symMulM[s][j] = k >> 2;
-			}
-		}
-		MgmCubie.symCube = symCube;
-		MgmCubie.symMult = symMult;
-		MgmCubie.symMulI = symMulI;
-		MgmCubie.symMulM = symMulM;
-	}
-	function CCombCoord(cubieMap) {
-		this.map = new MgmCubie();
-		this.imap = new MgmCubie();
-		this.map.corn = cubieMap.slice();
-		for (var i = 0; i < 20; i++) if (cubieMap.indexOf(i) == -1) this.map.corn.push(i);
-		this.imap.invFrom(this.map);
-		this.tmp = new MgmCubie();
-	}
-	CCombCoord.prototype.get = function(cc, r) {
-		MgmCubie.MgmMult3(this.imap, cc, this.map, this.tmp);
-		return this.tmp.getCComb(r);
-	};
-	CCombCoord.prototype.set = function(cc, idx, r) {
-		this.tmp.setCComb(idx, r);
-		MgmCubie.MgmMult3(this.map, this.tmp, this.imap, cc);
-	};
-	MgmCubie.CCombCoord = CCombCoord;
-	function ECombCoord(cubieMap) {
-		this.map = new MgmCubie();
-		this.imap = new MgmCubie();
-		this.map.edge = cubieMap.slice();
-		for (var i = 0; i < 30; i++) if (cubieMap.indexOf(i) == -1) this.map.edge.push(i);
-		this.imap.invFrom(this.map);
-		this.tmp = new MgmCubie();
-	}
-	ECombCoord.prototype.get = function(cc, r) {
-		MgmCubie.MgmMult3(this.imap, cc, this.map, this.tmp);
-		return this.tmp.getEComb(r);
-	};
-	ECombCoord.prototype.set = function(cc, idx, r) {
-		this.tmp.setEComb(idx, r);
-		MgmCubie.MgmMult3(this.map, this.tmp, this.imap, cc);
-	};
-	MgmCubie.ECombCoord = ECombCoord;
-	function EOriCoord(cubieMap) {
-		ECombCoord.call(this, cubieMap);
-	}
-	EOriCoord.prototype = {
-		get: function(cc, r) {
-			var idx = 0;
-			MgmCubie.MgmMult3(this.imap, cc, this.map, this.tmp);
-			for (var i = 0; i < r; i++) idx = idx | this.tmp.flip[i] << i;
-			return idx;
-		},
-		set: function(cc, idx, r) {
-			for (var i = 0; i < 30; i++) this.tmp.flip[i] = i < r ? idx >> i & 1 : 0;
-			MgmCubie.MgmMult3(this.map, this.tmp, this.imap, cc);
-		}
-	};
-	MgmCubie.EOriCoord = EOriCoord;
-	function EPermCoord(cubieMap) {
-		ECombCoord.call(this, cubieMap);
-	}
-	EPermCoord.prototype = {
-		get: function(cc, r) {
-			MgmCubie.MgmMult3(this.imap, cc, this.map, this.tmp);
-			return mathlib.getNPerm(this.tmp.edge, r);
-		},
-		set: function(cc, idx, r) {
-			var edge = [];
-			mathlib.setNPerm(edge, idx, r);
-			for (var i = 0; i < 30; i++) this.tmp.edge[i] = i < r ? edge[i] : i;
-			MgmCubie.MgmMult3(this.map, this.tmp, this.imap, cc);
-		}
-	};
-	MgmCubie.EPermCoord = EPermCoord;
-	function COriCoord(cubieMap) {
-		CCombCoord.call(this, cubieMap);
-	}
-	COriCoord.prototype = {
-		get: function(cc, r) {
-			var idx = 0;
-			MgmCubie.MgmMult3(this.imap, cc, this.map, this.tmp);
-			for (var i = 0, base = 1; i < r; i++, base *= 3) idx += this.tmp.twst[i] * base;
-			return idx;
-		},
-		set: function(cc, idx, r) {
-			for (var i = 0; i < 30; i++) {
-				this.tmp.twst[i] = i < r ? idx % 3 : 0;
-				idx = ~~(idx / 3);
-			}
-			MgmCubie.MgmMult3(this.map, this.tmp, this.imap, cc);
-		}
-	};
-	MgmCubie.COriCoord = COriCoord;
-	function CPermCoord(cubieMap) {
-		CCombCoord.call(this, cubieMap);
-	}
-	CPermCoord.prototype = {
-		get: function(cc, r) {
-			MgmCubie.MgmMult3(this.imap, cc, this.map, this.tmp);
-			return mathlib.getNPerm(this.tmp.corn, r);
-		},
-		set: function(cc, idx, r) {
-			var corn = [];
-			mathlib.setNPerm(corn, idx, r);
-			for (var i = 0; i < 20; i++) this.tmp.corn[i] = i < r ? corn[i] : i;
-			MgmCubie.MgmMult3(this.map, this.tmp, this.imap, cc);
-		}
-	};
-	MgmCubie.CPermCoord = CPermCoord;
-	var perm4Mult = [];
-	var perm4MulT = [];
-	var perm4MulF = [];
-	var perm4TT = [];
-	var ckmv = [];
-	var y2Move = [
-		0,
-		3,
-		4,
-		5,
-		1,
-		2,
-		8,
-		9,
-		10,
-		6,
-		7,
-		11
-	];
-	var yMove = [
-		0,
-		2,
-		3,
-		4,
-		5,
-		1,
-		7,
-		8,
-		9,
-		10,
-		6,
-		11
-	];
-	function comb4FullMove(moveTable, idx, move) {
-		var slice = ~~(idx / 81 / 24);
-		var perm = ~~(idx / 81) % 24;
-		var twst = idx % 81;
-		var val = moveTable[move][slice];
-		slice = val[0];
-		perm = perm4Mult[perm][val[1]];
-		twst = perm4TT[perm4MulT[val[1]][twst]][val[2]];
-		return slice * 81 * 24 + perm * 81 + twst;
-	}
-	function comb3FullMove(moveTable, idx, move) {
-		var slice = ~~(idx / 27 / 6);
-		var perm = ~~(idx / 27) % 6;
-		var twst = idx % 27;
-		var val = moveTable[move][slice];
-		slice = val[0];
-		perm = perm4Mult[perm][val[1]];
-		twst = perm4TT[perm4MulT[val[1]][twst * 3] / 3][val[2]];
-		return slice * 27 * 6 + perm * 27 + twst;
-	}
-	function init() {
-		init = function() {};
-		createMoveCube();
-		function setTwst4(arr, idx, base) {
-			for (var k = 0; k < 4; k++) {
-				arr[k] = idx % base;
-				idx = ~~(idx / base);
-			}
-		}
-		function getTwst4(arr, base) {
-			var idx = 0;
-			for (var k = 3; k >= 0; k--) idx = idx * base + arr[k];
-			return idx;
-		}
-		var perm1 = [];
-		var perm2 = [];
-		var perm3 = [];
-		for (var i = 0; i < 24; i++) {
-			perm4Mult[i] = [];
-			mathlib.setNPerm(perm1, i, 4);
-			for (var j = 0; j < 24; j++) {
-				mathlib.setNPerm(perm2, j, 4);
-				for (var k = 0; k < 4; k++) perm3[k] = perm1[perm2[k]];
-				perm4Mult[i][j] = mathlib.getNPerm(perm3, 4);
-			}
-		}
-		for (var j = 0; j < 24; j++) {
-			mathlib.setNPerm(perm2, j, 4);
-			perm4MulT[j] = [];
-			for (var i = 0; i < 81; i++) {
-				setTwst4(perm1, i, 3);
-				for (var k = 0; k < 4; k++) perm3[k] = perm1[perm2[k]];
-				perm4MulT[j][i] = getTwst4(perm3, 3);
-			}
-			perm4MulF[j] = [];
-			for (var i = 0; i < 16; i++) {
-				setTwst4(perm1, i, 2);
-				for (var k = 0; k < 4; k++) perm3[k] = perm1[perm2[k]];
-				perm4MulF[j][i] = getTwst4(perm3, 2);
-			}
-		}
-		for (var j = 0; j < 81; j++) {
-			perm4TT[j] = [];
-			setTwst4(perm2, j, 3);
-			for (var i = 0; i < 81; i++) {
-				setTwst4(perm1, i, 3);
-				for (var k = 0; k < 4; k++) perm3[k] = (perm1[k] + perm2[k]) % 3;
-				perm4TT[j][i] = getTwst4(perm3, 3);
-			}
-		}
-		var tmp1 = new MgmCubie();
-		var tmp2 = new MgmCubie();
-		for (var m1 = 0; m1 < 12; m1++) {
-			ckmv[m1] = 1 << m1;
-			for (var m2 = 0; m2 < m1; m2++) {
-				MgmCubie.MgmMult(MgmCubie.moveCube[m1 * 4], MgmCubie.moveCube[m2 * 4], tmp1);
-				MgmCubie.MgmMult(MgmCubie.moveCube[m2 * 4], MgmCubie.moveCube[m1 * 4], tmp2);
-				if (tmp1.isEqual(tmp2)) ckmv[m1] |= 1 << m2;
-			}
-		}
-	}
-	function move2str(moves) {
-		var ret = [];
-		for (var i = 0; i < moves.length; i++) ret.push([
-			"U",
-			"R",
-			"F",
-			"L",
-			"BL",
-			"BR",
-			"DR",
-			"DL",
-			"DBL",
-			"B",
-			"DBR",
-			"D"
-		][moves[i][0]] + [
-			"",
-			"2",
-			"2'",
-			"'"
-		][moves[i][1]]);
-		return ret.join(" ");
-	}
-	function move2strRURp(moves) {
-		var ret = [];
-		for (var i = 0; i < moves.length; i++) {
-			let suffix = [
-				"",
-				"2",
-				"2'",
-				"'"
-			][moves[i][1]];
-			ret.push(moves[i][0] == 0 ? "U" + suffix : "R U" + suffix + " R'");
-		}
-		return ret.join(" ");
-	}
-	var KlmPhase1Move = [];
-	var KlmPhase2Move = [];
-	var KlmPhase3Move = [];
-	var KlmPhase1Prun = [];
-	var KlmPhase2Prun = [];
-	var KlmPhase3Prun = [];
-	var klmPhase1Coord;
-	var klmPhase2Coord;
-	var klmPhase3Coord;
-	var klmSolv1 = null;
-	var klmSolv2 = null;
-	var klmSolv3 = null;
-	function initKlmPhase1() {
-		klmPhase1Coord = new CCombCoord([
-			5,
-			6,
-			7,
-			8,
-			9
-		]);
-		var tmp1 = new MgmCubie();
-		var tmp2 = new MgmCubie();
-		mathlib.createMove(KlmPhase1Move, 1140, function(idx, move) {
-			klmPhase1Coord.set(tmp1, idx, 3);
-			MgmCubie.MgmMult(tmp1, MgmCubie.moveCube[move * 4], tmp2);
-			return klmPhase1Coord.get(tmp2, 3);
-		}, 12);
-		mathlib.createPrun(KlmPhase1Prun, 0, 184680, 8, comb3FullMove.bind(null, KlmPhase1Move), 12, 4, 5);
-		var doKlmPhase1Move = comb3FullMove.bind(null, KlmPhase1Move);
-		klmSolv1 = new mathlib.Searcher(null, function(idx) {
-			return Math.max(mathlib.getPruning(KlmPhase1Prun, idx[0]), mathlib.getPruning(KlmPhase1Prun, idx[1]));
-		}, function(idx, move) {
-			var idx1 = [doKlmPhase1Move(idx[0], move), doKlmPhase1Move(idx[1], y2Move[move])];
-			if (idx1[0] == idx[0] && idx1[1] == idx[1]) return null;
-			return idx1;
-		}, 12, 4, ckmv);
-	}
-	function initKlmPhase2() {
-		klmPhase2Coord = new CCombCoord([
-			13,
-			15,
-			16,
-			0,
-			1,
-			2,
-			3,
-			4,
-			10,
-			11,
-			12,
-			14,
-			17,
-			18,
-			19
-		]);
-		var tmp1 = new MgmCubie();
-		var tmp2 = new MgmCubie();
-		mathlib.createMove(KlmPhase2Move, 455, function(idx, move) {
-			klmPhase2Coord.set(tmp1, idx, 3);
-			MgmCubie.MgmMult(tmp1, MgmCubie.moveCube[move * 4], tmp2);
-			return klmPhase2Coord.get(tmp2, 3);
-		}, 6);
-		mathlib.createPrun(KlmPhase2Prun, 0, 73710, 8, comb3FullMove.bind(null, KlmPhase2Move), 6, 4, 4);
-		var doKlmPhase2Move = comb3FullMove.bind(null, KlmPhase2Move);
-		klmSolv2 = new mathlib.Searcher(null, function(idx) {
-			return Math.max(mathlib.getPruning(KlmPhase2Prun, idx[0]), mathlib.getPruning(KlmPhase2Prun, idx[1]));
-		}, function(idx, move) {
-			var idx1 = [doKlmPhase2Move(idx[0], move), doKlmPhase2Move(idx[1], yMove[move])];
-			if (idx1[0] == idx[0] && idx1[1] == idx[1]) return null;
-			return idx1;
-		}, 6, 4, ckmv);
-	}
-	function initKlmPhase3() {
-		klmPhase3Coord = new CCombCoord([
-			0,
-			1,
-			2,
-			3,
-			4,
-			10,
-			11,
-			14,
-			17,
-			18
-		]);
-		var tmp1 = new MgmCubie();
-		var tmp2 = new MgmCubie();
-		mathlib.createMove(KlmPhase3Move, 210, function(idx, move) {
-			klmPhase3Coord.set(tmp1, idx);
-			MgmCubie.MgmMult(tmp1, MgmCubie.moveCube[move * 4], tmp2);
-			return klmPhase3Coord.get(tmp2);
-		}, 3);
-		var doKlmPhase3Move = comb4FullMove.bind(null, KlmPhase3Move);
-		mathlib.createPrun(KlmPhase3Prun, 0, 408240, 14, doKlmPhase3Move, 3, 4, 6);
-		klmSolv3 = new mathlib.Searcher(null, function(idx) {
-			return Math.max(mathlib.getPruning(KlmPhase3Prun, idx[0]), mathlib.getPruning(KlmPhase3Prun, idx[1]), mathlib.getPruning(KlmPhase3Prun, idx[2]));
-		}, function(idx, move) {
-			return [
-				doKlmPhase3Move(idx[0], move),
-				doKlmPhase3Move(idx[1], (move + 1) % 3),
-				doKlmPhase3Move(idx[2], (move + 2) % 3)
-			];
-		}, 3, 4, ckmv);
-	}
-	function initKlm() {
-		initKlm = function() {};
-		init();
-		initKlmPhase1();
-		initKlmPhase2();
-		initKlmPhase3();
-	}
-	function solveKlmCubie(cc, useSym) {
-		initKlm();
-		var kc0 = new MgmCubie();
-		var kc1 = new MgmCubie();
-		var kc2 = new MgmCubie();
-		kc0.copy(cc);
-		var idx;
-		var solsym = 0;
-		var idx1s = [];
-		for (var s = 0; s < (useSym ? 12 : 1); s++) {
-			MgmCubie.MgmMult3(MgmCubie.symCube[MgmCubie.symMulI[0][s * 5]], kc0, MgmCubie.symCube[s * 5], kc1);
-			var val0 = klmPhase1Coord.get(kc1, 3);
-			MgmCubie.MgmMult3(MgmCubie.symCube[MgmCubie.symMulI[0][2]], kc1, MgmCubie.symCube[2], kc2);
-			var val1 = klmPhase1Coord.get(kc2, 3);
-			idx1s.push([val0[0] * 27 * 6 + val0[1] * 27 + val0[2], val1[0] * 27 * 6 + val1[1] * 27 + val1[2]]);
-		}
-		var sol1s = klmSolv1.solveMulti(idx1s, 0, 9);
-		var ksym = sol1s[1] * 5;
-		var sol1 = sol1s[0];
-		MgmCubie.MgmMult3(MgmCubie.symCube[MgmCubie.symMulI[0][ksym]], kc0, MgmCubie.symCube[ksym], kc1);
-		kc0.copy(kc1);
-		solsym = MgmCubie.symMult[solsym][ksym];
-		for (var i = 0; i < sol1.length; i++) {
-			var move = sol1[i];
-			MgmCubie.MgmMult(kc0, MgmCubie.moveCube[move[0] * 4 + move[1]], kc1);
-			kc0.copy(kc1);
-			move[0] = MgmCubie.symMulM[MgmCubie.symMulI[0][solsym]][move[0]];
-		}
-		var idx2s = [];
-		for (var s = 0; s < (useSym ? 5 : 1); s++) {
-			MgmCubie.MgmMult3(MgmCubie.symCube[MgmCubie.symMulI[0][s]], kc0, MgmCubie.symCube[s], kc1);
-			var val0 = klmPhase2Coord.get(kc1, 3);
-			MgmCubie.MgmMult3(MgmCubie.symCube[MgmCubie.symMulI[0][1]], kc1, MgmCubie.symCube[1], kc2);
-			var val1 = klmPhase2Coord.get(kc2, 3);
-			idx2s.push([val0[0] * 27 * 6 + val0[1] * 27 + val0[2], val1[0] * 27 * 6 + val1[1] * 27 + val1[2]]);
-		}
-		var sol2s = klmSolv2.solveMulti(idx2s, 0, 14);
-		ksym = sol2s[1];
-		var sol2 = sol2s[0];
-		MgmCubie.MgmMult3(MgmCubie.symCube[MgmCubie.symMulI[0][ksym]], kc0, MgmCubie.symCube[ksym], kc1);
-		kc0.copy(kc1);
-		solsym = MgmCubie.symMult[solsym][ksym];
-		for (var i = 0; i < sol2.length; i++) {
-			var move = sol2[i];
-			MgmCubie.MgmMult(kc0, MgmCubie.moveCube[move[0] * 4 + move[1]], kc1);
-			kc0.copy(kc1);
-			move[0] = MgmCubie.symMulM[MgmCubie.symMulI[0][solsym]][move[0]];
-		}
-		val0 = klmPhase3Coord.get(kc0);
-		MgmCubie.MgmMult3(MgmCubie.symCube[MgmCubie.symMulI[0][6]], kc0, MgmCubie.symCube[6], kc1);
-		val1 = klmPhase3Coord.get(kc1);
-		MgmCubie.MgmMult3(MgmCubie.symCube[MgmCubie.symMulI[0][29]], kc0, MgmCubie.symCube[29], kc1);
-		var val2 = klmPhase3Coord.get(kc1);
-		idx = [
-			(val0[0] * 24 + val0[1]) * 81 + val0[2],
-			(val1[0] * 24 + val1[1]) * 81 + val1[2],
-			(val2[0] * 24 + val2[1]) * 81 + val2[2]
-		];
-		var sol3 = klmSolv3.solve(idx, 0, 14);
-		for (var i = 0; i < sol3.length; i++) {
-			var move = sol3[i];
-			move[0] = MgmCubie.symMulM[MgmCubie.symMulI[0][solsym]][move[0]];
-		}
-		return move2str(Array.prototype.concat(sol1, sol2, sol3));
-	}
-	var mgmSolv1 = null;
-	var mgmSolv2 = null;
-	var mgmSolv3 = null;
-	var mgmSolv4 = null;
-	var mgmSolv5 = null;
-	var mgmSolv6 = null;
-	var mgmSolv7 = null;
-	var mgmSolv8 = null;
-	var mgmSolv9 = null;
-	var mgmSolvA = null;
-	/**
-	* SOLE_EO: 0 = no ori, 1 = edge ori, 2 = corner ori
-	*/
-	function BlockSolver(edges, corns, N_EDGE, N_CORN, N_MOVE, SOLV_ORI) {
-		var mgmECoord = new ECombCoord(edges);
-		var mgmCCoord = new CCombCoord(corns);
-		var mgmOCoord = SOLV_ORI == 1 ? new EOriCoord(edges) : SOLV_ORI == 2 ? new COriCoord(corns) : null;
-		var MgmEMove = [];
-		var MgmCMove = [];
-		var MgmOMove = [];
-		var MgmEPrun = [];
-		var MgmCPrun = [];
-		var MgmOPrun = [];
-		var N_ECOMB = mathlib.Cnk[edges.length][N_EDGE];
-		var N_CCOMB = mathlib.Cnk[corns.length][N_CORN];
-		var N_EPERM = mathlib.fact[N_EDGE];
-		var N_CPERM = mathlib.fact[N_CORN];
-		var N_EORI = Math.pow(2, N_EDGE);
-		var N_CORI = Math.pow(3, N_CORN);
-		var N_ORI = Math.pow(1 + SOLV_ORI, SOLV_ORI == 1 ? edges.length : corns.length);
-		var tmp1 = new MgmCubie();
-		var tmp2 = new MgmCubie();
-		mathlib.createMove(MgmEMove, N_ECOMB, function(idx, move) {
-			mgmECoord.set(tmp1, idx, N_EDGE);
-			MgmCubie.MgmMult(tmp1, MgmCubie.moveCube[move * 4], tmp2);
-			return mgmECoord.get(tmp2, N_EDGE);
-		}, N_MOVE);
-		mathlib.createMove(MgmCMove, N_CCOMB, function(idx, move) {
-			mgmCCoord.set(tmp1, idx, N_CORN);
-			MgmCubie.MgmMult(tmp1, MgmCubie.moveCube[move * 4], tmp2);
-			return mgmCCoord.get(tmp2, N_CORN);
-		}, N_MOVE);
-		var doMgmEMove = doCombMove4.bind(null, MgmEMove, N_EPERM, N_EORI, 16 / N_EORI);
-		var doMgmCMove = doCombMove4.bind(null, MgmCMove, N_CPERM, N_CORI, 81 / N_CORI);
-		mathlib.createPrun(MgmEPrun, 0, N_ECOMB * N_EPERM * N_EORI, 14, doMgmEMove, N_MOVE, 4);
-		mathlib.createPrun(MgmCPrun, 0, N_CCOMB * N_CPERM * N_CORI, 14, doMgmCMove, N_MOVE, 4);
-		if (SOLV_ORI) {
-			mathlib.createMove(MgmOMove, N_ORI, function(idx, move) {
-				mgmOCoord.set(tmp1, idx, edges.length);
-				MgmCubie.MgmMult(tmp1, MgmCubie.moveCube[move * 4], tmp2);
-				return mgmOCoord.get(tmp2, edges.length);
-			}, N_MOVE);
-			mathlib.createPrun(MgmOPrun, 0, N_CCOMB * N_ORI, 14, function(idx, move) {
-				var slice = ~~(idx / N_ORI);
-				var twst = idx % N_ORI;
-				return MgmCMove[move][slice][0] * N_ORI + MgmOMove[move][twst];
-			}, N_MOVE, 4);
-		}
-		var MgmECPrun = [];
-		mathlib.createPrun(MgmECPrun, 0, N_ECOMB * N_CCOMB, 14, function(idx, move) {
-			var idxE = ~~(idx / N_CCOMB);
-			var idxC = idx % N_CCOMB;
-			return MgmEMove[move][idxE][0] * N_CCOMB + MgmCMove[move][idxC][0];
-		}, N_MOVE, 4);
-		this.solv = new mathlib.Searcher(null, function(idx) {
-			return Math.max(mathlib.getPruning(MgmEPrun, idx[0]), mathlib.getPruning(MgmCPrun, idx[1]), SOLV_ORI ? mathlib.getPruning(MgmOPrun, ~~(idx[1] / N_CPERM / N_CORI) * N_ORI + idx[2]) : 0, mathlib.getPruning(MgmECPrun, ~~(idx[0] / N_EPERM / N_EORI) * N_CCOMB + ~~(idx[1] / N_CPERM / N_CORI)));
-		}, function(idx, move) {
-			var idx1 = [
-				doMgmEMove(idx[0], move),
-				doMgmCMove(idx[1], move),
-				SOLV_ORI ? MgmOMove[move][idx[2]] : 0
-			];
-			if (idx1[0] == idx[0] && idx1[1] == idx[1] && idx1[2] == idx[2]) return null;
-			return idx1;
-		}, N_MOVE, 4, ckmv);
-		this.mgmECoord = mgmECoord;
-		this.mgmCCoord = mgmCCoord;
-		this.mgmOCoord = mgmOCoord;
-		this.N_EDGE = N_EDGE;
-		this.N_CORN = N_CORN;
-		this.N_ELEN = edges.length;
-	}
-	BlockSolver.prototype.getIdx = function(cc) {
-		var idxE = this.mgmECoord.get(cc, this.N_EDGE);
-		var idxC = this.mgmCCoord.get(cc, this.N_CORN);
-		var idxO = this.mgmOCoord ? this.mgmOCoord.get(cc, this.N_ELEN) : 0;
-		return [
-			(idxE[0] * mathlib.fact[this.N_EDGE] + idxE[1]) * Math.pow(2, this.N_EDGE) + idxE[2],
-			(idxC[0] * mathlib.fact[this.N_CORN] + idxC[1]) * Math.pow(3, this.N_CORN) + idxC[2],
-			idxO
-		];
-	};
-	BlockSolver.prototype.solve = function(kc0) {
-		var kc1 = new MgmCubie();
-		var idx = this.getIdx(kc0);
-		var sol = this.solv.solve(idx, 0, 30);
-		for (var i = 0; i < sol.length; i++) {
-			var move = sol[i];
-			MgmCubie.MgmMult(kc0, MgmCubie.moveCube[move[0] * 4 + move[1]], kc1);
-			kc0.copy(kc1);
-		}
-		return sol;
-	};
-	BlockSolver.prototype.solveMulti = function(kcs, nsol) {
-		var kc1 = new MgmCubie();
-		var idxs = [];
-		for (var i = 0; i < kcs.length; i++) idxs.push(this.getIdx(kcs[i]));
-		var solSet = /* @__PURE__ */ new Set();
-		var sols = [];
-		var kcsRet = [];
-		this.solv.solveMulti(idxs, 0, 30, function(sol, sidx) {
-			var kc0 = new MgmCubie();
-			kc0.copy(kcs[sidx]);
-			for (var i = 0; i < sol.length; i++) {
-				var move = sol[i];
-				MgmCubie.MgmMult(kc0, MgmCubie.moveCube[move[0] * 4 + move[1]], kc1);
-				kc0.copy(kc1);
-			}
-			var hashCode = kc0.hashCode();
-			if (solSet.has(hashCode)) return false;
-			solSet.add(hashCode);
-			sols.push([sol.slice(), sidx]);
-			kcsRet.push(kc0);
-			return sols.length >= nsol;
-		});
-		return [kcsRet, sols];
-	};
-	function BlockRURpSolver(edges, corns, N_EDGE, N_CORN, N_MOVE) {
-		var mgmEPCoord = new EPermCoord(edges);
-		var mgmCPCoord = new CPermCoord(corns);
-		var mgmEOCoord = new EOriCoord(edges);
-		var mgmCOCoord = new COriCoord(corns);
-		var MgmEPMove = [];
-		var MgmCPMove = [];
-		var MgmEOMove = [];
-		var MgmCOMove = [];
-		var MgmEPrun = [];
-		var MgmCPrun = [];
-		var N_EPERM = mathlib.fact[N_EDGE];
-		var N_CPERM = mathlib.fact[N_CORN];
-		var N_EORI = Math.pow(2, N_EDGE);
-		var N_CORI = Math.pow(3, N_CORN);
-		var tmp1 = new MgmCubie();
-		var tmp2 = new MgmCubie();
-		var moveRURp = new MgmCubie();
-		MgmCubie.MgmMult3(MgmCubie.moveCube[4], MgmCubie.moveCube[0], MgmCubie.moveCube[7], moveRURp);
-		var CoordMove = function(coord, N_PIECE, idx, move) {
-			coord.set(tmp1, idx, N_PIECE);
-			MgmCubie.MgmMult(tmp1, move == 0 ? MgmCubie.moveCube[0] : moveRURp, tmp2);
-			return coord.get(tmp2, N_PIECE);
-		};
-		mathlib.createMove(MgmEPMove, N_EPERM, CoordMove.bind(null, mgmEPCoord, N_EDGE), N_MOVE);
-		mathlib.createMove(MgmCPMove, N_CPERM, CoordMove.bind(null, mgmCPCoord, N_CORN), N_MOVE);
-		mathlib.createMove(MgmEOMove, N_EORI, CoordMove.bind(null, mgmEOCoord, N_EDGE), N_MOVE);
-		mathlib.createMove(MgmCOMove, N_CORI, CoordMove.bind(null, mgmCOCoord, N_CORN), N_MOVE);
-		var doXMove = function(PMove, OMove, N_ORI, idx, move) {
-			let perm = ~~(idx / N_ORI);
-			let ori = idx % N_ORI;
-			perm = PMove[move][perm];
-			ori = OMove[move][ori];
-			return perm * N_ORI + ori;
-		};
-		var doMgmEMove = doXMove.bind(null, MgmEPMove, MgmEOMove, N_EORI);
-		var doMgmCMove = doXMove.bind(null, MgmCPMove, MgmCOMove, N_CORI);
-		mathlib.createPrun(MgmEPrun, 0, N_EPERM * N_EORI, 14, doMgmEMove, N_MOVE, 4);
-		mathlib.createPrun(MgmCPrun, 0, N_CPERM * N_CORI, 14, doMgmCMove, N_MOVE, 4);
-		this.solv = new mathlib.Searcher(null, function(idx) {
-			return Math.max(mathlib.getPruning(MgmEPrun, idx[0]), mathlib.getPruning(MgmCPrun, idx[1]));
-		}, function(idx, move) {
-			return [doMgmEMove(idx[0], move), doMgmCMove(idx[1], move)];
-		}, N_MOVE, 4, ckmv);
-		this.mgmECoord = { get: (cc) => mgmEPCoord.get(cc, N_EDGE) * N_EORI + mgmEOCoord.get(cc, N_EDGE) };
-		this.mgmCCoord = { get: (cc) => mgmCPCoord.get(cc, N_CORN) * N_CORI + mgmCOCoord.get(cc, N_CORN) };
-		this.N_EDGE = N_EDGE;
-		this.N_CORN = N_CORN;
-	}
-	BlockRURpSolver.prototype.getIdx = function(cc) {
-		return [this.mgmECoord.get(cc), this.mgmCCoord.get(cc)];
-	};
-	BlockRURpSolver.prototype.solve = BlockSolver.prototype.solve;
-	BlockRURpSolver.prototype.solveMulti = BlockSolver.prototype.solveMulti;
-	function initMgm() {
-		initMgm = function() {};
-		init();
-		var edgeOrder = [
-			6,
-			7,
-			22,
-			5,
-			20,
-			9,
-			28,
-			8,
-			24,
-			26,
-			17,
-			23,
-			15,
-			16,
-			21,
-			13,
-			14,
-			29,
-			11,
-			12,
-			27,
-			18,
-			19,
-			25,
-			0,
-			1,
-			2,
-			3,
-			4,
-			10
-		];
-		var cornOrder = [
-			6,
-			5,
-			9,
-			7,
-			8,
-			16,
-			13,
-			15,
-			12,
-			19,
-			11,
-			18,
-			14,
-			17,
-			0,
-			1,
-			2,
-			3,
-			4,
-			10
-		];
-		mgmSolv1 = new BlockSolver(edgeOrder, cornOrder, 3, 1, 12);
-		mgmSolv2 = new BlockSolver(edgeOrder.slice(3), cornOrder.slice(1), 2, 1, 9);
-		mgmSolv3 = new BlockSolver(edgeOrder.slice(5), cornOrder.slice(2), 2, 1, 8);
-		mgmSolv4 = new BlockSolver(edgeOrder.slice(7), cornOrder.slice(3), 3, 2, 7);
-		mgmSolv5 = new BlockSolver(edgeOrder.slice(10), cornOrder.slice(5), 2, 1, 6);
-		mgmSolv6 = new BlockSolver(edgeOrder.slice(12), cornOrder.slice(6), 3, 2, 5);
-		mgmSolv7 = new BlockSolver(edgeOrder.slice(15), cornOrder.slice(8), 3, 2, 4);
-		mgmSolv8 = new BlockSolver(edgeOrder.slice(18), cornOrder.slice(10), 3, 2, 3, 1);
-		mgmSolv9 = new BlockSolver(edgeOrder.slice(21), cornOrder.slice(12), 3, 2, 2);
-		mgmSolvA = new BlockRURpSolver(edgeOrder.slice(24), cornOrder.slice(14), 6, 6, 2);
-	}
-	function solveMgmCubie(cc, useSym) {
-		initMgm();
-		var kc0 = new MgmCubie();
-		new MgmCubie();
-		new MgmCubie();
-		kc0.copy(cc);
-		var kcs0 = [kc0];
-		var [kcs1, sol1s] = mgmSolv1.solveMulti(kcs0, 100);
-		var [kcs2, sol2s] = mgmSolv2.solveMulti(kcs1, 100);
-		var [kcs3, sol3s] = mgmSolv3.solveMulti(kcs2, 100);
-		var [kcs4, sol4s] = mgmSolv4.solveMulti(kcs3, 10);
-		var [kcs5, sol5s] = mgmSolv5.solveMulti(kcs4, 100);
-		var [kcs6, sol6s] = mgmSolv6.solveMulti(kcs5, 100);
-		var [kcs7, sol7s] = mgmSolv7.solveMulti(kcs6, 100);
-		var [kcs8, sol8s] = mgmSolv8.solveMulti(kcs7, 5);
-		var [kcs9, sol9s] = mgmSolv9.solveMulti(kcs8, 20);
-		var [kcsA, solAs] = mgmSolvA.solveMulti(kcs9, 1);
-		var [solA, sidxA] = solAs[0];
-		var [sol9, sidx9] = sol9s[sidxA];
-		var [sol8, sidx8] = sol8s[sidx9];
-		var [sol7, sidx7] = sol7s[sidx8];
-		var [sol6, sidx6] = sol6s[sidx7];
-		var [sol5, sidx5] = sol5s[sidx6];
-		var [sol4, sidx4] = sol4s[sidx5];
-		var [sol3, sidx3] = sol3s[sidx4];
-		var [sol2, sidx2] = sol2s[sidx3];
-		var [sol1, sidx1] = sol1s[sidx2];
-		return [move2str([].concat(sol1, sol2, sol3, sol4, sol5, sol6, sol7, sol8, sol9)), move2strRURp(solA)].join(" ");
-	}
-	function checkSolver(isKlm) {
-		init();
-		var kc0 = new MgmCubie();
-		var kc1 = new MgmCubie();
-		var gen = [];
-		for (var i = 0; i < 500; i++) {
-			var move = mathlib.rn(12);
-			gen.push([move, 0]);
-			MgmCubie.MgmMult(kc0, MgmCubie.moveCube[move * 4], kc1);
-			kc0.copy(kc1);
-		}
-		return move2str(gen) + "   " + (isKlm ? solveKlmCubie : solveMgmCubie)(kc0, true);
-	}
-	return {
-		MgmCubie,
-		solveKlmCubie,
-		solveMgmCubie,
-		checkSolver: DEBUG$1 && checkSolver
-	};
-})();
-//#endregion
-//#region src/vendor/cstimer/megaminx.js
-(function() {
-	"use strict";
-	function getKiloScramble() {
-		var cc = new mgmsolver.MgmCubie();
-		cc.corn = mathlib.rndPerm(20, true);
-		var chksum = 60;
-		for (var i = 0; i < 19; i++) {
-			var t = mathlib.rn(3);
-			cc.twst[i] = t;
-			chksum -= t;
-		}
-		cc.twst[19] = chksum % 3;
-		return mgmsolver.solveKlmCubie(cc, true);
-	}
-	function getMegaScramble() {
-		var cc = new mgmsolver.MgmCubie();
-		cc.corn = mathlib.rndPerm(20, true);
-		cc.edge = mathlib.rndPerm(30, true);
-		var chksum = 60;
-		for (var i = 0; i < 19; i++) {
-			var t = mathlib.rn(3);
-			cc.twst[i] = t;
-			chksum -= t;
-		}
-		cc.twst[19] = chksum % 3;
-		chksum = 0;
-		for (var i = 0; i < 29; i++) {
-			var t = mathlib.rn(2);
-			cc.flip[i] = t;
-			chksum ^= t;
-		}
-		cc.flip[29] = chksum;
-		return mgmsolver.solveMgmCubie(cc, true);
-	}
-	scrMgr.reg("klmso", getKiloScramble)("mgmso", getMegaScramble);
-})();
-//#endregion
-//#region src/vendor/cstimer/mgmlsll.js
-(function() {
-	var epcord = new mathlib.Coord("p", 6, -1);
-	var eocord = new mathlib.Coord("o", 6, -2);
-	var cpcord = new mathlib.Coord("p", 6, -1);
-	var cocord = new mathlib.Coord("o", 6, -3);
-	function eMove(idx, m) {
-		var perm = epcord.set([], idx >> 5);
-		var twst = eocord.set([], idx & 31);
-		if (m == 0) {
-			mathlib.acycle(twst, [
-				0,
-				1,
-				2,
-				3,
-				4
-			], 1);
-			mathlib.acycle(perm, [
-				0,
-				1,
-				2,
-				3,
-				4
-			], 1);
-		} else if (m == 1) {
-			mathlib.acycle(twst, [
-				0,
-				1,
-				2,
-				3,
-				5
-			], 1);
-			mathlib.acycle(perm, [
-				0,
-				1,
-				2,
-				3,
-				5
-			], 1);
-		} else if (m == 2) {
-			mathlib.acycle(twst, [
-				1,
-				2,
-				3,
-				4,
-				5
-			], 1, [
-				0,
-				0,
-				0,
-				0,
-				1,
-				2
-			]);
-			mathlib.acycle(perm, [
-				1,
-				2,
-				3,
-				4,
-				5
-			]);
-		}
-		return epcord.get(perm) << 5 | eocord.get(twst);
-	}
-	function cMove(idx, m) {
-		var perm = cpcord.set([], ~~(idx / 243));
-		var twst = cocord.set([], idx % 243);
-		if (m == 0) {
-			mathlib.acycle(twst, [
-				0,
-				1,
-				2,
-				3,
-				4
-			], 1);
-			mathlib.acycle(perm, [
-				0,
-				1,
-				2,
-				3,
-				4
-			], 1);
-		} else if (m == 1) {
-			mathlib.acycle(twst, [
-				0,
-				5,
-				1,
-				2,
-				3
-			], 1, [
-				2,
-				0,
-				0,
-				0,
-				0,
-				3
-			]);
-			mathlib.acycle(perm, [
-				0,
-				5,
-				1,
-				2,
-				3
-			]);
-		} else if (m == 2) {
-			mathlib.acycle(twst, [
-				0,
-				2,
-				3,
-				4,
-				5
-			], 1, [
-				1,
-				0,
-				0,
-				0,
-				1,
-				3
-			]);
-			mathlib.acycle(perm, [
-				0,
-				2,
-				3,
-				4,
-				5
-			]);
-		}
-		return cpcord.get(perm) * 243 + cocord.get(twst);
-	}
-	var solv = new mathlib.Solver(3, 4, [[
-		0,
-		eMove,
-		11520
-	], [
-		0,
-		cMove,
-		87480
-	]]);
-	function getMinxLSScramble(type, length, cases) {
-		var edge = 0;
-		var corn = 0;
-		do
-			if (type == "mlsll") {
-				edge = mathlib.rn(11520);
-				corn = mathlib.rn(87480);
-			} else if (type == "mgmpll") {
-				edge = epcord.get(mathlib.rndPerm(5, true).concat([5])) * 32;
-				corn = cpcord.get(mathlib.rndPerm(5, true).concat([5])) * 243;
-			} else if (type == "mgmll") {
-				var eo = eocord.set([], mathlib.rn(32));
-				eo[0] += eo[5];
-				eo[5] = 0;
-				var co = cocord.set([], mathlib.rn(243));
-				co[0] += co[5];
-				co[5] = 0;
-				edge = epcord.get(mathlib.rndPerm(5, true).concat([5])) * 32 + eocord.get(eo);
-				corn = cpcord.get(mathlib.rndPerm(5, true).concat([5])) * 243 + cocord.get(co);
-			}
-		while (edge == 0 && corn == 0);
-		var sol = solv.search([edge, corn], 0);
-		var ret = [];
-		for (var i = 0; i < sol.length; i++) {
-			var move = sol[i];
-			ret.push([
-				"U",
-				"R U",
-				"F' U"
-			][move[0]] + [
-				"",
-				"2",
-				"2'",
-				"'"
-			][move[1]] + [
-				"",
-				" R'",
-				" F"
-			][move[0]]);
-		}
-		return ret.join(" ").replace(/ +/g, " ");
-	}
-	scrMgr.reg("mlsll", getMinxLSScramble)("mgmpll", getMinxLSScramble)("mgmll", getMinxLSScramble);
-})();
-//#endregion
-//#region src/events/minx/index.ts
-/**
-* WCA Megaminx: 7 lines of Pochmann-style moves (R++ D-- ... U), separated by newlines.
-* Another `length` gives length / 10 lines, rounded up.
-*/
-function getMegaminxScramble(length = 70) {
-	return cstimerScramble("mgmp", length);
-}
-const eventsMinx = [
-	{
-		id: "mgmp",
-		name: "Megaminx WCA",
-		puzzle: "minx",
-		length: 70,
-		generate: getMegaminxScramble
-	},
-	cstimerEvent("mgmc", "Megaminx Carrot", "minx", 70),
-	cstimerEvent("mgmo", "Megaminx old style", "minx", 70),
-	cstimerEvent("minx2g", "Megaminx 2-generator R,U", "minx", 30),
-	cstimerEvent("mlsll", "Megaminx last slot + last layer", "minx"),
-	cstimerEvent("mgmso", "Megaminx random state", "minx"),
-	cstimerEvent("mgmpll", "Megaminx PLL", "minx"),
-	cstimerEvent("mgmll", "Megaminx Last Layer", "minx"),
-	cstimerEvent("mgms2l", "Megaminx S2L", "minx", 48)
-];
-registerEvents(...eventsMinx);
-//#endregion
 //#region src/vendor/cstimer/pyraminx.js
-(function() {
+var pyraminx = (function() {
 	var cFacelet = [
 		[
 			3,
@@ -23544,6 +18977,7 @@ registerEvents(...eventsMinx);
 		l4eprobs,
 		getL4EImage
 	]);
+	return { solver: solv };
 })();
 (function() {
 	function MpyrCubie(ep, eo, wp, ct, co, cp) {
@@ -24238,28 +19672,8 @@ registerEvents(...eventsMinx);
 	};
 })();
 //#endregion
-//#region src/events/pyram/index.ts
-/** WCA Pyraminx: random-state scramble, with random tip turns (u l r b) at the end. */
-function getPyraminxScramble() {
-	return cstimerScramble("pyrso");
-}
-const eventsPyram = [
-	{
-		id: "pyrso",
-		name: "Pyraminx random state",
-		puzzle: "pyram",
-		generate: getPyraminxScramble
-	},
-	cstimerEvent("pyro", "Pyraminx optimal", "pyram"),
-	cstimerEvent("pyrm", "Pyraminx random move", "pyram", 25),
-	cstimerEvent("pyrl4e", "Pyraminx L4E", "pyram"),
-	cstimerEvent("pyr4c", "Pyraminx 4 tips", "pyram"),
-	cstimerEvent("pyrnb", "Pyraminx No bar", "pyram")
-];
-registerEvents(...eventsPyram);
-//#endregion
 //#region src/vendor/cstimer/skewb.js
-(function() {
+var skewb = (function() {
 	/**	1 2   U
 	0  LFRB
 	3 4   D  */
@@ -24470,47 +19884,11 @@ registerEvents(...eventsPyram);
 		"skbso",
 		"skbnb"
 	], getScramble)(["ivyo", "ivyso"], getScrambleIvy);
+	return { solver: solv };
 })();
 //#endregion
-//#region src/events/skewb/index.ts
-/** WCA Skewb: random-state scramble in WCA notation (R U L B). */
-function getSkewbScramble() {
-	return cstimerScramble("skbso");
-}
-const eventsSkewb = [
-	{
-		id: "skbso",
-		name: "Skewb random state",
-		puzzle: "skewb",
-		generate: getSkewbScramble
-	},
-	cstimerEvent("skbo", "Skewb optimal", "skewb"),
-	cstimerEvent("skb", "Skewb random move", "skewb", 25),
-	cstimerEvent("skbnb", "Skewb No bar", "skewb")
-];
-registerEvents(...eventsSkewb);
-//#endregion
-//#region src/events/sq1/index.ts
-/** WCA Square-1: random-state scramble, e.g. "(1,0)/ (-3,0)/ ...". */
-function getSquare1Scramble() {
-	return cstimerScramble("sqrs");
-}
-const eventsSq1 = [
-	{
-		id: "sqrs",
-		name: "Square-1 random state",
-		puzzle: "sq1",
-		generate: getSquare1Scramble
-	},
-	cstimerEvent("sqrcsp", "Square-1 CSP", "sq1"),
-	cstimerEvent("sq1pll", "Square-1 PLL", "sq1"),
-	cstimerEvent("sq1h", "Square-1 face turn metric", "sq1", 40),
-	cstimerEvent("sq1t", "Square-1 twist metric", "sq1", 20)
-];
-registerEvents(...eventsSq1);
-//#endregion
 //#region src/vendor/cstimer/ftocta.js
-var DEBUG = false;
+var DEBUG$1 = false;
 var ftosolver = (function() {
 	"use strict";
 	function FtoCubie(cp, co, ep, uf, rl) {
@@ -26039,9 +21417,4917 @@ var ftosolver = (function() {
 	return {
 		solveFacelet,
 		FtoCubie,
-		testbench: DEBUG && testbench
+		testbench: DEBUG$1 && testbench
 	};
 })();
+//#endregion
+//#region \0@oxc-project+runtime@0.152.0/helpers/esm/checkPrivateRedeclaration.js
+function _checkPrivateRedeclaration(e, t) {
+	if (t.has(e)) throw new TypeError("Cannot initialize the same private elements twice on an object");
+}
+//#endregion
+//#region \0@oxc-project+runtime@0.152.0/helpers/esm/classPrivateMethodInitSpec.js
+function _classPrivateMethodInitSpec(e, a) {
+	_checkPrivateRedeclaration(e, a), a.add(e);
+}
+//#endregion
+//#region \0@oxc-project+runtime@0.152.0/helpers/esm/classPrivateFieldInitSpec.js
+function _classPrivateFieldInitSpec(e, t, a) {
+	_checkPrivateRedeclaration(e, t), t.set(e, a);
+}
+//#endregion
+//#region \0@oxc-project+runtime@0.152.0/helpers/esm/assertClassBrand.js
+function _assertClassBrand(e, t, n) {
+	if ("function" == typeof e ? e === t : e.has(t)) return arguments.length < 3 ? t : n;
+	throw new TypeError("Private element is not present on this object");
+}
+//#endregion
+//#region \0@oxc-project+runtime@0.152.0/helpers/esm/classPrivateFieldSet2.js
+function _classPrivateFieldSet2(s, a, r) {
+	return s.set(_assertClassBrand(s, a), r), r;
+}
+//#endregion
+//#region \0@oxc-project+runtime@0.152.0/helpers/esm/classPrivateFieldGet2.js
+function _classPrivateFieldGet2(s, a) {
+	return s.get(_assertClassBrand(s, a));
+}
+//#endregion
+//#region src/solver.ts
+/**
+* The puzzles with a solver, by Puzzle id: how it solves, and the csTimer puzzle type of
+* the moves it reads (`tools.puzzleType` of a scramble type).
+*/
+const SOLVERS = {
+	"222": {
+		kind: "fewest-moves",
+		notation: "222"
+	},
+	"333": {
+		kind: "search",
+		notation: "333"
+	},
+	"444": {
+		kind: "phases",
+		notation: "444"
+	},
+	pyram: {
+		kind: "fewest-moves",
+		notation: "pyr"
+	},
+	skewb: {
+		kind: "fewest-moves",
+		notation: "skb"
+	},
+	sq1: {
+		kind: "phases",
+		notation: "sq1"
+	},
+	fto: {
+		kind: "phases",
+		notation: "fto"
+	}
+};
+/** Face order of min2phase's facelet strings; a face's opposite is 3 places further. */
+const FACES = "URFDLB";
+/** Face order of csTimer's stickers (see `image.nnnPosit`). */
+const CSTIMER_FACES = "DLBURF";
+/**
+* The stickers of a size x size x size cube after `moves`, as face numbers (0-5, the face in
+* FACES each sticker's color started on), face by face in FACES order, each face read row
+* by row as in min2phase's facelet strings: U with its top row next to B, D with its top
+* row next to F, and L and B as seen from their own side.
+*/
+function cubeFacelets(size, moves) {
+	const posit = image$1.nnnPosit(size, moves);
+	const facelets = [];
+	for (const face of FACES) {
+		const f = CSTIMER_FACES.indexOf(face);
+		for (let row = 0; row < size; row++) for (let col = 0; col < size; col++) {
+			const x = face === "L" || face === "B" ? size - 1 - col : col;
+			const y = face === "D" ? size - 1 - row : row;
+			facelets.push(FACES.indexOf(CSTIMER_FACES[posit[(f * size + y) * size + x]]));
+		}
+	}
+	return facelets;
+}
+/**
+* Renames the colors of `facelets` so each of `faces` gets the color its sticker at `at`
+* has now (and its opposite face the opposite color), which turns a cube held any way into
+* the same cube held with those stickers in place.
+*/
+function holdBy(facelets, faces, at) {
+	const name = [];
+	faces.forEach((face, i) => {
+		const color = facelets[at[i]];
+		name[color] = face;
+		name[(color + 3) % 6] = (face + 3) % 6;
+	});
+	return facelets.map((color) => name[color]);
+}
+/** Phase-2 tries min2phase makes per search step (each step takes well under 0.2 s). */
+const PROBES_PER_STEP = 500;
+/**
+* The moves that undo `moves`: in reverse order, each turned the other way. For moves
+* written like `R`, `R'` and `R2` (and `Rw`, `BR`, ...).
+*/
+function invertMoves(moves) {
+	return moves.split(/\s+/).filter(Boolean).reverse().map((move) => move.endsWith("'") ? move.slice(0, -1) : move.endsWith("2") ? move : move + "'").join(" ");
+}
+/** The 24 ways to hold a cube, as rotations from the way it is held. */
+const ROTATIONS = [
+	"",
+	"y",
+	"y2",
+	"y'"
+].flatMap((y) => [
+	"",
+	"x",
+	"x2",
+	"x'",
+	"z",
+	"z'"
+].map((xz) => `${xz} ${y}`.trim()));
+/**
+* `moves` done after `rotation` instead of before it: each face letter is renamed to the
+* face the rotation turns it into, so `rotation` then `moves` is the renamed moves then
+* `rotation`.
+*/
+function moveRotationLast(moves, rotation) {
+	if (!rotation) return moves;
+	const undo = invertMoves(rotation);
+	const name = {};
+	for (const face of FACES) {
+		const turned = cubeFacelets(3, `${rotation} ${face} ${undo}`).join();
+		name[face] = [...FACES].find((other) => cubeFacelets(3, other).join() === turned);
+	}
+	return moves.replace(/[URFDLB]/g, (face) => name[face]);
+}
+/**
+* A solution of a 4x4x4 after `moves`, with csTimer's three-phase reduction solver
+* (centers, then edges, then the cube is solved as a 3x3x3 with min2phase): outer and wide
+* (Rw) turns, about 45 moves. It leaves the cube solved, though maybe held another way, as
+* a 4x4x4 has no centers that stay put. The first solve takes a second or two while the
+* solver sets up.
+*/
+function solve444(moves) {
+	const facelets = cubeFacelets(4, moves);
+	if (facelets.every((face, i) => face === facelets[i - i % 16])) return "";
+	const made = scramble_444.genFacelet(facelets.map((f) => FACES[f]).join(""));
+	const state = facelets.join();
+	const rotation = ROTATIONS.find((r) => cubeFacelets(4, `${made} ${r}`).join() === state);
+	if (rotation === void 0) throw new Error(`Can't solve this 4x4x4: "${moves}"`);
+	return moveRotationLast(invertMoves(made), invertMoves(rotation));
+}
+var _facelets = /* @__PURE__ */ new WeakMap();
+var _search = /* @__PURE__ */ new WeakMap();
+var _CubeSearch_brand = /* @__PURE__ */ new WeakSet();
+/**
+* A search for the shortest solution of a size x size x size cube after `moves` (cube
+* notation as csTimer reads it, rotations and wide moves included), for the cube as it is
+* held after them. It holds a solution from the start and finds shorter ones step by step:
+* - 2x2x2: csTimer's optimal solver (only U, R and F turns), so the first is the shortest.
+* - 3x3x3: min2phase finds a solution of at most 21 face turns, then is asked again and
+*   again for one at least a move shorter. When it has looked everywhere without finding
+*   one, the solution it has is the shortest there is (half-turn metric: R2 is one move).
+*   That can take minutes, but a solution of the usual 17 to 19 moves comes in seconds.
+* - 4x4x4: one solution from csTimer's reduction solver (see `solve444`).
+* `solution` is `''` when the cube is already solved. Only for 2x2x2 to 4x4x4.
+*/
+var CubeSearch = class {
+	constructor(size, moves) {
+		_classPrivateMethodInitSpec(this, _CubeSearch_brand);
+		this.shortest = false;
+		this.done = false;
+		_classPrivateFieldInitSpec(this, _facelets, "");
+		_classPrivateFieldInitSpec(this, _search, void 0);
+		this.scramble = moves;
+		if (size === 2) {
+			const facelets = holdBy(cubeFacelets(2, moves), [
+				3,
+				4,
+				5
+			], [
+				14,
+				18,
+				23
+			]);
+			const solution = scramble_222$1.solveFacelet(facelets);
+			if (solution === null) throw new Error(`Can't solve this 2x2x2: "${moves}"`);
+			this.solution = solution;
+			this.shortest = this.done = true;
+			return;
+		}
+		if (size === 4) {
+			this.solution = solve444(moves);
+			this.done = true;
+			return;
+		}
+		if (size !== 3) throw new Error(`No solver for ${size}x${size}x${size} cubes`);
+		const facelets = holdBy(cubeFacelets(3, moves), [
+			0,
+			1,
+			2
+		], [
+			4,
+			13,
+			22
+		]);
+		_classPrivateFieldSet2(_facelets, this, facelets.map((f) => FACES[f]).join(""));
+		_classPrivateFieldSet2(_search, this, new min2phase.Search());
+		const first = _classPrivateFieldGet2(_search, this).solution(_classPrivateFieldGet2(_facelets, this));
+		if (first.startsWith("Error")) throw new Error(`Can't solve this 3x3x3: "${moves}"`);
+		this.solution = "";
+		_assertClassBrand(_CubeSearch_brand, this, _found).call(this, first);
+	}
+	/**
+	* Searches a little more (well under 0.2 s each time min2phase is asked). Returns whether
+	* `solution` got shorter or is now known to be the shortest.
+	*/
+	step() {
+		if (this.done) return false;
+		const result = _classPrivateFieldGet2(_search, this).next(PROBES_PER_STEP, 0, 0);
+		if (result === "Error 8") return false;
+		if (result === "Error 7") this.shortest = this.done = true;
+		else _assertClassBrand(_CubeSearch_brand, this, _found).call(this, result);
+		return true;
+	}
+};
+/**
+* Takes `result`, a solution from min2phase, and asks for one at least a move shorter,
+* taking that too if it comes at once, and so on.
+*/
+function _found(result) {
+	for (;;) {
+		this.solution = _assertClassBrand(_CubeSearch_brand, this, _read).call(this, result);
+		const length = this.solution ? this.solution.split(" ").length : 0;
+		if (length === 0) {
+			this.shortest = this.done = true;
+			return;
+		}
+		result = _classPrivateFieldGet2(_search, this).solution(_classPrivateFieldGet2(_facelets, this), length - 1, PROBES_PER_STEP, 0, 0);
+		if (result === "Error 8") return;
+		if (result === "Error 7") {
+			this.shortest = this.done = true;
+			return;
+		}
+	}
+}
+/** min2phase pads its moves to two characters, e.g. "U  R2". */
+function _read(solution) {
+	return solution.trim().replace(/ +/g, " ");
+}
+/** A solve by a solver that doesn't search further: done at once. */
+var DoneSearch = class {
+	constructor(scramble, solution, shortest) {
+		this.scramble = scramble;
+		this.solution = solution;
+		this.done = true;
+		this.shortest = shortest;
+	}
+	step() {
+		return false;
+	}
+};
+/** The moves of `moves`, each checked against `move`; throws on any other text. */
+function readMoves(puzzle, moves, move) {
+	return moves.split(/\s+/).filter(Boolean).map((text) => {
+		const read = move.exec(text);
+		if (!read) throw new Error(`The ${puzzle} solver can't read "${text}"`);
+		return read;
+	});
+}
+/** Does `axis` `times` times on a csTimer solver state (one coordinate per table). */
+function turnCoords(solver, state, axis, times) {
+	for (let i = 0; i < times; i++) state = state.map((coord, t) => solver.move[t][axis][coord]);
+	return state;
+}
+/**
+* The fewest moves that solve a Pyraminx after `moves` (U L R B turns and u l r b tips,
+* clockwise or with '), with csTimer's optimal solver: the big turns first, then the tips.
+*/
+function solvePyraminx(moves) {
+	const solver = pyraminx.solver;
+	solver.init();
+	let state = [0, 0];
+	const tips = [
+		0,
+		0,
+		0,
+		0
+	];
+	for (const [, face, prime] of readMoves("Pyraminx", moves, /^([ULRBulrb])(')?$/)) {
+		const axis = "ULRB".indexOf(face.toUpperCase());
+		const times = prime ? 2 : 1;
+		if (face === face.toUpperCase()) state = turnCoords(solver, state, axis, times);
+		else tips[axis] = (tips[axis] + times) % 3;
+	}
+	const solution = solver.search(state, 0).map(([axis, power]) => "ULRB"[axis] + (power ? "'" : ""));
+	tips.forEach((turned, axis) => {
+		if (turned) solution.push("ulrb"[axis] + (turned === 1 ? "'" : ""));
+	});
+	return solution.join(" ");
+}
+/**
+* csTimer's Skewb solver turns around four corners that never move, while R, U and L turn
+* around three of them and B around a fourth that does move: a B turn is the solver's turn
+* around the opposite corner, plus turning the whole puzzle. So which solver turn a letter
+* stands for changes after each B (as in csTimer's skewb.js, which writes its scrambles
+* this way). Takes the letters for solver turns 0 to 3 and turns them for `times` B turns.
+*/
+function turnSkewbLetters(letters, times) {
+	for (let i = 0; i < times; i++) {
+		const [a, b, c] = [
+			letters[0],
+			letters[3],
+			letters[1]
+		];
+		letters[3] = a;
+		letters[1] = b;
+		letters[0] = c;
+	}
+}
+/** The fewest moves that solve a Skewb after `moves` (WCA notation: R U L B, with '). */
+function solveSkewb(moves) {
+	const solver = skewb.solver;
+	solver.init();
+	let state = [0, 0];
+	const letters = [
+		"L",
+		"R",
+		"B",
+		"U"
+	];
+	for (const [, face, prime] of readMoves("Skewb", moves, /^([RULB])(')?$/)) {
+		const axis = letters.indexOf(face);
+		state = turnCoords(solver, state, axis, prime ? 2 : 1);
+		if (axis === 2) turnSkewbLetters(letters, prime ? 2 : 1);
+	}
+	const solution = [];
+	for (const [axis, power] of solver.search(state, 0)) {
+		solution.push(letters[axis] + (power ? "'" : ""));
+		if (axis === 2) turnSkewbLetters(letters, power + 1);
+	}
+	return solution.join(" ");
+}
+/** Square-1 turns and slashes: `(1,0)` turns the top 30° clockwise, `/` is a slice. */
+const SQ1_MOVE = /\(\s*(-?\d+)\s*,\s*(-?\d+)\s*\)|\//g;
+/** The turns and slashes of Square-1 moves: [top, bottom] for a turn, null for a slash. */
+function readSq1(moves) {
+	const leftover = moves.replace(SQ1_MOVE, "").replace(/`/g, "").trim();
+	if (leftover) throw new Error(`The Square-1 solver can't read "${leftover.split(/\s+/)[0]}"`);
+	return [...moves.matchAll(SQ1_MOVE)].map((m) => m[0] === "/" ? null : [+m[1], +m[2]]);
+}
+/**
+* A solution of a Square-1 after `moves`, with csTimer's two-phase solver (cube shape
+* first, then the pieces), written like csTimer's scrambles: `(1,0)/ (-3,0)/ ...`.
+*/
+function solveSq1(moves) {
+	const cube = new sq1.SqCubie();
+	const solved = cube.toString();
+	for (const move of readSq1(moves)) {
+		if (move === null) {
+			cube.doMove(0);
+			continue;
+		}
+		const [top, bottom] = move.map((n) => (n % 12 + 12) % 12);
+		if (top) cube.doMove(top);
+		if (bottom) cube.doMove(-bottom);
+	}
+	if (cube.toString() === solved) return "";
+	const turn = (n) => ((-n + 5) % 12 + 12) % 12 - 5;
+	return readSq1(sq1.solve(cube)).reverse().map((move) => move === null ? "/" : ` (${turn(move[0])},${turn(move[1])})`).join("").trim();
+}
+/** csTimer's FTO face turns, in the order of its solver's moves. */
+const FTO_FACES = [
+	"U",
+	"F",
+	"BR",
+	"BL",
+	"D",
+	"B",
+	"R",
+	"L"
+];
+/**
+* A solution of an FTO after `moves` (U F BR BL D B R L turns, with '), with csTimer's
+* three-phase solver. The first solve takes a moment while the solver sets up.
+*/
+function solveFto(moves) {
+	const { FtoCubie } = ftosolver;
+	let cube = new FtoCubie();
+	for (const [, face, prime] of readMoves("FTO", moves, /^(U|F|BR|BL|D|B|R|L)(')?$/)) {
+		const move = FtoCubie.moveCube[FTO_FACES.indexOf(face) * 2 + (prime ? 1 : 0)];
+		cube = FtoCubie.FtoMult(cube, move, null);
+	}
+	if (cube.isEqual(new FtoCubie())) return "";
+	const solution = ftosolver.solveFacelet(cube.toFaceCube(), false);
+	if (!/^[A-Z' ]*$/.test(solution)) throw new Error(`Can't solve this FTO: "${moves}"`);
+	return solution;
+}
+/** Starts solving puzzle `id` (one of SOLVERS) after `moves`, written in its notation. */
+function startSearch(id, moves) {
+	switch (id) {
+		case "222": return new CubeSearch(2, moves);
+		case "333": return new CubeSearch(3, moves);
+		case "444": return new CubeSearch(4, moves);
+		case "pyram": return new DoneSearch(moves, solvePyraminx(moves), true);
+		case "skewb": return new DoneSearch(moves, solveSkewb(moves), true);
+		case "sq1": return new DoneSearch(moves, solveSq1(moves), false);
+		case "fto": return new DoneSearch(moves, solveFto(moves), false);
+		default: throw new Error(`No solver for puzzle "${id}"`);
+	}
+}
+//#endregion
+//#region src/puzzle.ts
+const IMAGE_STYLES = [
+	"separated",
+	"joined",
+	"cstimer"
+];
+const HIDDEN_FACES = ["hidden", "floating"];
+const CAMERA_MODES = ["mouse", "fixed"];
+const CUBE_FACES = [
+	"U",
+	"R",
+	"F",
+	"D",
+	"L",
+	"B"
+];
+const NO_OFFSET = {
+	x: 0,
+	y: 0,
+	z: 0,
+	rotateX: 0,
+	rotateY: 0,
+	rotateZ: 0
+};
+function cube(n, methods) {
+	return {
+		name: `${n}x${n}x${n}`,
+		colorSetting: "colcube",
+		defaultColors: {
+			U: "#fff",
+			R: "#f00",
+			F: "#0d0",
+			D: "#ff0",
+			L: "#fa0",
+			B: "#00f"
+		},
+		cstimerOrder: [
+			"D",
+			"L",
+			"B",
+			"U",
+			"R",
+			"F"
+		],
+		methods,
+		cubeSize: n
+	};
+}
+/** The puzzles `Puzzle` supports, by id (the same ids as `ScrambleEvent.puzzle`). */
+const PUZZLES = {
+	"222": cube(2, {
+		default: "222so",
+		"random-state": "222so",
+		"random-move": "2223"
+	}),
+	"333": cube(3, {
+		default: "333",
+		"random-state": "333",
+		"random-move": "333o"
+	}),
+	"444": cube(4, {
+		default: "444wca",
+		"random-state": "444wca",
+		"random-move": "444m"
+	}),
+	"555": cube(5, {
+		default: "555wca",
+		"random-move": "555wca"
+	}),
+	"666": cube(6, {
+		default: "666wca",
+		"random-move": "666wca"
+	}),
+	"777": cube(7, {
+		default: "777wca",
+		"random-move": "777wca"
+	}),
+	clock: {
+		name: "Clock",
+		colorSetting: "colclk",
+		defaultColors: {
+			front: "#5cf",
+			back: "#37b",
+			hand: "#ff0",
+			handOutline: "#f00",
+			pin: "#850"
+		},
+		cstimerOrder: [
+			"handOutline",
+			"back",
+			"front",
+			"hand",
+			"pin"
+		],
+		methods: {
+			default: "clkwca",
+			"random-state": "clkwca"
+		}
+	},
+	minx: {
+		name: "Megaminx",
+		colorSetting: "colmgm",
+		defaultColors: {
+			U: "#fff",
+			F: "#060",
+			R: "#d00",
+			L: "#81f",
+			BR: "#00b",
+			BL: "#fc0",
+			DR: "#ffb",
+			DL: "#8df",
+			DBR: "#f9f",
+			DBL: "#f83",
+			B: "#7e0",
+			D: "#999"
+		},
+		cstimerOrder: [
+			"U",
+			"R",
+			"F",
+			"L",
+			"BL",
+			"BR",
+			"DR",
+			"DL",
+			"DBL",
+			"B",
+			"DBR",
+			"D"
+		],
+		methods: {
+			default: "mgmp",
+			"random-state": "mgmso",
+			"random-move": "mgmp"
+		}
+	},
+	pyram: {
+		name: "Pyraminx",
+		colorSetting: "colpyr",
+		defaultColors: {
+			F: "#0f0",
+			L: "#f00",
+			R: "#00f",
+			D: "#ff0"
+		},
+		cstimerOrder: [
+			"F",
+			"L",
+			"R",
+			"D"
+		],
+		methods: {
+			default: "pyrso",
+			"random-state": "pyrso",
+			"random-move": "pyrm"
+		}
+	},
+	skewb: {
+		name: "Skewb",
+		colorSetting: "colskb",
+		defaultColors: {
+			U: "#fff",
+			R: "#f00",
+			F: "#0f0",
+			D: "#ff0",
+			L: "#f80",
+			B: "#00f"
+		},
+		cstimerOrder: [
+			"U",
+			"B",
+			"R",
+			"D",
+			"F",
+			"L"
+		],
+		methods: {
+			default: "skbso",
+			"random-state": "skbso",
+			"random-move": "skb"
+		}
+	},
+	sq1: {
+		name: "Square-1",
+		colorSetting: "colsq1",
+		defaultColors: {
+			U: "#ff0",
+			R: "#f80",
+			F: "#0f0",
+			D: "#fff",
+			L: "#f00",
+			B: "#00f"
+		},
+		cstimerOrder: [
+			"U",
+			"R",
+			"F",
+			"D",
+			"L",
+			"B"
+		],
+		methods: {
+			default: "sqrs",
+			"random-state": "sqrs",
+			"random-move": "sq1h"
+		}
+	}
+};
+/** Cubes bigger than 7x7x7: csTimer only has random-move scrambles for them. */
+const BIG_CUBES = Object.fromEntries([
+	8,
+	9,
+	10,
+	11
+].map((n) => {
+	const id = String(n).repeat(3);
+	return [id, cube(n, {
+		default: id,
+		"random-move": id
+	})];
+}));
+/** Names of the other puzzles, by the `puzzle` group of their scramble types. */
+const OTHER_NAMES = {
+	fto: "FTO",
+	"15p": "15 puzzle",
+	"8p": "8 puzzle",
+	"133": "1x3x3 (Floppy Cube)",
+	"223": "2x2x3 (Tower Cube)",
+	"233": "2x3x3 (Domino)",
+	nnn: "NxNxN",
+	mrbl: "Mirror Blocks",
+	gear: "Gear Cube",
+	klm: "Kilominx",
+	giga: "Gigaminx",
+	crz3a: "Crazy 3x3x3",
+	cmetrick: "Cmetrick",
+	heli: "Helicopter Cube",
+	redi: "Redi Cube",
+	dino: "Dino Cube",
+	ivy: "Ivy Cube",
+	mpyr: "Master Pyraminx",
+	prc: "Pyraminx Crystal",
+	sia: "Siamese Cube",
+	sq2: "Square-2",
+	sfl: "Super Floppy",
+	ufo: "UFO",
+	ico: "Icosahedron",
+	bandaged: "Bandaged puzzles",
+	dmd: "Diamond",
+	relay: "Relays",
+	joke: "Joke scrambles"
+};
+/**
+* The puzzle info for an id: a WCA puzzle, a big cube, or any other `puzzle` group of
+* csTimer's scramble types. The others have csTimer's colors only, and their methods
+* come from their types' names ("random state", "random move").
+*/
+function puzzleInfo(id) {
+	const known = PUZZLES[id] ?? BIG_CUBES[id];
+	if (known) return known;
+	const types = listEvents().filter((event) => event.puzzle === id);
+	if (types.length === 0) return void 0;
+	const methods = { default: types[0].id };
+	const state = types.find((type) => /random state/.test(type.name));
+	const move = types.find((type) => /random move/.test(type.name));
+	if (state) methods["random-state"] = state.id;
+	if (move) methods["random-move"] = move.id;
+	return {
+		name: OTHER_NAMES[id] ?? types[0].name,
+		colorSetting: "",
+		defaultColors: {},
+		cstimerOrder: [],
+		methods
+	};
+}
+const METHODS = [
+	"default",
+	"random-state",
+	"random-move"
+];
+const HEX_COLOR = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i;
+/**
+* csTimer draws with 3-digit colors (#rgb), so a 6-digit color becomes the nearest one,
+* e.g. "#ff8000" -> "#f80".
+*/
+function toCstimerColor(color) {
+	const hex = color.slice(1);
+	if (hex.length === 3) return color;
+	let short = "#";
+	for (let i = 0; i < 6; i += 2) short += Math.round(parseInt(hex.slice(i, i + 2), 16) / 17).toString(16);
+	return short;
+}
+/**
+* csTimer's Square-1 drawing reads one turn like `(1,0)` between slashes, so turns in a
+* row, e.g. where a scramble ends and a solution starts, are added up into one turn.
+* Anything else is left as it is.
+*/
+function joinSq1Turns(moves) {
+	const tokens = moves.match(/\(\s*-?\d+\s*,\s*-?\d+\s*\)|\/|\S/g) ?? [];
+	if (tokens.some((token) => token !== "/" && !token.startsWith("("))) return moves;
+	const out = [];
+	for (const token of tokens) {
+		const last = out[out.length - 1];
+		if (token === "/") out.push(token);
+		else {
+			const [top, bottom] = token.slice(1, -1).split(",").map(Number);
+			if (Array.isArray(last)) {
+				last[0] += top;
+				last[1] += bottom;
+			} else out.push([top, bottom]);
+		}
+	}
+	const turn = (n) => ((n + 5) % 12 + 12) % 12 - 5;
+	return out.map((token) => typeof token === "string" ? token : ` (${turn(token[0])},${turn(token[1])})`).join("").trim();
+}
+/**
+* Counts the moves in `moves`, written in the puzzle's notation: the moves between
+* spaces, except on Square-1, where each slash `/` is one move (twist metric) and the
+* turns between them are free. Relay numbers like `2)` are not moves.
+*/
+function countMoves(puzzleId, moves) {
+	if (puzzleId === "sq1") return (moves.match(/\//g) ?? []).length;
+	return moves.split(/\s+/).filter((move) => move && !/^\w+\)$/.test(move)).length;
+}
+/**
+* Ids of the puzzles `new Puzzle(id)` accepts, e.g. `'333'`, `'pyram'`: the WCA puzzles
+* first, then every other puzzle csTimer has scrambles for (the `puzzle` groups of
+* `listEvents()`, in the same order).
+*/
+function listPuzzles() {
+	const ids = new Set(Object.keys(PUZZLES));
+	for (const event of listEvents()) ids.add(event.puzzle);
+	return [...ids];
+}
+var _info = /* @__PURE__ */ new WeakMap();
+var _colors = /* @__PURE__ */ new WeakMap();
+var _imageSize = /* @__PURE__ */ new WeakMap();
+var _imageStyle = /* @__PURE__ */ new WeakMap();
+var _hiddenFaces = /* @__PURE__ */ new WeakMap();
+var _cubeStyle = /* @__PURE__ */ new WeakMap();
+var _cameraMode = /* @__PURE__ */ new WeakMap();
+var _cameraAngle = /* @__PURE__ */ new WeakMap();
+var _floatingOffsets = /* @__PURE__ */ new WeakMap();
+var _faceOffsets = /* @__PURE__ */ new WeakMap();
+var _styles = /* @__PURE__ */ new WeakMap();
+var _method = /* @__PURE__ */ new WeakMap();
+var _length = /* @__PURE__ */ new WeakMap();
+var _scramble = /* @__PURE__ */ new WeakMap();
+var _solution = /* @__PURE__ */ new WeakMap();
+var _rules = /* @__PURE__ */ new WeakMap();
+var _fmc = /* @__PURE__ */ new WeakMap();
+var _solveTimeLimit = /* @__PURE__ */ new WeakMap();
+var _solved = /* @__PURE__ */ new WeakMap();
+var _stopSolving = /* @__PURE__ */ new WeakMap();
+var _scrambleType = /* @__PURE__ */ new WeakMap();
+var _type = /* @__PURE__ */ new WeakMap();
+var _Puzzle_brand = /* @__PURE__ */ new WeakSet();
+/**
+* One physical puzzle, e.g. `new Puzzle('333')`. Each puzzle keeps its own settings
+* (colors, image size, scramble method and length), so two puzzles never affect each other.
+*
+* Settings are changed with `set...` methods, which return the puzzle so they can be
+* chained: `new Puzzle('333').setColor('U', '#ff0').setImageSize(200)`.
+*/
+var Puzzle = class {
+	constructor(id) {
+		_classPrivateMethodInitSpec(this, _Puzzle_brand);
+		_classPrivateFieldInitSpec(this, _info, void 0);
+		_classPrivateFieldInitSpec(this, _colors, void 0);
+		_classPrivateFieldInitSpec(this, _imageSize, void 0);
+		_classPrivateFieldInitSpec(this, _imageStyle, "separated");
+		_classPrivateFieldInitSpec(this, _hiddenFaces, "hidden");
+		_classPrivateFieldInitSpec(this, _cubeStyle, "classic");
+		_classPrivateFieldInitSpec(this, _cameraMode, "mouse");
+		_classPrivateFieldInitSpec(this, _cameraAngle, { ...DEFAULT_CAMERA_ANGLE });
+		_classPrivateFieldInitSpec(this, _floatingOffsets, {});
+		_classPrivateFieldInitSpec(this, _faceOffsets, {});
+		_classPrivateFieldInitSpec(this, _styles, []);
+		_classPrivateFieldInitSpec(this, _method, "default");
+		_classPrivateFieldInitSpec(this, _length, void 0);
+		_classPrivateFieldInitSpec(this, _scramble, "");
+		_classPrivateFieldInitSpec(this, _solution, "");
+		_classPrivateFieldInitSpec(this, _rules, {
+			countRotations: true,
+			sliceMoves: "one-move",
+			wideMoves: "Rw-or-r"
+		});
+		_classPrivateFieldInitSpec(this, _fmc, false);
+		_classPrivateFieldInitSpec(this, _solveTimeLimit, 3e3);
+		_classPrivateFieldInitSpec(this, _solved, void 0);
+		_classPrivateFieldInitSpec(this, _stopSolving, void 0);
+		_classPrivateFieldInitSpec(this, _scrambleType, "");
+		_classPrivateFieldInitSpec(this, _type, void 0);
+		const info = puzzleInfo(id);
+		if (!info) throw new Error(`Unknown puzzle "${id}". Puzzles: ${listPuzzles().join(", ")}`);
+		this.id = id;
+		this.name = info.name;
+		_classPrivateFieldSet2(_info, this, info);
+		_classPrivateFieldSet2(_colors, this, { ...info.defaultColors });
+	}
+	/** Names `setColor` accepts, e.g. `['U', 'R', 'F', 'D', 'L', 'B']` for cubes. */
+	getFaces() {
+		return Object.keys(_classPrivateFieldGet2(_info, this).defaultColors);
+	}
+	/**
+	* Sets the color of one face (or part, for clock), as a hex color like `'#ff0'` or
+	* `'#ffaa00'`. csTimer draws with 3-digit colors, so 6-digit ones are rounded to the
+	* nearest of those.
+	*/
+	setColor(face, color) {
+		if (!Object.prototype.hasOwnProperty.call(_classPrivateFieldGet2(_colors, this), face)) throw new Error(`${this.name} has no face "${face}". Faces: ${this.getFaces().join(", ")}`);
+		if (!HEX_COLOR.test(color)) throw new Error(`"${color}" is not a hex color like "#ff0" or "#ffaa00"`);
+		_classPrivateFieldGet2(_colors, this)[face] = color.toLowerCase();
+		return this;
+	}
+	/** Sets several colors at once, e.g. `{ U: '#ff0', D: '#fff' }`. */
+	setColors(colors) {
+		for (const [face, color] of Object.entries(colors)) this.setColor(face, color);
+		return this;
+	}
+	/** Every face's color, e.g. `{ D: '#ff0', L: '#fa0', ... }`. */
+	getColors() {
+		return { ..._classPrivateFieldGet2(_colors, this) };
+	}
+	/** Goes back to csTimer's default colors. */
+	resetColors() {
+		_classPrivateFieldSet2(_colors, this, { ..._classPrivateFieldGet2(_info, this).defaultColors });
+		return this;
+	}
+	/**
+	* Sets the width of `getImage()`'s SVG in pixels; the height follows the picture's
+	* shape. Without it the SVG keeps csTimer's own size. It can still be resized with CSS.
+	* For cubes it sets the size of a face, `width / 4` pixels, the same in the picture (with
+	* any style but `'cstimer'`) and in the `show3D` view: the joined picture and the 3D view
+	* with floating faces are `width` pixels wide, the separated picture a little wider for
+	* its gaps and the 3D view with hidden faces a little over half as wide.
+	*/
+	setImageSize(width) {
+		if (!(width > 0) || !Number.isFinite(width)) throw new Error(`Image size must be a positive number of pixels, not ${width}`);
+		_classPrivateFieldSet2(_imageSize, this, width);
+		return this;
+	}
+	/** The width set with `setImageSize`, or `undefined` for the default sizes. */
+	getImageSize() {
+		return _classPrivateFieldGet2(_imageSize, this);
+	}
+	/**
+	* Picks how `getImage()` draws the puzzle: `'separated'` (the default), `'joined'` or
+	* `'cstimer'` (see `ImageStyle`). Cubes are drawn by this library in the style of the
+	* 3D view; the other puzzles keep csTimer's drawing, with thicker black borders.
+	*/
+	setImageStyle(style) {
+		if (!IMAGE_STYLES.includes(style)) throw new Error(`Unknown image style "${style}". Styles: ${IMAGE_STYLES.join(", ")}`);
+		_classPrivateFieldSet2(_imageStyle, this, style);
+		return this;
+	}
+	/** The style set with `setImageStyle`, `'separated'` by default. */
+	getImageStyle() {
+		return _classPrivateFieldGet2(_imageStyle, this);
+	}
+	/**
+	* Picks a ready-made look for a cube's tiles, in `getImage()` (with any image style but
+	* `'cstimer'`) and in `show3D` alike: `'classic'` (the default), `'stickered'`,
+	* `'stickered-round'`, `'stickerless'` or `'stickerless-round'` (see `CubeStyle`).
+	* Styles from `setElementStyle` still win over it. Only cubes have it (see `has3DView`);
+	* the other puzzles are drawn as before.
+	*/
+	setCubeStyle(style) {
+		if (!CUBE_STYLES.includes(style)) throw new Error(`Unknown cube style "${style}". Styles: ${CUBE_STYLES.join(", ")}`);
+		_classPrivateFieldSet2(_cubeStyle, this, style);
+		return this;
+	}
+	/** The style set with `setCubeStyle`, `'classic'` by default. */
+	getCubeStyle() {
+		return _classPrivateFieldGet2(_cubeStyle, this);
+	}
+	/**
+	* Picks what `show3D` does with the faces you can't see from where you look:
+	* - `'hidden'` (the default): they are hidden behind the cube, as on a real one.
+	* - `'floating'`: a copy of each of them, as big as the face, floats one cube side out
+	*   from it, seen as through a glass cube, so every face can be seen at once. A face
+	*   pointing straight away from you can still have its copy partly behind the cube.
+	*   Turning the cube swaps which faces float. `setFloatingFaceOffset` moves and turns
+	*   the copies.
+	*/
+	setHiddenFaces(mode) {
+		if (!HIDDEN_FACES.includes(mode)) throw new Error(`Unknown hidden faces mode "${mode}". Modes: ${HIDDEN_FACES.join(", ")}`);
+		_classPrivateFieldSet2(_hiddenFaces, this, mode);
+		return this;
+	}
+	/** The mode set with `setHiddenFaces`, `'hidden'` by default. */
+	getHiddenFaces() {
+		return _classPrivateFieldGet2(_hiddenFaces, this);
+	}
+	/**
+	* Moves and turns the floating copy of one face of the `show3D` view (with
+	* `setHiddenFaces('floating')`) from where it floats by default, e.g.
+	* `setFloatingFaceOffset('L', { x: 1, rotateY: 45 })`. Positions are in face widths and
+	* turns in degrees, in the cube's directions: x toward R, y toward U, z toward F (see
+	* `FaceOffset`). Values left out are 0, and it replaces the face's earlier offset.
+	* Any of the six faces can be moved; a copy only shows while its face is at the back.
+	* Only for cubes (see `has3DView`).
+	*/
+	setFloatingFaceOffset(face, offset) {
+		_classPrivateFieldGet2(_floatingOffsets, this)[face] = _assertClassBrand(_Puzzle_brand, this, _checkOffset).call(this, face, offset);
+		return this;
+	}
+	/** The offset set with `setFloatingFaceOffset` for one face, all 0 by default. */
+	getFloatingFaceOffset(face) {
+		return { ..._classPrivateFieldGet2(_floatingOffsets, this)[face] ?? NO_OFFSET };
+	}
+	/** Puts every floating face back where it floats by default. */
+	resetFloatingFaceOffsets() {
+		_classPrivateFieldSet2(_floatingOffsets, this, {});
+		return this;
+	}
+	/**
+	* Moves and turns one face of the cube itself in the `show3D` view, the way
+	* `setFloatingFaceOffset` moves a floating copy, e.g. `setFaceOffset('U', { y: 0.5 })` to
+	* lift the top face off the cube. It works with hidden and floating back faces alike.
+	* Only for cubes (see `has3DView`).
+	*/
+	setFaceOffset(face, offset) {
+		_classPrivateFieldGet2(_faceOffsets, this)[face] = _assertClassBrand(_Puzzle_brand, this, _checkOffset).call(this, face, offset);
+		return this;
+	}
+	/** The offset set with `setFaceOffset` for one face, all 0 by default. */
+	getFaceOffset(face) {
+		return { ..._classPrivateFieldGet2(_faceOffsets, this)[face] ?? NO_OFFSET };
+	}
+	/** Puts every face of the cube back in its place. */
+	resetFaceOffsets() {
+		_classPrivateFieldSet2(_faceOffsets, this, {});
+		return this;
+	}
+	/**
+	* Adds a style of your own to some parts of the picture, in `getImage()`'s SVG and in the
+	* `show3D` view: the whole picture (`'image'`), the faces (`'face'`) or the tiles
+	* (`'tile'`), all of them or only those of one face, or one tile by its number on its face
+	* (counted row by row from the top left, from 0). `css` holds CSS properties and values,
+	* e.g. `setElementStyle('tile', { stroke: '#fff', strokeWidth: '2' })` or
+	* `setElementStyle('face', { opacity: '0.4' }, { face: 'B' })`. Styles add up, and a later
+	* one wins over an earlier one on the same property.
+	*
+	* The SVG takes SVG properties (`fill`, `stroke`, `rx`, `opacity`...) and the 3D view
+	* HTML ones (`background`, `border-radius`, `opacity`...). A face of the SVG is a group:
+	* its `fill` colors its black background, its `stroke` outlines its background and tiles.
+	* Faces and tile numbers are for cubes drawn by this library (any image style but
+	* `'cstimer'`, and the 3D view); csTimer's pictures only have the image and its tiles. The
+	* same parts carry class names and data attributes (`cstimer-image`, `cstimer-face`,
+	* `cstimer-tile`, `data-face`, `data-tile`) for styling with a page's own CSS instead.
+	*/
+	setElementStyle(part, css, where = {}) {
+		if (!IMAGE_PARTS.includes(part)) throw new Error(`Unknown part "${part}". Parts: ${IMAGE_PARTS.join(", ")}`);
+		for (const [property, value] of Object.entries(css)) if (typeof value !== "string" || !/^[a-zA-Z-]+$/.test(property)) throw new Error(`CSS must be property names with text values, not ${property}: ${value}`);
+		if ((where.face !== void 0 || where.tile !== void 0) && !this.has3DView()) throw new Error(`Only cubes have faces and tile numbers to style, not ${this.name}`);
+		if (where.face !== void 0 && !CUBE_FACES.includes(where.face)) throw new Error(`${this.name} has no face "${where.face}". Faces: ${CUBE_FACES.join(", ")}`);
+		if (where.tile !== void 0 && !(Number.isInteger(where.tile) && where.tile >= 0)) throw new Error(`A tile number must be a whole number from 0, not ${where.tile}`);
+		const style = {
+			part,
+			css: { ...css }
+		};
+		if (where.face !== void 0) style.face = where.face;
+		if (where.tile !== void 0) style.tile = where.tile;
+		_classPrivateFieldGet2(_styles, this).push(style);
+		return this;
+	}
+	/** The styles added with `setElementStyle`, in the order they were added. */
+	getElementStyles() {
+		return _classPrivateFieldGet2(_styles, this).map((style) => ({
+			...style,
+			css: { ...style.css }
+		}));
+	}
+	/** Takes away every style added with `setElementStyle`. */
+	resetElementStyles() {
+		_classPrivateFieldSet2(_styles, this, []);
+		return this;
+	}
+	/**
+	* Picks how the camera of the `show3D` view moves: `'mouse'` (the default) lets the
+	* cube be dragged with the mouse or a finger to look at every side, `'fixed'` keeps it
+	* at the camera angle (see `setCameraAngle`).
+	*/
+	setCameraMode(mode) {
+		if (!CAMERA_MODES.includes(mode)) throw new Error(`Unknown camera mode "${mode}". Modes: ${CAMERA_MODES.join(", ")}`);
+		_classPrivateFieldSet2(_cameraMode, this, mode);
+		return this;
+	}
+	/** The mode set with `setCameraMode`, `'mouse'` by default. */
+	getCameraMode() {
+		return _classPrivateFieldGet2(_cameraMode, this);
+	}
+	/**
+	* Sets where the camera of the `show3D` view looks from, in degrees: `x` tilts the cube
+	* (negative shows its top), then `y` turns it sideways (negative shows its right side).
+	* By default the U R F corner is in the middle, pointing straight at the camera
+	* (`{ x: -35.26..., y: -45 }`). With the `'mouse'` camera the view goes there the next
+	* time `show3D` is called, and can then be dragged away from it.
+	*/
+	setCameraAngle(angle) {
+		for (const value of [angle.x, angle.y]) if (typeof value !== "number" || !Number.isFinite(value)) throw new Error(`Camera angles must be numbers of degrees, not ${value}`);
+		_classPrivateFieldSet2(_cameraAngle, this, {
+			x: angle.x,
+			y: angle.y
+		});
+		return this;
+	}
+	/** The angle set with `setCameraAngle`, the U R F corner by default. */
+	getCameraAngle() {
+		return { ..._classPrivateFieldGet2(_cameraAngle, this) };
+	}
+	/** Goes back to the default camera angle, the U R F corner. */
+	resetCameraAngle() {
+		_classPrivateFieldSet2(_cameraAngle, this, { ...DEFAULT_CAMERA_ANGLE });
+		return this;
+	}
+	/** Which methods `setScrambleMethod` accepts for this puzzle. */
+	getScrambleMethods() {
+		return METHODS.filter((method) => method in _classPrivateFieldGet2(_info, this).methods);
+	}
+	/**
+	* Picks how `scramble()` makes scrambles: `'default'` (the WCA way), `'random-state'`
+	* or `'random-move'`. Throws if csTimer has no such scrambler for this puzzle
+	* (see `getScrambleMethods`). It replaces a type picked with `setScrambleType`.
+	*/
+	setScrambleMethod(method) {
+		if (!(method in _classPrivateFieldGet2(_info, this).methods)) throw new Error(`${this.name} has no "${method}" scrambles. Methods: ${this.getScrambleMethods().join(", ")}`);
+		_classPrivateFieldSet2(_method, this, method);
+		_classPrivateFieldSet2(_type, this, void 0);
+		return this;
+	}
+	/** The method `scramble()` uses, or `undefined` when a type was picked with `setScrambleType`. */
+	getScrambleMethod() {
+		return _classPrivateFieldGet2(_type, this) === void 0 ? _classPrivateFieldGet2(_method, this) : void 0;
+	}
+	/**
+	* The csTimer scramble type `scramble()` uses, e.g. `'333o'`: the one picked with
+	* `setScrambleType`, or else the current method's.
+	*/
+	getScrambleType() {
+		return _classPrivateFieldGet2(_type, this) ?? _classPrivateFieldGet2(_info, this).methods[_classPrivateFieldGet2(_method, this)];
+	}
+	/**
+	* Every csTimer scramble type for this puzzle, e.g. for 3x3x3 `{ id: 'pll', name:
+	* '3x3x3 CFOP PLL' }` and 48 more, in csTimer's menu order. Any of them can be picked with
+	* `setScrambleType`.
+	*/
+	getScrambleTypes() {
+		return listEvents().filter((event) => event.puzzle === this.id).map(({ id, name }) => ({
+			id,
+			name
+		}));
+	}
+	/**
+	* Makes `scramble()` use one of csTimer's scramble types for this puzzle, e.g.
+	* `setScrambleType('pll')` for PLL cases (see `getScrambleTypes`), instead of the
+	* method's. `setScrambleMethod` goes back to the methods.
+	*/
+	setScrambleType(type) {
+		if (getEvent(type)?.puzzle !== this.id) throw new Error(`"${type}" is not a ${this.name} scramble type`);
+		_classPrivateFieldSet2(_type, this, type);
+		return this;
+	}
+	/**
+	* Sets how many moves `scramble()` makes, e.g. `setScrambleLength(30)`. It is used by
+	* methods that make random moves; random-state scrambles are as long as they need to
+	* be, so they ignore it (see `getScrambleLength`). Megaminx rounds it up to whole
+	* lines of 10 moves.
+	*/
+	setScrambleLength(length) {
+		if (!Number.isInteger(length) || length < 1) throw new Error(`Scramble length must be a whole number of moves, at least 1, not ${length}`);
+		_classPrivateFieldSet2(_length, this, length);
+		return this;
+	}
+	/**
+	* How many moves `scramble()` will make with the current method: the length set with
+	* `setScrambleLength`, or csTimer's default for the method. `undefined` when the method
+	* picks its own length (random-state scrambles).
+	*/
+	getScrambleLength() {
+		const defaultLength = getEvent(this.getScrambleType())?.length;
+		return defaultLength === void 0 ? void 0 : _classPrivateFieldGet2(_length, this) ?? defaultLength;
+	}
+	/** Goes back to csTimer's default scramble length. */
+	resetScrambleLength() {
+		_classPrivateFieldSet2(_length, this, void 0);
+		return this;
+	}
+	/**
+	* Makes a new scramble with the current method and length, and scrambles the puzzle
+	* with it (clearing any solution), so `getImage()` then shows it.
+	*/
+	scramble() {
+		_classPrivateFieldSet2(_scrambleType, this, this.getScrambleType());
+		_classPrivateFieldSet2(_scramble, this, getScramble(_classPrivateFieldGet2(_scrambleType, this), this.getScrambleLength()));
+		_classPrivateFieldSet2(_solution, this, "");
+		return _classPrivateFieldGet2(_scramble, this);
+	}
+	/**
+	* Scrambles the puzzle with a scramble of your own, e.g. `setScramble("R U R' U'")`,
+	* written in csTimer's notation for this puzzle. The solution is kept.
+	*/
+	setScramble(scramble) {
+		_classPrivateFieldSet2(_scrambleType, this, this.getScrambleType());
+		_classPrivateFieldSet2(_scramble, this, scramble.trim());
+		return this;
+	}
+	/** The scramble the puzzle was last scrambled with, or `''` when it is solved. */
+	getScramble() {
+		return _classPrivateFieldGet2(_scramble, this);
+	}
+	/**
+	* Sets the moves done after the scramble, e.g. a solution being typed, so `getImage()`
+	* shows the puzzle after the scramble and then these moves. Same notation as the scramble.
+	*/
+	setSolution(moves) {
+		_classPrivateFieldSet2(_solution, this, moves.trim());
+		return this;
+	}
+	/** The moves set with `setSolution`, or `''`. */
+	getSolution() {
+		return _classPrivateFieldGet2(_solution, this);
+	}
+	/**
+	* How many moves the scramble has. Moves are counted between spaces, except on
+	* Square-1, where each slash is one move (twist metric).
+	*/
+	getScrambleMoveCount() {
+		return countMoves(this.id, _classPrivateFieldGet2(_scramble, this));
+	}
+	/**
+	* How many moves the solution has, counted like `getScrambleMoveCount`. On cubes the
+	* solution options change this: rotations may be free (`setCountRotations`) and slice
+	* moves may count as 2 (`setSliceMoves`), and FMC mode (`setFmcMode`) uses its own rules.
+	*/
+	getSolutionMoveCount() {
+		if (!_assertClassBrand(_Puzzle_brand, this, _hasCubeNotation).call(this)) return countMoves(this.id, _classPrivateFieldGet2(_solution, this));
+		return countSolutionMoves(_classPrivateFieldGet2(_solution, this), _assertClassBrand(_Puzzle_brand, this, _solutionRules).call(this));
+	}
+	/**
+	* Whether the rotations x, y and z count toward the solution's move count: `true` (the
+	* default) or `false`. Cubes only; FMC mode never counts them.
+	*/
+	setCountRotations(count) {
+		_classPrivateFieldGet2(_rules, this).countRotations = count;
+		return this;
+	}
+	/** What was set with `setCountRotations`, `true` by default. */
+	getCountRotations() {
+		return _classPrivateFieldGet2(_rules, this).countRotations;
+	}
+	/**
+	* Whether the slice moves M, S and E are allowed in the solution, and if so whether each
+	* counts as 1 or 2 moves: `'one-move'` (the default), `'two-moves'` or `'not-allowed'`
+	* (see `SliceMoves`). Cubes only; FMC mode never allows them.
+	*/
+	setSliceMoves(mode) {
+		if (!SLICE_MOVES.includes(mode)) throw new Error(`Unknown slice moves mode "${mode}". Modes: ${SLICE_MOVES.join(", ")}`);
+		_classPrivateFieldGet2(_rules, this).sliceMoves = mode;
+		return this;
+	}
+	/** The mode set with `setSliceMoves`, `'one-move'` by default. */
+	getSliceMoves() {
+		return _classPrivateFieldGet2(_rules, this).sliceMoves;
+	}
+	/**
+	* How wide moves may be written in the solution: `'Rw-or-r'` (the default) or
+	* `'Rw-only'`, where `r` is not allowed (see `WideMoves`). Cubes only; FMC mode always
+	* uses `'Rw-only'`.
+	*/
+	setWideMoves(mode) {
+		if (!WIDE_MOVES.includes(mode)) throw new Error(`Unknown wide moves mode "${mode}". Modes: ${WIDE_MOVES.join(", ")}`);
+		_classPrivateFieldGet2(_rules, this).wideMoves = mode;
+		return this;
+	}
+	/** The mode set with `setWideMoves`, `'Rw-or-r'` by default. */
+	getWideMoves() {
+		return _classPrivateFieldGet2(_rules, this).wideMoves;
+	}
+	/**
+	* Turns FMC mode on or off (off by default). While it is on, the solution follows the WCA
+	* Fewest Moves rules, whatever the other solution options say: rotations don't count,
+	* M, S and E are not allowed, wide moves are written only as `Rw`, and the solve status is
+	* only `'solved'` or `'DNF'`, never `'+2'`. The other options are kept and apply again
+	* when it is turned off. Cubes only.
+	*/
+	setFmcMode(on) {
+		_classPrivateFieldSet2(_fmc, this, on);
+		return this;
+	}
+	/** Whether FMC mode is on, `false` by default. */
+	getFmcMode() {
+		return _classPrivateFieldGet2(_fmc, this);
+	}
+	/**
+	* The moves of the solution that aren't allowed by the solution options, or that can't be
+	* read as cube moves at all, in the order they are typed, e.g. `['M', 'r']`. Always `[]`
+	* for puzzles other than the cubes. Moves the options don't allow aren't done on the
+	* cube: `getImage`, `getStickers` and `show3D` show it without them.
+	*/
+	getInvalidMoves() {
+		if (!_assertClassBrand(_Puzzle_brand, this, _hasCubeNotation).call(this)) return [];
+		return invalidSolutionMoves(_classPrivateFieldGet2(_solution, this), _assertClassBrand(_Puzzle_brand, this, _solutionRules).call(this));
+	}
+	/**
+	* Whether the scramble and then the solution leave the cube solved: `'solved'`, `'+2'`
+	* when one more outer block turn would solve it, or `'DNF'` (see `SolveStatus`). A
+	* solution with a move that isn't allowed is a DNF (see `getInvalidMoves`), and FMC mode
+	* has no +2. `undefined` for puzzles other than the cubes, which can't be checked yet.
+	*/
+	getSolveStatus() {
+		const size = _classPrivateFieldGet2(_info, this).cubeSize;
+		if (size === void 0 || !_assertClassBrand(_Puzzle_brand, this, _hasCubeNotation).call(this)) return void 0;
+		if (this.getInvalidMoves().length > 0) return "DNF";
+		return cubeSolveStatus(size, [_classPrivateFieldGet2(_scramble, this), _classPrivateFieldGet2(_solution, this)].filter(Boolean).join(" "), !_classPrivateFieldGet2(_fmc, this));
+	}
+	/**
+	* Whether `solve` works for this puzzle with its current scramble type: 2x2x2, 3x3x3,
+	* 4x4x4, Pyraminx, Skewb, Square-1 and FTO, with their own scramble types (not relays or
+	* other notations).
+	*/
+	hasSolver() {
+		const solver = SOLVERS[this.id];
+		if (!solver) return false;
+		const type = _classPrivateFieldGet2(_scramble, this) ? _classPrivateFieldGet2(_scrambleType, this) : this.getScrambleType();
+		return tools.puzzleType(type) === solver.notation;
+	}
+	/**
+	* How this puzzle's solver solves (see `SolverKind`), `undefined` when it has none (see
+	* `hasSolver`):
+	* - `'fewest-moves'` (2x2x2, Pyraminx, Skewb): always the fewest moves, at once.
+	* - `'search'` (3x3x3): looks for shorter solutions within the time limit (see
+	*   `setSolveTimeLimit`).
+	* - `'phases'` (4x4x4, Square-1, FTO): one solution made in phases, longer than the
+	*   shortest; the time limit doesn't apply.
+	*/
+	getSolverKind() {
+		return this.hasSolver() ? SOLVERS[this.id].kind : void 0;
+	}
+	/**
+	* How long `solve` and `solveAsync` may search for a shorter 3x3x3 solution, in
+	* milliseconds (default 3000). A few seconds usually gets 17 to 19 moves, often the
+	* shortest there is, but proving that nothing shorter exists can take many minutes.
+	* `Infinity` searches until it has that proof, so the solution is always the shortest.
+	* Only 3x3x3's solver searches (see `getSolverKind`); the others are done at once.
+	*/
+	setSolveTimeLimit(ms) {
+		if (!(ms > 0)) throw new Error(`The solve time limit must be more than 0 ms, not ${ms}`);
+		_classPrivateFieldSet2(_solveTimeLimit, this, ms);
+		return this;
+	}
+	getSolveTimeLimit() {
+		return _classPrivateFieldGet2(_solveTimeLimit, this);
+	}
+	/**
+	* Finds the shortest solution it can for the scramble with csTimer's own solvers, and
+	* makes it the puzzle's solution (replacing anything set with `setSolution`), so
+	* `getImage()` then shows the puzzle solved. Returns that solution, `''` if the scramble
+	* leaves the puzzle solved. It is a computer solution, not a human method:
+	* - 2x2x2: the fewest moves (only U, R and F turns, R2 counts as one move).
+	* - 3x3x3: the shortest found within the time limit (see `setSolveTimeLimit`), in the
+	*   half-turn metric; `isSolutionShortest` says whether it is known to be the shortest.
+	* - 4x4x4: outer and wide (Rw) turns, solved by reduction, about 45 moves.
+	* - Pyraminx: the fewest moves, the tips last. Skewb: the fewest moves.
+	* - Square-1: written like csTimer's scrambles, `(1,0)/ (-3,0)/ ...`, about 12 slices.
+	* - FTO: face turns, solved in three phases, about 30 moves.
+	* See `getSolverKind`. On cubes it uses no slice moves, so it follows every solution
+	* option, FMC mode included. It solves the scramble as the puzzle's own scramble types
+	* write it (rotations, wide and slice moves on cubes; not on the others), and throws on
+	* moves it can't read. The page can't do anything else while it searches; `solveAsync`
+	* lets it. The first 3x3x3, 4x4x4 or FTO solve takes a bit longer while the solver sets
+	* up. Throws on puzzles without a solver (see `hasSolver`).
+	*/
+	solve() {
+		const search = _assertClassBrand(_Puzzle_brand, this, _startSearch).call(this);
+		const end = performance.now() + _classPrivateFieldGet2(_solveTimeLimit, this);
+		while (!search.done && performance.now() < end) search.step();
+		return _assertClassBrand(_Puzzle_brand, this, _finishSearch).call(this, search);
+	}
+	/**
+	* The same as `solve`, but searches in small steps, letting the page carry on between
+	* them, and calls `onProgress` with each shorter solution it finds. `stopSolving` ends it
+	* early with the shortest found so far. The solution only becomes the puzzle's if its
+	* scramble is still the same at the end.
+	*/
+	async solveAsync(onProgress) {
+		const search = _assertClassBrand(_Puzzle_brand, this, _startSearch).call(this);
+		_classPrivateFieldGet2(_stopSolving, this)?.call(this);
+		let stopped = false;
+		const stop = () => {
+			stopped = true;
+		};
+		_classPrivateFieldSet2(_stopSolving, this, stop);
+		const end = performance.now() + _classPrivateFieldGet2(_solveTimeLimit, this);
+		onProgress?.(search.solution);
+		while (!search.done && !stopped && performance.now() < end) {
+			await new Promise((resolve) => setTimeout(resolve, 0));
+			if (stopped) break;
+			if (search.step() && !search.done) onProgress?.(search.solution);
+		}
+		if (_classPrivateFieldGet2(_stopSolving, this) === stop) _classPrivateFieldSet2(_stopSolving, this, void 0);
+		return _assertClassBrand(_Puzzle_brand, this, _finishSearch).call(this, search);
+	}
+	/** Ends the running `solveAsync`, if any, with the shortest solution found so far. */
+	stopSolving() {
+		_classPrivateFieldGet2(_stopSolving, this)?.call(this);
+		_classPrivateFieldSet2(_stopSolving, this, void 0);
+		return this;
+	}
+	/**
+	* Whether the puzzle's solution is the one the last solve found and that solve made sure
+	* no shorter solution exists. Always true after solving a 2x2x2, Pyraminx or Skewb; on
+	* 3x3x3 only when the search finished within the time limit (see `setSolveTimeLimit`);
+	* never on 4x4x4, Square-1 or FTO, whose solvers solve in phases (see `getSolverKind`).
+	*/
+	isSolutionShortest() {
+		const solved = _classPrivateFieldGet2(_solved, this);
+		return solved !== void 0 && solved.shortest && solved.scramble === _classPrivateFieldGet2(_scramble, this) && solved.solution === _classPrivateFieldGet2(_solution, this);
+	}
+	/** Puts the puzzle back to solved: no scramble and no solution. */
+	reset() {
+		_classPrivateFieldSet2(_scramble, this, "");
+		_classPrivateFieldSet2(_solution, this, "");
+		return this;
+	}
+	/** Whether `getStickers` and `show3D` work for this puzzle: the cubes, 2x2x2 to 11x11x11. */
+	has3DView() {
+		return _classPrivateFieldGet2(_info, this).cubeSize !== void 0;
+	}
+	/**
+	* The color of every sticker of a cube as it is now (after the scramble and then the
+	* solution), by face: `{ U: [...], R: [...], F, D, L, B }`, each with size x size colors.
+	* Each face is read row by row, from the top left, as you see it in `getImage()`'s
+	* unfolded picture: U with its top row next to B, D with its top row next to F, and the
+	* side faces upright. Only for cubes (see `has3DView`).
+	*/
+	getStickers() {
+		const size = _classPrivateFieldGet2(_info, this).cubeSize;
+		if (size === void 0) throw new Error(`${this.name} has no 3D view yet, only cubes do`);
+		const moves = _assertClassBrand(_Puzzle_brand, this, _movesDone).call(this);
+		const posit = image$1.nnnPosit(size, moves);
+		const order = _classPrivateFieldGet2(_info, this).cstimerOrder;
+		const stickers = {};
+		for (const face of this.getFaces()) {
+			const f = order.indexOf(face);
+			const colors = [];
+			for (let row = 0; row < size; row++) for (let col = 0; col < size; col++) {
+				const x = face === "L" || face === "B" ? size - 1 - col : col;
+				const y = face === "D" ? size - 1 - row : row;
+				colors.push(_classPrivateFieldGet2(_colors, this)[order[posit[(f * size + y) * size + x]]]);
+			}
+			stickers[face] = colors;
+		}
+		return stickers;
+	}
+	/**
+	* Shows the cube in 3D inside `element` on a web page, as it is now (the same state as
+	* `getImage()`), with this puzzle's colors. Its faces are as big as in `getImage()` at the
+	* size set with `setImageSize` (see there), never wider than the element, or it fills
+	* the element's width without one. It starts at the camera angle (see `setCameraAngle`,
+	* the U R F corner by default); drag it with the mouse or a finger to look at every side,
+	* unless the camera is fixed (see `setCameraMode`). Call it again after changing the
+	* puzzle to update the view: the cube keeps the angle it was dragged to. Only for cubes
+	* (see `has3DView`), and only in a browser. `setHiddenFaces('floating')` also shows the
+	* faces at the back, and `setFloatingFaceOffset` moves them. `setFaceOffset` moves the
+	* cube's own faces and `setElementStyle` styles the view.
+	*/
+	show3D(element) {
+		drawCube3D(element, _classPrivateFieldGet2(_info, this).cubeSize ?? 0, this.getStickers(), {
+			width: _classPrivateFieldGet2(_imageSize, this),
+			hidden: _classPrivateFieldGet2(_hiddenFaces, this),
+			camera: _classPrivateFieldGet2(_cameraMode, this),
+			angle: _classPrivateFieldGet2(_cameraAngle, this),
+			offsets: _classPrivateFieldGet2(_floatingOffsets, this),
+			faceOffsets: _classPrivateFieldGet2(_faceOffsets, this),
+			styles: _classPrivateFieldGet2(_styles, this),
+			cubeStyle: _classPrivateFieldGet2(_cubeStyle, this)
+		});
+		return this;
+	}
+	/** Whether `getImage()` can draw the puzzle with its current scramble type. */
+	hasImage() {
+		return hasScrambleImage(_classPrivateFieldGet2(_scramble, this) ? _classPrivateFieldGet2(_scrambleType, this) : this.getScrambleType());
+	}
+	/**
+	* Draws the puzzle as it is now (solved, or after the scramble and then the solution)
+	* as an SVG string, with this puzzle's colors, image size and image style (see
+	* `setImageStyle`). With the `'cstimer'` style it is the same picture as
+	* `getScrambleImage`. Throws if csTimer can't read the moves.
+	*/
+	getImage() {
+		const type = _classPrivateFieldGet2(_scramble, this) ? _classPrivateFieldGet2(_scrambleType, this) : this.getScrambleType();
+		if (!hasScrambleImage(type)) throw new Error(`csTimer has no picture for "${type}" scrambles`);
+		const style = _classPrivateFieldGet2(_imageStyle, this);
+		const size = _classPrivateFieldGet2(_info, this).cubeSize;
+		if (style !== "cstimer" && size !== void 0 && tools.puzzleType(type) === this.id) return styleSvg(drawCubeNet(size, this.getStickers(), style, _classPrivateFieldGet2(_imageSize, this), _classPrivateFieldGet2(_cubeStyle, this)), _classPrivateFieldGet2(_styles, this));
+		const colors = _classPrivateFieldGet2(_info, this).cstimerOrder.map((face) => toCstimerColor(_classPrivateFieldGet2(_colors, this)[face])).join("");
+		let moves = _assertClassBrand(_Puzzle_brand, this, _movesDone).call(this);
+		if (this.id === "sq1") moves = joinSq1Turns(moves);
+		try {
+			const svg = drawImage(type, moves, _classPrivateFieldGet2(_info, this).colorSetting ? { [_classPrivateFieldGet2(_info, this).colorSetting]: colors } : {}, _classPrivateFieldGet2(_imageSize, this));
+			return styleSvg(style === "cstimer" ? svg : thickenBorders(svg), _classPrivateFieldGet2(_styles, this));
+		} catch {
+			throw new Error(`Can't read these moves as ${this.name} moves: "${moves}"`);
+		}
+	}
+};
+/** Checks a face offset, filling in 0 for the values left out. */
+function _checkOffset(face, offset) {
+	if (!this.has3DView()) throw new Error(`${this.name} has no 3D view yet, only cubes do`);
+	if (!CUBE_FACES.includes(face)) throw new Error(`${this.name} has no face "${face}". Faces: ${CUBE_FACES.join(", ")}`);
+	const full = {
+		...NO_OFFSET,
+		...offset
+	};
+	for (const [key, value] of Object.entries(full)) {
+		if (!(key in NO_OFFSET)) throw new Error(`Unknown offset "${key}". Offsets: ${Object.keys(NO_OFFSET).join(", ")}`);
+		if (typeof value !== "number" || !Number.isFinite(value)) throw new Error(`Offset ${key} must be a number, not ${value}`);
+	}
+	return full;
+}
+function _startSearch() {
+	if (!this.hasSolver()) throw new Error(`No solver for ${this.name} with "${this.getScrambleType()}" scrambles yet`);
+	return startSearch(this.id, _classPrivateFieldGet2(_scramble, this));
+}
+function _finishSearch(search) {
+	if (search.scramble === _classPrivateFieldGet2(_scramble, this)) {
+		_classPrivateFieldSet2(_solution, this, search.solution);
+		_classPrivateFieldSet2(_solved, this, {
+			scramble: search.scramble,
+			solution: search.solution,
+			shortest: search.shortest
+		});
+	}
+	return search.solution;
+}
+/**
+* The scramble and then the solution, as done on the puzzle: on cubes, the solution's
+* moves that the solution options don't allow (see `getInvalidMoves`) are left out, so
+* `getStickers`, `getImage` and `show3D` show the cube without them.
+*/
+function _movesDone() {
+	const solution = _assertClassBrand(_Puzzle_brand, this, _hasCubeNotation).call(this) ? allowedSolutionMoves(_classPrivateFieldGet2(_solution, this), _assertClassBrand(_Puzzle_brand, this, _solutionRules).call(this)) : _classPrivateFieldGet2(_solution, this);
+	return [_classPrivateFieldGet2(_scramble, this), solution].filter(Boolean).join(" ");
+}
+/** The rules the solution follows: FMC's in FMC mode, the options set otherwise. */
+function _solutionRules() {
+	return _classPrivateFieldGet2(_fmc, this) ? FMC_RULES : _classPrivateFieldGet2(_rules, this);
+}
+/**
+* Whether the moves are written in cube notation: on a cube, with one of its own scramble
+* types (not, say, 3x3x3's relays or its words-only "noob" scrambles).
+*/
+function _hasCubeNotation() {
+	if (_classPrivateFieldGet2(_info, this).cubeSize === void 0) return false;
+	const type = _classPrivateFieldGet2(_scramble, this) ? _classPrivateFieldGet2(_scrambleType, this) : this.getScrambleType();
+	return tools.puzzleType(type) === this.id;
+}
+//#endregion
+//#region src/vendor/cstimer/megascramble.js
+(function(mega, rn, rndEl) {
+	var cubesuff = [
+		"",
+		"2",
+		"'"
+	];
+	var minxsuff = [
+		"",
+		"2",
+		"'",
+		"2'"
+	];
+	var args = {
+		"111": [[
+			["x"],
+			["y"],
+			["z"]
+		], cubesuff],
+		"2223": [[
+			["U"],
+			["R"],
+			["F"]
+		], cubesuff],
+		"2226": [[
+			[["U", "D"]],
+			[["R", "L"]],
+			[["F", "B"]]
+		], cubesuff],
+		"333o": [[
+			["U", "D"],
+			["R", "L"],
+			["F", "B"]
+		], cubesuff],
+		"334": [[
+			[[
+				"U",
+				"U'",
+				"U2"
+			], [
+				"u",
+				"u'",
+				"u2"
+			]],
+			[[
+				"R2",
+				"L2",
+				"M2"
+			]],
+			[[
+				"F2",
+				"B2",
+				"S2"
+			]]
+		]],
+		"336": [[
+			[
+				[
+					"U",
+					"U'",
+					"U2"
+				],
+				[
+					"u",
+					"u'",
+					"u2"
+				],
+				[
+					"3u",
+					"3u2",
+					"3u'"
+				]
+			],
+			[[
+				"R2",
+				"L2",
+				"M2"
+			]],
+			[[
+				"F2",
+				"B2",
+				"S2"
+			]]
+		]],
+		"888": [[
+			[
+				"U",
+				"D",
+				"u",
+				"d",
+				"3u",
+				"3d",
+				"4u"
+			],
+			[
+				"R",
+				"L",
+				"r",
+				"l",
+				"3r",
+				"3l",
+				"4r"
+			],
+			[
+				"F",
+				"B",
+				"f",
+				"b",
+				"3f",
+				"3b",
+				"4f"
+			]
+		], cubesuff],
+		"999": [[
+			[
+				"U",
+				"D",
+				"u",
+				"d",
+				"3u",
+				"3d",
+				"4u",
+				"4d"
+			],
+			[
+				"R",
+				"L",
+				"r",
+				"l",
+				"3r",
+				"3l",
+				"4r",
+				"4l"
+			],
+			[
+				"F",
+				"B",
+				"f",
+				"b",
+				"3f",
+				"3b",
+				"4f",
+				"4b"
+			]
+		], cubesuff],
+		"101010": [[
+			[
+				"U",
+				"D",
+				"u",
+				"d",
+				"3u",
+				"3d",
+				"4u",
+				"4d",
+				"5u"
+			],
+			[
+				"R",
+				"L",
+				"r",
+				"l",
+				"3r",
+				"3l",
+				"4r",
+				"4l",
+				"5r"
+			],
+			[
+				"F",
+				"B",
+				"f",
+				"b",
+				"3f",
+				"3b",
+				"4f",
+				"4b",
+				"5f"
+			]
+		], cubesuff],
+		"111111": [[
+			[
+				"U",
+				"D",
+				"u",
+				"d",
+				"3u",
+				"3d",
+				"4u",
+				"4d",
+				"5u",
+				"5d"
+			],
+			[
+				"R",
+				"L",
+				"r",
+				"l",
+				"3r",
+				"3l",
+				"4r",
+				"4l",
+				"5r",
+				"5l"
+			],
+			[
+				"F",
+				"B",
+				"f",
+				"b",
+				"3f",
+				"3b",
+				"4f",
+				"4b",
+				"5f",
+				"5b"
+			]
+		], cubesuff],
+		"444": [[
+			[
+				"U",
+				"D",
+				"u"
+			],
+			[
+				"R",
+				"L",
+				"r"
+			],
+			[
+				"F",
+				"B",
+				"f"
+			]
+		], cubesuff],
+		"444m": [[
+			[
+				"U",
+				"D",
+				"Uw"
+			],
+			[
+				"R",
+				"L",
+				"Rw"
+			],
+			[
+				"F",
+				"B",
+				"Fw"
+			]
+		], cubesuff],
+		"555": [[
+			[
+				"U",
+				"D",
+				"u",
+				"d"
+			],
+			[
+				"R",
+				"L",
+				"r",
+				"l"
+			],
+			[
+				"F",
+				"B",
+				"f",
+				"b"
+			]
+		], cubesuff],
+		"555wca": [[
+			[
+				"U",
+				"D",
+				"Uw",
+				"Dw"
+			],
+			[
+				"R",
+				"L",
+				"Rw",
+				"Lw"
+			],
+			[
+				"F",
+				"B",
+				"Fw",
+				"Bw"
+			]
+		], cubesuff],
+		"666p": [[
+			[
+				"U",
+				"D",
+				"2U",
+				"2D",
+				"3U"
+			],
+			[
+				"R",
+				"L",
+				"2R",
+				"2L",
+				"3R"
+			],
+			[
+				"F",
+				"B",
+				"2F",
+				"2B",
+				"3F"
+			]
+		], cubesuff],
+		"666wca": [[
+			[
+				"U",
+				"D",
+				"Uw",
+				"Dw",
+				"3Uw"
+			],
+			[
+				"R",
+				"L",
+				"Rw",
+				"Lw",
+				"3Rw"
+			],
+			[
+				"F",
+				"B",
+				"Fw",
+				"Bw",
+				"3Fw"
+			]
+		], cubesuff],
+		"666s": [[
+			[
+				"U",
+				"D",
+				"U&sup2;",
+				"D&sup2;",
+				"U&sup3;"
+			],
+			[
+				"R",
+				"L",
+				"R&sup2;",
+				"L&sup2;",
+				"R&sup3;"
+			],
+			[
+				"F",
+				"B",
+				"F&sup2;",
+				"B&sup2;",
+				"F&sup3;"
+			]
+		], cubesuff],
+		"666si": [[
+			[
+				"U",
+				"D",
+				"u",
+				"d",
+				"3u"
+			],
+			[
+				"R",
+				"L",
+				"r",
+				"l",
+				"3r"
+			],
+			[
+				"F",
+				"B",
+				"f",
+				"b",
+				"3f"
+			]
+		], cubesuff],
+		"777p": [[
+			[
+				"U",
+				"D",
+				"2U",
+				"2D",
+				"3U",
+				"3D"
+			],
+			[
+				"R",
+				"L",
+				"2R",
+				"2L",
+				"3R",
+				"3L"
+			],
+			[
+				"F",
+				"B",
+				"2F",
+				"2B",
+				"3F",
+				"3B"
+			]
+		], cubesuff],
+		"777wca": [[
+			[
+				"U",
+				"D",
+				"Uw",
+				"Dw",
+				"3Uw",
+				"3Dw"
+			],
+			[
+				"R",
+				"L",
+				"Rw",
+				"Lw",
+				"3Rw",
+				"3Lw"
+			],
+			[
+				"F",
+				"B",
+				"Fw",
+				"Bw",
+				"3Fw",
+				"3Bw"
+			]
+		], cubesuff],
+		"777s": [[
+			[
+				"U",
+				"D",
+				"U&sup2;",
+				"D&sup2;",
+				"U&sup3;",
+				"D&sup3;"
+			],
+			[
+				"R",
+				"L",
+				"R&sup2;",
+				"L&sup2;",
+				"R&sup3;",
+				"L&sup3;"
+			],
+			[
+				"F",
+				"B",
+				"F&sup2;",
+				"B&sup2;",
+				"F&sup3;",
+				"B&sup3;"
+			]
+		], cubesuff],
+		"777si": [[
+			[
+				"U",
+				"D",
+				"u",
+				"d",
+				"3u",
+				"3d"
+			],
+			[
+				"R",
+				"L",
+				"r",
+				"l",
+				"3r",
+				"3l"
+			],
+			[
+				"F",
+				"B",
+				"f",
+				"b",
+				"3f",
+				"3b"
+			]
+		], cubesuff],
+		"crz3a": [[
+			["U", "D"],
+			["R", "L"],
+			["F", "B"]
+		], cubesuff],
+		"cm3": [[[
+			[
+				"U<",
+				"U>",
+				"U2"
+			],
+			[
+				"E<",
+				"E>",
+				"E2"
+			],
+			[
+				"D<",
+				"D>",
+				"D2"
+			]
+		], [
+			[
+				"R^",
+				"Rv",
+				"R2"
+			],
+			[
+				"M^",
+				"Mv",
+				"M2"
+			],
+			[
+				"L^",
+				"Lv",
+				"L2"
+			]
+		]]],
+		"cm2": [[[[
+			"U<",
+			"U>",
+			"U2"
+		], [
+			"D<",
+			"D>",
+			"D2"
+		]], [[
+			"R^",
+			"Rv",
+			"R2"
+		], [
+			"L^",
+			"Lv",
+			"L2"
+		]]]],
+		"233": [[
+			[[
+				"U",
+				"U'",
+				"U2"
+			]],
+			["R2", "L2"],
+			["F2", "B2"]
+		]],
+		"fto": [[
+			["U", "D"],
+			["F", "B"],
+			["L", "BR"],
+			["R", "BL"]
+		], ["", "'"]],
+		"gear": [[
+			["U"],
+			["R"],
+			["F"]
+		], [
+			"",
+			"2",
+			"3",
+			"4",
+			"5",
+			"6",
+			"'",
+			"2'",
+			"3'",
+			"4'",
+			"5'"
+		]],
+		"sfl": [[["R", "L"], ["U", "D"]], cubesuff],
+		"ufo": [[
+			["A"],
+			["B"],
+			["C"],
+			[[
+				"U",
+				"U'",
+				"U2'",
+				"U2",
+				"U3"
+			]]
+		]],
+		"RrUu": [[["U", "u"], ["R", "r"]], cubesuff],
+		"minx2g": [[["U"], ["R"]], minxsuff],
+		"lsll": [[
+			[[
+				"R U R'",
+				"R U2 R'",
+				"R U' R'"
+			]],
+			[[
+				"F' U F",
+				"F' U2 F",
+				"F' U' F"
+			]],
+			[[
+				"U",
+				"U2",
+				"U'"
+			]]
+		]],
+		"prco": [[
+			["F", "B"],
+			["U", "D"],
+			["L", "DBR"],
+			["R", "DBL"],
+			["BL", "DR"],
+			["BR", "DL"]
+		], minxsuff],
+		"skb": [[
+			["R"],
+			["L"],
+			["B"],
+			["U"]
+		], ["", "'"]],
+		"ivy": [[
+			["R"],
+			["L"],
+			["D"],
+			["B"]
+		], ["", "'"]],
+		"112": [[["R"], ["R"]], cubesuff],
+		"eide": [[
+			["OMG"],
+			["WOW"],
+			["WTF"],
+			[[
+				"WOO-HOO",
+				"WOO-HOO",
+				"MATYAS",
+				"YES",
+				"YES",
+				"YAY",
+				"YEEEEEEEEEEEES"
+			]],
+			["HAHA"],
+			["XD"],
+			[":D"],
+			["LOL"]
+		], [
+			"",
+			"",
+			"",
+			"!!!"
+		]]
+	};
+	var args2 = {
+		"sia113": "#{[[\"U\",\"u\"],[\"R\",\"r\"]],%c,%l} z2 #{[[\"U\",\"u\"],[\"R\",\"r\"]],%c,%l}",
+		"sia123": "#{[[\"U\"],[\"R\",\"r\"]],%c,%l} z2 #{[[\"U\"],[\"R\",\"r\"]],%c,%l}",
+		"sia222": "#{[[\"U\"],[\"R\"],[\"F\"]],%c,%l} z2 y #{[[\"U\"],[\"R\"],[\"F\"]],%c,%l}",
+		"335": "#{[[[\"U\",\"U'\",\"U2\"],[\"D\",\"D'\",\"D2\"]],[\"R2\",\"L2\"],[\"F2\",\"B2\"]],0,%l} / ${333}",
+		"337": "#{[[[\"U\",\"U'\",\"U2\",\"u\",\"u'\",\"u2\",\"U u\",\"U u'\",\"U u2\",\"U' u\",\"U' u'\",\"U' u2\",\"U2 u\",\"U2 u'\",\"U2 u2\"],[\"D\",\"D'\",\"D2\",\"d\",\"d'\",\"d2\",\"D d\",\"D d'\",\"D d2\",\"D' d\",\"D' d'\",\"D' d2\",\"D2 d\",\"D2 d'\",\"D2 d2\"]],[\"R2\",\"L2\"],[\"F2\",\"B2\"]],0,%l} / ${333}",
+		"r234": "2) ${222so}\\n3) ${333}\\n4) ${[444,40]}",
+		"r2345": "${r234}\\n5) ${[\"555\",60]}",
+		"r23456": "${r2345}\\n6) ${[\"666p\",80]}",
+		"r234567": "${r23456}\\n7) ${[\"777p\",100]}",
+		"r234w": "2) ${222so}\\n3) ${333}\\n4) ${[\"444m\",40]}",
+		"r2345w": "${r234w}\\n5) ${[\"555wca\",60]}",
+		"r23456w": "${r2345w}\\n6) ${[\"666wca\",80]}",
+		"r234567w": "${r23456w}\\n7) ${[\"777wca\",100]}",
+		"rmngf": "${r2345w}\\n3oh) ${333}\\npyr) ${[\"pyrso\",10]}\\n skb) ${skbso}\\nsq1) ${sqrs}\\nclk) ${clkwca}\\nmgm) ${[\"mgmp\",70]}",
+		"333ni": "${333}#{[[\"\"]],[\"\",\"Rw \",\"Rw2 \",\"Rw' \",\"Fw \",\"Fw' \"],1}#{[[\"\"]],[\"\",\"Uw\",\"Uw2\",\"Uw'\"],1}",
+		"444bld": "${444wca}#{[[\"\"]],[\"\",\" x\",\" x2\",\" x'\",\" z\",\" z'\"],1}#{[[\"\"]],[\"\",\" y\",\" y2\",\" y'\"],1}",
+		"555bld": "${[\"555wca\",%l]}#{[[\"\"]],[\"\",\" 3Rw\",\" 3Rw2\",\" 3Rw'\",\" 3Fw\",\" 3Fw'\"],1}#{[[\"\"]],[\"\",\" 3Uw\",\" 3Uw2\",\" 3Uw'\"],1}"
+	};
+	var edges = {
+		"5edge": [
+			"r R b B",
+			["B' b' R' r'", "B' b' R' U2 r U2 r U2 r U2 r"],
+			["u", "d"]
+		],
+		"6edge": [
+			"3r r 3b b",
+			[
+				"3b' b' 3r' r'",
+				"3b' b' 3r' U2 r U2 r U2 r U2 r",
+				"3b' b' r' U2 3r U2 3r U2 3r U2 3r",
+				"3b' b' r2 U2 3r U2 3r U2 3r U2 3r U2 r"
+			],
+			[
+				"u",
+				"3u",
+				"d"
+			]
+		],
+		"7edge": [
+			"3r r 3b b",
+			[
+				"3b' b' 3r' r'",
+				"3b' b' 3r' U2 r U2 r U2 r U2 r",
+				"3b' b' r' U2 3r U2 3r U2 3r U2 3r",
+				"3b' b' r2 U2 3r U2 3r U2 3r U2 3r U2 r"
+			],
+			[
+				"u",
+				"3u",
+				"3d",
+				"d"
+			]
+		]
+	};
+	function megascramble(type, length) {
+		var value = args[type];
+		switch (value.length) {
+			case 1: return mega(value[0], [""], length);
+			case 2: return mega(value[0], value[1], length);
+			case 3: return mega(value[0], value[1], value[2]);
+		}
+	}
+	function edgescramble(type, length) {
+		var value = edges[type];
+		return edge(value[0], value[1], value[2], length);
+	}
+	function formatScramble(type, length) {
+		var value = args2[type].replace(/%l/g, length).replace(/%c/g, "[\"\",\"2\",\"'\"]");
+		return scrMgr.formatScramble(value);
+	}
+	for (var i in args) scrMgr.reg(i, megascramble);
+	for (var i in args2) scrMgr.reg(i, formatScramble);
+	for (var i in edges) scrMgr.reg(i, edgescramble);
+	function cubeNNN(type, len) {
+		var size = len;
+		if (size <= 1) return "N/A";
+		var data = [
+			[],
+			[],
+			[]
+		];
+		for (var i = 0; i < len - 1; i++) if (i % 2 == 0) {
+			data[0].push((i < 4 ? "" : ~~(i / 2 + 1)) + (i < 2 ? "U" : "u"));
+			data[1].push((i < 4 ? "" : ~~(i / 2 + 1)) + (i < 2 ? "R" : "r"));
+			data[2].push((i < 4 ? "" : ~~(i / 2 + 1)) + (i < 2 ? "F" : "f"));
+		} else {
+			data[0].push((i < 4 ? "" : ~~(i / 2 + 1)) + (i < 2 ? "D" : "d"));
+			data[1].push((i < 4 ? "" : ~~(i / 2 + 1)) + (i < 2 ? "L" : "l"));
+			data[2].push((i < 4 ? "" : ~~(i / 2 + 1)) + (i < 2 ? "B" : "b"));
+		}
+		return mega(data, cubesuff, size * 10);
+	}
+	scrMgr.reg("cubennn", cubeNNN);
+	function edge(start, end, moves, len) {
+		var u = 0, d = 0, movemis = [];
+		var triggers = [
+			["R", "R'"],
+			["R'", "R"],
+			["L", "L'"],
+			["L'", "L"],
+			["F'", "F"],
+			["F", "F'"],
+			["B", "B'"],
+			["B'", "B"]
+		];
+		var ud = ["U", "D"];
+		var scramble = start;
+		for (var i = 0; i < moves.length; i++) movemis[i] = 0;
+		for (var i = 0; i < len; i++) {
+			var done = false;
+			while (!done) {
+				var v = "";
+				for (var j = 0; j < moves.length; j++) {
+					var x = rn(4);
+					movemis[j] += x;
+					if (x != 0) {
+						done = true;
+						v += " " + moves[j] + cubesuff[x - 1];
+					}
+				}
+			}
+			var trigger = rn(8);
+			var layer = rn(2);
+			var turn = rn(3);
+			scramble += v + " " + triggers[trigger][0] + " " + ud[layer] + cubesuff[turn] + " " + triggers[trigger][1];
+			if (layer == 0) u += turn + 1;
+			if (layer == 1) d += turn + 1;
+		}
+		for (var i = 0; i < moves.length; i++) {
+			var x = 4 - movemis[i] % 4;
+			if (x < 4) scramble += " " + moves[i] + cubesuff[x - 1];
+		}
+		u = 4 - u % 4;
+		d = 4 - d % 4;
+		if (u < 4) scramble += " U" + cubesuff[u - 1];
+		if (d < 4) scramble += " D" + cubesuff[d - 1];
+		scramble += " " + rndEl(end);
+		return scramble;
+	}
+})(scrMgr.mega, mathlib.rn, mathlib.rndEl);
+//#endregion
+//#region src/vendor/cstimer/utilscramble.js
+var SCRAMBLE_NOOBST = [
+	["turn the top face", "turn the bottom face"],
+	["turn the right face", "turn the left face"],
+	["turn the front face", "turn the back face"]
+];
+var SCRAMBLE_NOOBSS = " clockwise by 90 degrees,| counterclockwise by 90 degrees,| by 180 degrees,";
+(function(rn, rndEl, mega) {
+	var cubesuff = [
+		"",
+		"2",
+		"'"
+	];
+	var minxsuff = [
+		"",
+		"2",
+		"'",
+		"2'"
+	];
+	var seq = [];
+	var p = [];
+	function adjScramble(faces, adj, len, suffixes, probs) {
+		suffixes = suffixes || [""];
+		var used = 0;
+		var face;
+		var ret = [];
+		for (var j = 0; j < len; j++) {
+			do
+				face = probs ? mathlib.rndProb(probs) : rn(faces.length);
+			while (used >> face & 1);
+			ret.push(faces[face] + rndEl(suffixes));
+			used &= ~adj[face];
+			used |= 1 << face;
+		}
+		return ret.join(" ");
+	}
+	function yj4x4(type, len) {
+		var turns = [
+			["U", "D"],
+			[
+				"R",
+				"L",
+				"r"
+			],
+			[
+				"F",
+				"B",
+				"f"
+			]
+		];
+		var donemoves = [];
+		var lastaxis;
+		var fpos = 0;
+		var j, k;
+		var s = "";
+		lastaxis = -1;
+		for (j = 0; j < len; j++) {
+			var done = 0;
+			do {
+				var first = rn(turns.length);
+				var second = rn(turns[first].length);
+				if (first != lastaxis || donemoves[second] == 0) {
+					if (first == lastaxis) {
+						donemoves[second] = 1;
+						var rs = rn(cubesuff.length);
+						if (first == 0 && second == 0) fpos = (fpos + 4 + rs) % 4;
+						if (first == 1 && second == 2) {
+							if (fpos == 0 || fpos == 3) s += "l" + cubesuff[rs] + " ";
+							else s += "r" + cubesuff[rs] + " ";
+						} else if (first == 2 && second == 2) {
+							if (fpos == 0 || fpos == 1) s += "b" + cubesuff[rs] + " ";
+							else s += "f" + cubesuff[rs] + " ";
+						} else s += turns[first][second] + cubesuff[rs] + " ";
+					} else {
+						for (k = 0; k < turns[first].length; k++) donemoves[k] = 0;
+						lastaxis = first;
+						donemoves[second] = 1;
+						var rs = rn(cubesuff.length);
+						if (first == 0 && second == 0) fpos = (fpos + 4 + rs) % 4;
+						if (first == 1 && second == 2) {
+							if (fpos == 0 || fpos == 3) s += "l" + cubesuff[rs] + " ";
+							else s += "r" + cubesuff[rs] + " ";
+						} else if (first == 2 && second == 2) {
+							if (fpos == 0 || fpos == 1) s += "b" + cubesuff[rs] + " ";
+							else s += "f" + cubesuff[rs] + " ";
+						} else s += turns[first][second] + cubesuff[rs] + " ";
+					}
+					done = 1;
+				}
+			} while (done == 0);
+		}
+		return s;
+	}
+	scrMgr.reg("444yj", yj4x4);
+	function bicube(type, len) {
+		function canMove(face) {
+			var u = [], i, j, done, z = 0;
+			for (i = 0; i < 9; i++) {
+				done = 0;
+				for (j = 0; j < u.length; j++) if (u[j] == start[d[face][i]]) done = 1;
+				if (done == 0) {
+					u[u.length] = start[d[face][i]];
+					if (start[d[face][i]] == 0) z = 1;
+				}
+			}
+			return u.length == 5 && z == 1;
+		}
+		function doMove(face, amount) {
+			for (var i = 0; i < amount; i++) {
+				var t = start[d[face][0]];
+				start[d[face][0]] = start[d[face][6]];
+				start[d[face][6]] = start[d[face][4]];
+				start[d[face][4]] = start[d[face][2]];
+				start[d[face][2]] = t;
+				t = start[d[face][7]];
+				start[d[face][7]] = start[d[face][5]];
+				start[d[face][5]] = start[d[face][3]];
+				start[d[face][3]] = start[d[face][1]];
+				start[d[face][1]] = t;
+			}
+		}
+		var d = [
+			[
+				0,
+				1,
+				2,
+				5,
+				8,
+				7,
+				6,
+				3,
+				4
+			],
+			[
+				6,
+				7,
+				8,
+				13,
+				20,
+				19,
+				18,
+				11,
+				12
+			],
+			[
+				0,
+				3,
+				6,
+				11,
+				18,
+				17,
+				16,
+				9,
+				10
+			],
+			[
+				8,
+				5,
+				2,
+				15,
+				22,
+				21,
+				20,
+				13,
+				14
+			]
+		];
+		var start = [
+			1,
+			1,
+			2,
+			3,
+			3,
+			2,
+			4,
+			4,
+			0,
+			5,
+			6,
+			7,
+			8,
+			9,
+			10,
+			10,
+			5,
+			6,
+			7,
+			8,
+			9,
+			11,
+			11
+		], move = "UFLR", s = "", arr = [], poss, done, i, j, x, y;
+		while (arr.length < len) {
+			poss = [
+				1,
+				1,
+				1,
+				1
+			];
+			for (j = 0; j < 4; j++) if (poss[j] == 1 && !canMove(j)) poss[j] = 0;
+			done = 0;
+			while (done == 0) {
+				x = rn(4);
+				if (poss[x] == 1) {
+					y = rn(3) + 1;
+					doMove(x, y);
+					done = 1;
+				}
+			}
+			arr[arr.length] = [x, y];
+			if (arr.length >= 2) {
+				if (arr.at(-1)[0] == arr.at(-2)[0]) {
+					arr.at(-2)[1] = (arr.at(-2)[1] + arr.at(-1)[1]) % 4;
+					arr = arr.slice(0, arr.length - 1);
+				}
+			}
+			if (arr.length >= 1) {
+				if (arr.at(-1)[1] == 0) arr = arr.slice(0, arr.length - 1);
+			}
+		}
+		for (i = 0; i < len; i++) s += move[arr[i][0]] + cubesuff[arr[i][1] - 1] + " ";
+		return s;
+	}
+	scrMgr.reg("bic", bicube);
+	function c(s) {
+		return " " + rndEl([
+			s + "=0",
+			s + "+1",
+			s + "+2",
+			s + "+3",
+			s + "+4",
+			s + "+5",
+			s + "+6",
+			s + "-5",
+			s + "-4",
+			s + "-3",
+			s + "-2",
+			s + "-1"
+		]) + " ";
+	}
+	function c2() {
+		return rndEl(["U", "d"]) + rndEl(["U", "d"]);
+	}
+	function c3() {
+		return "     ";
+	}
+	function do15puzzle(mirrored, len, arrow, tiny) {
+		var effect = [
+			[0, -1],
+			[1, 0],
+			[-1, 0],
+			[0, 1]
+		];
+		var x = 0, y = 3, r, lastr = 5, ret = [];
+		for (var i = 0; i < len; i++) {
+			do
+				r = rn(4);
+			while (x + effect[r][0] < 0 || x + effect[r][0] > 3 || y + effect[r][1] < 0 || y + effect[r][1] > 3 || r + lastr == 3);
+			x += effect[r][0];
+			y += effect[r][1];
+			if (ret.length > 0 && ret.at(-1)[0] == r) ret.at(-1)[1]++;
+			else ret.push([r, 1]);
+			lastr = r;
+		}
+		var retstr = "";
+		for (var i = 0; i < ret.length; i++) {
+			var m = mirrored ? ret[i][0] : 3 - ret[i][0];
+			m = (arrow ? "￪￩￫￬" : "ULRD").charAt(m);
+			if (tiny) retstr += m + (ret[i][1] == 1 ? "" : ret[i][1]) + " ";
+			else for (var j = 0; j < ret[i][1]; j++) retstr += m + " ";
+		}
+		return retstr;
+	}
+	function pochscramble(x, y) {
+		var ret = "";
+		var i = 0, j;
+		for (; i < y; i++) {
+			ret += "  ";
+			for (j = 0; j < x; j++) ret += (j % 2 == 0 ? "R" : "D") + rndEl(["++", "--"]) + " ";
+			ret += "U" + (ret.endsWith("-- ") ? "'\\n" : "~\\n");
+		}
+		return ret;
+	}
+	function carrotscramble(x, y) {
+		var ret = "";
+		var i = 0, j;
+		for (; i < y; i++) {
+			ret += " ";
+			for (j = 0; j < x / 2; j++) ret += rndEl(["+", "-"]) + rndEl(["+", "-"]) + " ";
+			ret += "U" + (ret.endsWith("- ") ? "'\\n" : "~\\n");
+		}
+		return ret;
+	}
+	function gigascramble(len) {
+		var ret = "";
+		var i = 0, j;
+		for (; i < Math.ceil(len / 10); i++) {
+			ret += "  ";
+			for (j = 0; j < 10; j++) ret += (j % 2 == 0 ? "Rr".charAt(rn(2)) : "Dd".charAt(rn(2))) + rndEl([
+				"+ ",
+				"++",
+				"- ",
+				"--"
+			]) + " ";
+			ret += "y" + rndEl(minxsuff).padEnd(2, "~") + "\\n";
+		}
+		return ret;
+	}
+	function sq1_scramble(type, len) {
+		seq = [];
+		var i, k;
+		sq1_getseq(1, type, len);
+		var s = "";
+		for (i = 0; i < seq[0].length; i++) {
+			k = seq[0][i];
+			if (k[0] == 7) s += "/";
+			else s += " (" + k[0] + "," + k[1] + ")";
+		}
+		return s;
+	}
+	function ssq1t_scramble(len) {
+		seq = [];
+		var i;
+		sq1_getseq(2, 0, len);
+		var s = seq[0], t = seq[1], u = "";
+		if (s[0][0] == 7) s = [[0, 0]].concat(s);
+		if (t[0][0] == 7) t = [[0, 0]].concat(t);
+		for (i = 0; i < len; i++) u += "(" + s[2 * i][0] + "," + t[2 * i][0] + "," + t[2 * i][1] + "," + s[2 * i][1] + ")/ ";
+		return u;
+	}
+	function sq1_getseq(num, type, len) {
+		for (var n = 0; n < num; n++) {
+			p = [
+				1,
+				0,
+				0,
+				1,
+				0,
+				0,
+				1,
+				0,
+				0,
+				1,
+				0,
+				0,
+				0,
+				1,
+				0,
+				0,
+				1,
+				0,
+				0,
+				1,
+				0,
+				0,
+				1,
+				0
+			];
+			seq[n] = [];
+			var cnt = 0;
+			while (cnt < len) {
+				var x = rn(12) - 5;
+				var y = type == 2 ? 0 : rn(12) - 5;
+				var size = (x == 0 ? 0 : 1) + (y == 0 ? 0 : 1);
+				if ((cnt + size <= len || type != 1) && (size > 0 || cnt == 0)) {
+					if (sq1_domove(x, y)) {
+						if (type == 1) cnt += size;
+						if (size > 0) seq[n][seq[n].length] = [x, y];
+						if (cnt < len || type != 1) {
+							cnt++;
+							seq[n][seq[n].length] = [7, 0];
+							sq1_domove(7, 0);
+						}
+					}
+				}
+			}
+		}
+	}
+	function sq1_domove(x, y) {
+		var i, px, py;
+		if (x == 7) {
+			for (i = 0; i < 6; i++) mathlib.circle(p, i + 6, i + 12);
+			return true;
+		} else if (p[(17 - x) % 12] || p[(11 - x) % 12] || p[12 + (17 - y) % 12] || p[12 + (11 - y) % 12]) return false;
+		else {
+			px = p.slice(0, 12);
+			py = p.slice(12, 24);
+			for (i = 0; i < 12; i++) {
+				p[i] = px[(12 + i - x) % 12];
+				p[i + 12] = py[(12 + i - y) % 12];
+			}
+			return true;
+		}
+	}
+	function moyuRedi(length) {
+		var ret = [];
+		for (var i = 0; i < length; i++) ret.push(mega([["R"], ["L"]], ["", "'"], 3 + rn(3)));
+		return ret.join(" x ");
+	}
+	function addPyrTips(scramble, moveLen) {
+		var cnt = 0;
+		var rnd = [];
+		for (var i = 0; i < 4; i++) {
+			rnd[i] = rn(3);
+			if (rnd[i] > 0) {
+				rnd[i] = "ulrb".charAt(i) + ["! ", "' "][rnd[i] - 1];
+				cnt++;
+			} else rnd[i] = "";
+		}
+		return scramble.substr(0, scramble.length - moveLen * cnt) + " " + rnd.join("");
+	}
+	function PolyScrambler(puzzle, validMoves, move2str) {
+		var pobj = poly3d.getFamousPuzzle(puzzle);
+		puzzle = poly3d.makePuzzle.apply(poly3d, pobj.polyParam);
+		var permLen = puzzle.moveTable[0].length;
+		var e = [];
+		for (var i = 0; i < permLen; i++) e[i] = i;
+		var gens = [];
+		for (var i = 0; i < validMoves.length; i++) {
+			var move = pobj.parser.parseScramble(validMoves[i]);
+			var perm = e.slice();
+			for (var j = 0; j < move.length; j++) {
+				var pow = move[j][1];
+				if (pow == 0) continue;
+				var operm = puzzle.moveTable[puzzle.getTwistyIdx(move[j][0])].slice();
+				for (var k = 0; k < operm.length; k++) operm[k] = operm[k] >= 0 ? operm[k] : k;
+				if (pow < 0) {
+					operm = grouplib.permInv(operm);
+					pow = -pow;
+				}
+				while (--pow >= 0) perm = grouplib.permMult(perm, operm);
+			}
+			gens.push(perm);
+		}
+		this.solv = new grouplib.SubgroupSolver(gens);
+		this.move2str = move2str;
+		this.moves = validMoves;
+		this.solv.initTables();
+	}
+	PolyScrambler.prototype.getScramble = function(minLen, maxLen) {
+		var solution = "";
+		do {
+			var state = this.solv.sgsG.rndElem();
+			solution = (this.solv.DissectionSolve(state, minLen, maxLen) || []).map((mvpow) => this.move2str(this.moves[mvpow[0]], mvpow[1])).join(" ");
+		} while (solution.length <= 2);
+		return solution.replace(/ +/g, " ");
+	};
+	var polyObjs = {};
+	function getPolyScrambler(puzzle, validMoves, move2str) {
+		var key = JSON.stringify([puzzle, validMoves]);
+		if (!(key in polyObjs)) polyObjs[key] = new PolyScrambler(puzzle, validMoves, move2str);
+		return polyObjs[key];
+	}
+	function utilscramble(type, len) {
+		var ret = "";
+		switch (type) {
+			case "15p": return do15puzzle(false, len);
+			case "15pm": return do15puzzle(true, len);
+			case "15pat": return do15puzzle(false, len, true, true);
+			case "clkwca":
+			case "clkwcab":
+			case "clknf":
+				var clkapp = [
+					"0+",
+					"1+",
+					"2+",
+					"3+",
+					"4+",
+					"5+",
+					"6+",
+					"1-",
+					"2-",
+					"3-",
+					"4-",
+					"5-"
+				];
+				ret = type == "clknf" ? "UR? DR? DL? UL? U(?,?) R(?,?) D(?,?) L(?,?) ALL? all?????" : "UR? DR? DL? UL? U? R? D? L? ALL? y2 U? R? D? L? ALL?????";
+				for (var i = 0; i < 14; i++) ret = ret.replace("?", rndEl(clkapp));
+				if (type == "clkwca") ret = ret.slice(0, -4);
+				return ret.replace("?", rndEl(["", " UR"])).replace("?", rndEl(["", " DR"])).replace("?", rndEl(["", " DL"])).replace("?", rndEl(["", " UL"]));
+			case "clk": return "UU" + c("u") + "dU" + c("u") + "dd" + c("u") + "Ud" + c("u") + "dU" + c("u") + "Ud" + c("u") + "UU" + c("u") + "UU" + c("u") + "UU" + c("u") + "dd" + c3() + c2() + "\\ndd" + c("d") + "dU" + c("d") + "UU" + c("d") + "Ud" + c("d") + "UU" + c3() + "UU" + c3() + "Ud" + c3() + "dU" + c3() + "UU" + c3() + "dd" + c("d") + c2();
+			case "clkc":
+				ret = "";
+				for (var i = 0; i < 4; i++) ret += "(" + (rn(12) - 5) + ", " + (rn(12) - 5) + ") / ";
+				for (var i = 0; i < 6; i++) ret += "(" + (rn(12) - 5) + ") / ";
+				for (var i = 0; i < 4; i++) ret += rndEl(["d", "U"]);
+				return ret;
+			case "clke": return "UU" + c("u") + "dU" + c("u") + "dU" + c("u") + "UU" + c("u") + "UU" + c("u") + "UU" + c("u") + "Ud" + c("u") + "Ud" + c("u") + "dd" + c("u") + "dd" + c3() + c2() + "\\nUU" + c3() + "UU" + c3() + "dU" + c("d") + "dU" + c3() + "dd" + c("d") + "Ud" + c3() + "Ud" + c("d") + "UU" + c3() + "UU" + c("d") + "dd" + c("d") + c2();
+			case "giga": return gigascramble(len);
+			case "mgmo": return adjScramble([
+				"F",
+				"B",
+				"U",
+				"D",
+				"L",
+				"DBR",
+				"DL",
+				"BR",
+				"DR",
+				"BL",
+				"R",
+				"DBL"
+			], [
+				1364,
+				2728,
+				1681,
+				2402,
+				2629,
+				1418,
+				2329,
+				1574,
+				1129,
+				2198,
+				421,
+				602
+			], len, minxsuff);
+			case "mgms2l": return adjScramble([
+				"F",
+				"R",
+				"BR",
+				"BL",
+				"L",
+				"U"
+			], [
+				50,
+				37,
+				42,
+				52,
+				41,
+				31
+			], len, minxsuff);
+			case "mgmp": return pochscramble(10, Math.ceil(len / 10));
+			case "mgmc": return carrotscramble(10, Math.ceil(len / 10));
+			case "klmp": return pochscramble(10, Math.ceil(len / 10));
+			case "heli":
+			case "helicv": return adjScramble([
+				"UF",
+				"UR",
+				"UB",
+				"UL",
+				"FR",
+				"BR",
+				"BL",
+				"FL",
+				"DF",
+				"DR",
+				"DB",
+				"DL"
+			], [
+				154,
+				53,
+				106,
+				197,
+				771,
+				1542,
+				3084,
+				2313,
+				2704,
+				1328,
+				2656,
+				1472
+			], len);
+			case "heli2x2":
+				ret = adjScramble([
+					"UR",
+					"UF",
+					"UL",
+					"UB",
+					"DR",
+					"DF",
+					"DL",
+					"DB",
+					"FR",
+					"FL",
+					"BL",
+					"BR",
+					"UFR",
+					"UFL",
+					"UBL",
+					"UBR",
+					"DFR",
+					"DFL",
+					"DBL",
+					"DBR",
+					"U",
+					"R",
+					"F"
+				], [
+					40931328,
+					24129536,
+					55599104,
+					53526528,
+					48824320,
+					31653888,
+					63307776,
+					61603840,
+					15798272,
+					30547968,
+					60047360,
+					45645824,
+					7340291,
+					22020614,
+					51381260,
+					36702217,
+					14680368,
+					29360736,
+					58721472,
+					44042384,
+					56688399,
+					47815099,
+					28521335,
+					57610224,
+					47605486,
+					29150429
+				], len, null, [
+					1,
+					1,
+					1,
+					1,
+					1,
+					1,
+					1,
+					1,
+					1,
+					1,
+					1,
+					1,
+					1,
+					1,
+					1,
+					1,
+					1,
+					1,
+					1,
+					1,
+					3,
+					3,
+					3
+				]).split(" ");
+				for (var i = 0; i < ret.length; i++) if (ret[i].length == 3) ret[i] += mathlib.rndEl(["", "'"]);
+				else if (ret[i].length == 1) ret[i] += mathlib.rndEl([
+					"",
+					"'",
+					"2"
+				]);
+				return ret.join(" ");
+			case "heli2x2g":
+				var lastMove = -1;
+				ret = [];
+				var cornMoves = [
+					"UFR",
+					"UFL",
+					"UBL",
+					"UBR",
+					"DFR",
+					"DFL",
+					"DBL",
+					"DBR"
+				];
+				var edgeMoves = [
+					"UF",
+					"UL",
+					"UB",
+					"UR",
+					"FR",
+					"FL",
+					"BL",
+					"BR",
+					"DF",
+					"DL",
+					"DB",
+					"DR"
+				];
+				var maxWidth = 0;
+				for (var i = 0; i < len; i++) {
+					var facePerm;
+					do
+						facePerm = mathlib.rndPerm(3);
+					while (facePerm[0] == lastMove);
+					lastMove = facePerm[2];
+					var cornPerm = mathlib.rndPerm(8).slice(0, 4).sort();
+					var edgePerm = mathlib.rndPerm(12).slice(0, mathlib.rn(2) + 6).sort(function(a, b) {
+						return a - b;
+					});
+					var line = [];
+					for (var j = 0; j < 3; j++) line.push("URF".charAt(facePerm[j]) + mathlib.rndEl([
+						" ",
+						"2",
+						"'"
+					]));
+					line.push("");
+					for (var j = 0; j < cornPerm.length; j++) line.push(cornMoves[cornPerm[j]] + mathlib.rndEl([" ", "'"]));
+					line.push("");
+					for (var j = 0; j < edgePerm.length; j++) line.push(edgeMoves[edgePerm[j]]);
+					ret[i] = line.join(" ");
+					maxWidth = Math.max(maxWidth, ret[i].length);
+				}
+				for (var i = 0; i < ret.length; i++) ret[i] = ret[i].padEnd(maxWidth, "~");
+				return ret.join("\\n");
+			case "redi": return adjScramble([
+				"L",
+				"R",
+				"F",
+				"B",
+				"l",
+				"r",
+				"f",
+				"b"
+			], [
+				28,
+				44,
+				67,
+				131,
+				193,
+				194,
+				52,
+				56
+			], len, ["", "'"]);
+			case "redim": return moyuRedi(len);
+			case "dmdso": return getPolyScrambler("dmd", [
+				"U",
+				"R",
+				"L",
+				"F"
+			], (mv, pow) => mv + ["", "'"][pow - 1]).getScramble(7, 10);
+			case "pyrm":
+				ret = mega([
+					["U"],
+					["L"],
+					["R"],
+					["B"]
+				], ["!", "'"], len);
+				return addPyrTips(ret, 3).replace(/!/g, "");
+			case "prcp": return pochscramble(10, Math.ceil(len / 10));
+			case "mpyr":
+				ret = adjScramble([
+					"U!",
+					"L!",
+					"R!",
+					"B!",
+					"Uw",
+					"Lw",
+					"Rw",
+					"Bw"
+				], [
+					224,
+					208,
+					176,
+					112,
+					238,
+					221,
+					187,
+					119
+				], len, ["!", "'"]);
+				return addPyrTips(ret, 4).replace(/!/g, "");
+			case "r3":
+				for (var i = 0; i < len; i++) ret += (i == 0 ? "" : "\\n") + (i + 1) + ") ${333}";
+				return scrMgr.formatScramble(ret);
+			case "r3ni":
+				for (var i = 0; i < len; i++) ret += (i == 0 ? "" : "\\n") + (i + 1) + ") ${333ni}";
+				return scrMgr.formatScramble(ret);
+			case "sq1h": return sq1_scramble(1, len);
+			case "sq1t": return sq1_scramble(0, len);
+			case "sq2":
+				var i = 0;
+				while (i < len) {
+					var rndu = rn(12) - 5;
+					var rndd = rn(12) - 5;
+					if (rndu != 0 || rndd != 0) {
+						i++;
+						ret += "(" + rndu + "," + rndd + ")/ ";
+					}
+				}
+				return ret;
+			case "ssq1t": return ssq1t_scramble(len);
+			case "bsq": return sq1_scramble(2, len);
+			case "ctico": return adjScramble([
+				"UL",
+				"UR",
+				"UrUl",
+				"FlFr",
+				"LBl",
+				"RBr"
+			], [
+				63,
+				63,
+				63,
+				63,
+				63,
+				63
+			], len, minxsuff);
+			case "-1":
+				for (var i = 0; i < len; i++) ret += String.fromCharCode(32 + rn(224));
+				ret += "Error: subscript out of range";
+				return ret;
+			case "333noob":
+				ret = mega(SCRAMBLE_NOOBST, SCRAMBLE_NOOBSS.split("|"), len).replace(/t/, "T");
+				return ret.substr(0, ret.length - 2) + ".";
+			case "lol":
+				ret = mega([["L"], ["O"]], 0, len);
+				return ret.replace(/ /g, "");
+		}
+		console.log("Error");
+	}
+	scrMgr.reg([
+		"15p",
+		"15pm",
+		"15pat",
+		"clkwca",
+		"clkwcab",
+		"clknf",
+		"clk",
+		"clkc",
+		"clke",
+		"giga",
+		"mgmo",
+		"mgmp",
+		"mgmc",
+		"mgms2l",
+		"klmp",
+		"heli",
+		"helicv",
+		"heli2x2",
+		"heli2x2g",
+		"redi",
+		"redim",
+		"pyrm",
+		"prcp",
+		"mpyr",
+		"r3",
+		"r3ni",
+		"sq1h",
+		"sq1t",
+		"sq2",
+		"ssq1t",
+		"bsq",
+		"ctico",
+		"dmdso",
+		"-1",
+		"333noob",
+		"lol"
+	], utilscramble);
+})(mathlib.rn, mathlib.rndEl, scrMgr.mega);
+//#endregion
+//#region src/cstimer.ts
+const ENTITIES = {
+	"&sup2;": "²",
+	"&sup3;": "³",
+	"&nbsp;": " ",
+	"&lt;": "<",
+	"&gt;": ">",
+	"&amp;": "&"
+};
+/** Plain text: single spaces between moves, one trimmed line per row, no blank lines at the ends. */
+function cleanScramble(scramble) {
+	return scramble.replace(/&(sup2|sup3|nbsp|lt|gt|amp);/g, (entity) => ENTITIES[entity]).split("\n").map((line) => line.replace(/\s+/g, " ").trim()).join("\n").trim();
+}
+/**
+* Runs csTimer's scrambler for a scramble type id, e.g. `cstimerScramble('222so')`.
+* The vendored file that registers that type must have been imported first.
+*/
+function cstimerScramble(type, length = 0) {
+	const scrambler = scrMgr.scramblers[type];
+	if (!scrambler) throw new Error(`csTimer scrambler "${type}" is not loaded`);
+	const state = scrMgr.rndState(void 0, scrMgr.getExtra(type, 1));
+	return cleanScramble(scrMgr.toTxt(scrambler(type, length, state, 0)));
+}
+/**
+* Describes a csTimer scramble type that needs no extra code: generating it just
+* runs csTimer's scrambler. `length` is csTimer's default for types whose length
+* can be changed (number of moves, or of puzzles for relays).
+*/
+function cstimerEvent(id, name, puzzle, length) {
+	return {
+		id,
+		name,
+		puzzle,
+		...length ? { length } : {},
+		generate: (len = length) => cstimerScramble(id, len)
+	};
+}
+//#endregion
+//#region src/vendor/cstimer/333lse.js
+(function() {
+	var edgePerms = [[
+		0,
+		1,
+		2,
+		3
+	], [
+		0,
+		2,
+		5,
+		4
+	]];
+	var edgeOris = [[
+		0,
+		0,
+		0,
+		0,
+		2
+	], [
+		0,
+		1,
+		0,
+		1,
+		2
+	]];
+	function doPermMove(idx, m) {
+		var edge = idx >> 3;
+		var corn = idx;
+		var cent = idx << 1 | mathlib.getNParity(edge, 6) ^ corn >> 1 & 1;
+		var g = mathlib.setNPerm([], edge, 6);
+		mathlib.acycle(g, edgePerms[m]);
+		if (m == 0) corn = corn + 2;
+		if (m == 1) cent = cent + 1;
+		return mathlib.getNPerm(g, 6) << 3 | corn & 6 | cent >> 1 & 1;
+	}
+	function doOriMove(arr, m) {
+		mathlib.acycle(arr, edgePerms[m], 1, edgeOris[m]);
+	}
+	var solv = new mathlib.Solver(2, 3, [[
+		0,
+		doPermMove,
+		5760
+	], [
+		0,
+		[
+			doOriMove,
+			"o",
+			6,
+			-2
+		],
+		32
+	]]);
+	function generateScramble() {
+		var b, c;
+		do {
+			c = mathlib.rn(5760);
+			b = mathlib.rn(32);
+		} while (b + c == 0);
+		return solv.toStr(solv.search([c, b], 0), "UM", " 2'").replace(/ +/g, " ");
+	}
+	scrMgr.reg("lsemu", generateScramble);
+})();
+//#endregion
+//#region src/events/333/variants.ts
+/**
+* csTimer's other 3x3x3 scramble types: random move, CFOP / Roux / Mehta training cases and move subsets.
+* Registered by ./index.ts, after the WCA 3x3 events.
+*/
+const events333Variants = [
+	cstimerEvent("333o", "3x3x3 random move", "333", 25),
+	cstimerEvent("333noob", "3x3x3 for noobs", "333", 25),
+	cstimerEvent("333ft", "3x3x3 with feet", "333"),
+	cstimerEvent("pll", "3x3x3 CFOP PLL", "333"),
+	cstimerEvent("oll", "3x3x3 CFOP OLL", "333"),
+	cstimerEvent("lsll2", "3x3x3 CFOP last slot + last layer", "333"),
+	cstimerEvent("zbll", "3x3x3 CFOP ZBLL", "333"),
+	cstimerEvent("coll", "3x3x3 CFOP COLL", "333"),
+	cstimerEvent("cll", "3x3x3 CFOP CLL", "333"),
+	cstimerEvent("ell", "3x3x3 CFOP ELL", "333"),
+	cstimerEvent("2gll", "3x3x3 CFOP 2GLL", "333"),
+	cstimerEvent("zzll", "3x3x3 CFOP ZZLL", "333"),
+	cstimerEvent("zbls", "3x3x3 CFOP ZBLS", "333"),
+	cstimerEvent("eols", "3x3x3 CFOP EOLS", "333"),
+	cstimerEvent("wvls", "3x3x3 CFOP WVLS", "333"),
+	cstimerEvent("vls", "3x3x3 CFOP VLS", "333"),
+	cstimerEvent("f2l", "3x3x3 CFOP cross solved", "333"),
+	cstimerEvent("eoline", "3x3x3 CFOP EOLine", "333"),
+	cstimerEvent("eocross", "3x3x3 CFOP EO Cross", "333"),
+	cstimerEvent("easyc", "3x3x3 CFOP easy cross", "333", 3),
+	cstimerEvent("easyxc", "3x3x3 CFOP easy xcross", "333", 4),
+	cstimerEvent("sbrx", "3x3x3 Roux 2nd Block", "333"),
+	cstimerEvent("cmll", "3x3x3 Roux CMLL", "333"),
+	cstimerEvent("lse", "3x3x3 Roux LSE", "333"),
+	cstimerEvent("lsemu", "3x3x3 Roux LSE <M, U>", "333"),
+	cstimerEvent("mt3qb", "3x3x3 Mehta 3QB", "333"),
+	cstimerEvent("mteole", "3x3x3 Mehta EOLE", "333"),
+	cstimerEvent("mttdr", "3x3x3 Mehta TDR", "333"),
+	cstimerEvent("mt6cp", "3x3x3 Mehta 6CP", "333"),
+	cstimerEvent("mtcdrll", "3x3x3 Mehta CDRLL", "333"),
+	cstimerEvent("mtl5ep", "3x3x3 Mehta L5EP", "333"),
+	cstimerEvent("ttll", "3x3x3 Mehta TTLL", "333"),
+	cstimerEvent("2gen", "3x3x3 subsets 2-generator R,U", "333"),
+	cstimerEvent("2genl", "3x3x3 subsets 2-generator L,U", "333"),
+	cstimerEvent("roux", "3x3x3 subsets Roux-generator M,U", "333"),
+	cstimerEvent("3gen_F", "3x3x3 subsets 3-generator F,R,U", "333"),
+	cstimerEvent("3gen_L", "3x3x3 subsets 3-generator R,U,L", "333"),
+	cstimerEvent("RrU", "3x3x3 subsets 3-generator R,r,U", "333"),
+	cstimerEvent("333drud", "3x3x3 subsets Domino Subgroup", "333"),
+	cstimerEvent("half", "3x3x3 subsets half turns only", "333"),
+	cstimerEvent("lsll", "3x3x3 subsets last slot + last layer (old)", "333", 15)
+];
+//#endregion
+//#region src/events/333/state.ts
+/** Move indices for `rndApp` / `rndPre`, as used by csTimer (face * 3 + power). */
+const Move = {
+	U: 0,
+	U2: 1,
+	Ui: 2,
+	R: 3,
+	R2: 4,
+	Ri: 5,
+	F: 6,
+	F2: 7,
+	Fi: 8,
+	D: 9,
+	D2: 10,
+	Di: 11,
+	L: 12,
+	L2: 13,
+	Li: 14,
+	B: 15,
+	B2: 16,
+	Bi: 17
+};
+/**
+* Scramble to a random state where the pieces in the masks are fixed, e.g.
+* `getAnyScramble({ cp: 0x76543210, co: 0 })` for edges only. Unset masks are random.
+*/
+function getAnyScramble(options = {}) {
+	return cleanScramble(scramble_333$1.getAnyScramble(options.ep ?? 0xffffffffffff, options.eo ?? 0xffffffffffff, options.cp ?? 4294967295, options.co ?? 4294967295, options.neut, options.rndApp, options.rndPre, options.firstAxisFilter, options.lastAxisFilter));
+}
+//#endregion
+//#region src/events/333/index.ts
+/** WCA 3x3: random-state scramble. */
+function get333Scramble() {
+	return cstimerScramble("333");
+}
+/** WCA one-handed: the same random-state scramble as 3x3. */
+function get333OhScramble() {
+	return cstimerScramble("333oh");
+}
+/** WCA FMC: random state, wrapped in R' U' F so it cannot start or end with trivial cancellations. */
+function get333FmcScramble() {
+	return cstimerScramble("333fm");
+}
+/** WCA 3x3 blindfolded: random state plus random wide moves, so the solver can't rely on orientation. */
+function get333BldScramble() {
+	return cstimerScramble("333ni");
+}
+/** WCA multi-blind: one numbered blindfolded scramble per cube, one per line. */
+function get333MultiBldScramble(cubes = 5) {
+	return cstimerScramble("r3ni", cubes);
+}
+/** Only edges scrambled; corners solved. */
+function get333EdgesScramble() {
+	return cstimerScramble("edges");
+}
+/** Only corners scrambled; edges solved. */
+function get333CornersScramble() {
+	return cstimerScramble("corners");
+}
+/** Last layer: first two layers solved, U layer random. */
+function get333LLScramble() {
+	return cstimerScramble("ll");
+}
+const events333 = [
+	{
+		id: "333",
+		name: "3x3x3 random state",
+		puzzle: "333",
+		generate: get333Scramble
+	},
+	{
+		id: "333oh",
+		name: "3x3x3 one-handed",
+		puzzle: "333",
+		generate: get333OhScramble
+	},
+	{
+		id: "333fm",
+		name: "3x3x3 fewest moves",
+		puzzle: "333",
+		generate: get333FmcScramble
+	},
+	{
+		id: "333ni",
+		name: "3x3x3 blindfolded",
+		puzzle: "333",
+		generate: get333BldScramble
+	},
+	{
+		id: "r3ni",
+		name: "3x3x3 multi-blind",
+		puzzle: "333",
+		length: 5,
+		generate: get333MultiBldScramble
+	},
+	{
+		id: "edges",
+		name: "3x3x3 edges only",
+		puzzle: "333",
+		generate: get333EdgesScramble
+	},
+	{
+		id: "corners",
+		name: "3x3x3 corners only",
+		puzzle: "333",
+		generate: get333CornersScramble
+	},
+	{
+		id: "ll",
+		name: "3x3x3 last layer",
+		puzzle: "333",
+		generate: get333LLScramble
+	}
+];
+registerEvents(...events333, ...events333Variants);
+//#endregion
+//#region src/events/222/index.ts
+/** WCA 2x2: random-state scramble (at least 4 moves from solved, as in csTimer). */
+function get222Scramble() {
+	return cstimerScramble("222so");
+}
+const events222 = [
+	{
+		id: "222so",
+		name: "2x2x2 random state",
+		puzzle: "222",
+		generate: get222Scramble
+	},
+	cstimerEvent("222o", "2x2x2 optimal", "222"),
+	cstimerEvent("2223", "2x2x2 3-gen", "222", 25),
+	cstimerEvent("222eg", "2x2x2 EG", "222"),
+	cstimerEvent("222eg0", "2x2x2 CLL", "222"),
+	cstimerEvent("222eg1", "2x2x2 EG1", "222"),
+	cstimerEvent("222eg2", "2x2x2 EG2", "222"),
+	cstimerEvent("222tcp", "2x2x2 TCLL+", "222"),
+	cstimerEvent("222tcn", "2x2x2 TCLL-", "222"),
+	cstimerEvent("222tc", "2x2x2 TCLL", "222"),
+	cstimerEvent("222lsall", "2x2x2 LS", "222"),
+	cstimerEvent("222nb", "2x2x2 No Bar", "222")
+];
+registerEvents(...events222);
+//#endregion
+//#region src/events/444/index.ts
+/**
+* WCA 4x4: random-state scramble. The first call builds the solver's tables,
+* which takes a second or two; later calls are fast.
+*/
+function get444Scramble() {
+	return cstimerScramble("444wca");
+}
+/** WCA 4x4 blindfolded: random state plus a random cube rotation. */
+function get444BldScramble() {
+	return cstimerScramble("444bld");
+}
+const events444 = [
+	{
+		id: "444wca",
+		name: "4x4x4 random state",
+		puzzle: "444",
+		generate: get444Scramble
+	},
+	{
+		id: "444bld",
+		name: "4x4x4 blindfolded",
+		puzzle: "444",
+		generate: get444BldScramble
+	},
+	cstimerEvent("444m", "4x4x4 random move", "444", 40),
+	cstimerEvent("444", "4x4x4 SiGN", "444", 40),
+	cstimerEvent("444yj", "4x4x4 YJ", "444", 40),
+	cstimerEvent("4edge", "4x4x4 edges", "444"),
+	cstimerEvent("RrUu", "4x4x4 R,r,U,u", "444", 40),
+	cstimerEvent("444ll", "4x4x4 Last layer", "444"),
+	cstimerEvent("444ell", "4x4x4 ELL", "444"),
+	cstimerEvent("444edo", "4x4x4 Edge only", "444"),
+	cstimerEvent("444cto", "4x4x4 Center only", "444"),
+	cstimerEvent("444ctud", "4x4x4 Yau/Hoya UD center solved", "444"),
+	cstimerEvent("444ud3c", "4x4x4 Yau/Hoya UD+3E solved", "444"),
+	cstimerEvent("444l8e", "4x4x4 Yau/Hoya Last 8 dedges", "444"),
+	cstimerEvent("444ctrl", "4x4x4 Yau/Hoya RL center solved", "444"),
+	cstimerEvent("444rlda", "4x4x4 Yau/Hoya RLDX center solved", "444"),
+	cstimerEvent("444rlca", "4x4x4 Yau/Hoya RLDX cross solved", "444"),
+	cstimerEvent("444poll", "4x4x4 Yau/Hoya POLL", "444"),
+	cstimerEvent("444ppll", "4x4x4 Yau/Hoya PPLL", "444")
+];
+registerEvents(...events444);
+//#endregion
+//#region src/events/555/index.ts
+/** WCA 5x5: 60 random moves (or `length`) in WCA notation. */
+function get555Scramble(length = 60) {
+	return cstimerScramble("555wca", length);
+}
+/** WCA 5x5 blindfolded: 60 random moves plus random wide moves for orientation. */
+function get555BldScramble() {
+	return cstimerScramble("555bld", 60);
+}
+const events555 = [
+	{
+		id: "555wca",
+		name: "5x5x5 WCA",
+		puzzle: "555",
+		length: 60,
+		generate: get555Scramble
+	},
+	{
+		id: "555bld",
+		name: "5x5x5 blindfolded",
+		puzzle: "555",
+		generate: get555BldScramble
+	},
+	cstimerEvent("555", "5x5x5 SiGN", "555", 60),
+	cstimerEvent("5edge", "5x5x5 edges", "555", 8)
+];
+registerEvents(...events555);
+//#endregion
+//#region src/events/666/index.ts
+/** WCA 6x6: 80 random moves (or `length`) in WCA notation. */
+function get666Scramble(length = 80) {
+	return cstimerScramble("666wca", length);
+}
+const events666 = [
+	{
+		id: "666wca",
+		name: "6x6x6 WCA",
+		puzzle: "666",
+		length: 80,
+		generate: get666Scramble
+	},
+	cstimerEvent("666si", "6x6x6 SiGN", "666", 80),
+	cstimerEvent("666p", "6x6x6 prefix", "666", 80),
+	cstimerEvent("666s", "6x6x6 suffix", "666", 80),
+	cstimerEvent("6edge", "6x6x6 edges", "666", 8)
+];
+registerEvents(...events666);
+//#endregion
+//#region src/events/777/index.ts
+/** WCA 7x7: 100 random moves (or `length`) in WCA notation. */
+function get777Scramble(length = 100) {
+	return cstimerScramble("777wca", length);
+}
+const events777 = [
+	{
+		id: "777wca",
+		name: "7x7x7 WCA",
+		puzzle: "777",
+		length: 100,
+		generate: get777Scramble
+	},
+	cstimerEvent("777si", "7x7x7 SiGN", "777", 100),
+	cstimerEvent("777p", "7x7x7 prefix", "777", 100),
+	cstimerEvent("777s", "7x7x7 suffix", "777", 100),
+	cstimerEvent("7edge", "7x7x7 edges", "777", 8)
+];
+registerEvents(...events777);
+//#endregion
+//#region src/events/clock/index.ts
+/** WCA Clock: random pin turns in WCA notation, e.g. "UR5- DR2+ ... ALL3+ y2 ... UL". */
+function getClockScramble() {
+	return cstimerScramble("clkwca");
+}
+const eventsClock = [
+	{
+		id: "clkwca",
+		name: "Clock WCA",
+		puzzle: "clock",
+		generate: getClockScramble
+	},
+	cstimerEvent("clkwcab", "Clock WCA (old)", "clock"),
+	cstimerEvent("clknf", "Clock WCA w/o y2", "clock"),
+	cstimerEvent("clk", "Clock Jaap", "clock"),
+	cstimerEvent("clko", "Clock optimal", "clock"),
+	cstimerEvent("clkc", "Clock concise", "clock"),
+	cstimerEvent("clke", "Clock efficient pin order", "clock")
+];
+registerEvents(...eventsClock);
+//#endregion
+//#region src/vendor/cstimer/mgmsolver.js
+var DEBUG = false;
+var mgmsolver = (function() {
+	function MgmCubie() {
+		this.corn = [];
+		this.twst = [];
+		this.edge = [];
+		this.flip = [];
+		for (var i = 0; i < 20; i++) {
+			this.corn[i] = i;
+			this.twst[i] = 0;
+		}
+		for (var i = 0; i < 30; i++) {
+			this.edge[i] = i;
+			this.flip[i] = 0;
+		}
+	}
+	MgmCubie.SOLVED = new MgmCubie();
+	var U = 0, R = 10, F = 20, L = 30, BL = 40, BR = 50, DR = 60, DL = 70, DBL = 80, B = 90, DBR = 100, D = 110;
+	var cornFacelet = [
+		[
+			U + 2,
+			R + 3,
+			F + 4
+		],
+		[
+			U + 3,
+			F + 3,
+			L + 4
+		],
+		[
+			U + 4,
+			L + 3,
+			BL + 4
+		],
+		[
+			U + 0,
+			BL + 3,
+			BR + 4
+		],
+		[
+			U + 1,
+			BR + 3,
+			R + 4
+		],
+		[
+			D + 3,
+			B + 0,
+			DBL + 1
+		],
+		[
+			D + 2,
+			DBR + 0,
+			B + 1
+		],
+		[
+			D + 1,
+			DR + 0,
+			DBR + 1
+		],
+		[
+			D + 0,
+			DL + 0,
+			DR + 1
+		],
+		[
+			D + 4,
+			DBL + 0,
+			DL + 1
+		],
+		[
+			DR + 3,
+			F + 0,
+			R + 2
+		],
+		[
+			L + 0,
+			F + 2,
+			DL + 3
+		],
+		[
+			BL + 0,
+			L + 2,
+			DBL + 3
+		],
+		[
+			BR + 0,
+			BL + 2,
+			B + 3
+		],
+		[
+			R + 0,
+			BR + 2,
+			DBR + 3
+		],
+		[
+			B + 4,
+			BL + 1,
+			DBL + 2
+		],
+		[
+			DBR + 4,
+			BR + 1,
+			B + 2
+		],
+		[
+			DR + 4,
+			R + 1,
+			DBR + 2
+		],
+		[
+			DL + 4,
+			F + 1,
+			DR + 2
+		],
+		[
+			DBL + 4,
+			L + 1,
+			DL + 2
+		]
+	];
+	var edgeFacelet = [
+		[U + 6, R + 8],
+		[U + 7, F + 8],
+		[U + 8, L + 8],
+		[U + 9, BL + 8],
+		[U + 5, BR + 8],
+		[D + 8, DBL + 5],
+		[D + 7, B + 5],
+		[D + 6, DBR + 5],
+		[D + 5, DR + 5],
+		[D + 9, DL + 5],
+		[F + 9, R + 7],
+		[F + 5, DR + 7],
+		[L + 9, F + 7],
+		[L + 5, DL + 7],
+		[BL + 9, L + 7],
+		[BL + 5, DBL + 7],
+		[BR + 9, BL + 7],
+		[BR + 5, B + 7],
+		[BR + 7, R + 9],
+		[DBR + 7, R + 5],
+		[B + 9, DBL + 6],
+		[B + 8, BL + 6],
+		[DBR + 9, B + 6],
+		[DBR + 8, BR + 6],
+		[DR + 9, DBR + 6],
+		[DR + 8, R + 6],
+		[DL + 9, DR + 6],
+		[DL + 8, F + 6],
+		[DBL + 9, DL + 6],
+		[DBL + 8, L + 6]
+	];
+	MgmCubie.prototype.toFaceCube = function(cFacelet, eFacelet) {
+		cFacelet = cFacelet || cornFacelet;
+		eFacelet = eFacelet || edgeFacelet;
+		var f = [];
+		mathlib.fillFacelet(cFacelet, f, this.corn, this.twst, 10);
+		mathlib.fillFacelet(eFacelet, f, this.edge, this.flip, 10);
+		return f;
+	};
+	MgmCubie.prototype.fromFacelet = function(facelet, cFacelet, eFacelet) {
+		cFacelet = cFacelet || cornFacelet;
+		eFacelet = eFacelet || edgeFacelet;
+		var count = 0;
+		var f = [];
+		for (var i = 0; i < 120; ++i) {
+			f[i] = facelet[i];
+			count += Math.pow(16, f[i]);
+		}
+		if (count != 0xaaaaaaaaaaaa) return -1;
+		if (mathlib.detectFacelet(cFacelet, f, this.corn, this.twst, 10) == -1 || mathlib.detectFacelet(eFacelet, f, this.edge, this.flip, 10) == -1) return -1;
+		return this;
+	};
+	MgmCubie.prototype.hashCode = function() {
+		var ret = 0;
+		for (var i = 0; i < 20; i++) {
+			ret = 0 | ret * 31 + this.corn[i] * 3 + this.twst[i];
+			ret = 0 | ret * 31 + this.edge[i] * 2 + this.flip[i];
+		}
+		return ret;
+	};
+	MgmCubie.MgmMult = function(a, b, prod) {
+		for (var i = 0; i < 20; i++) {
+			prod.corn[i] = a.corn[b.corn[i]];
+			prod.twst[i] = (a.twst[b.corn[i]] + b.twst[i]) % 3;
+		}
+		for (var i = 0; i < 30; i++) {
+			prod.edge[i] = a.edge[b.edge[i]];
+			prod.flip[i] = a.flip[b.edge[i]] ^ b.flip[i];
+		}
+	};
+	MgmCubie.MgmMult3 = function(a, b, c, prod) {
+		for (var i = 0; i < 20; i++) {
+			prod.corn[i] = a.corn[b.corn[c.corn[i]]];
+			prod.twst[i] = (a.twst[b.corn[c.corn[i]]] + b.twst[c.corn[i]] + c.twst[i]) % 3;
+		}
+		for (var i = 0; i < 30; i++) {
+			prod.edge[i] = a.edge[b.edge[c.edge[i]]];
+			prod.flip[i] = a.flip[b.edge[c.edge[i]]] ^ b.flip[c.edge[i]] ^ c.flip[i];
+		}
+	};
+	MgmCubie.prototype.invFrom = function(cc) {
+		for (var i = 0; i < 20; i++) {
+			this.corn[cc.corn[i]] = i;
+			this.twst[cc.corn[i]] = (3 - cc.twst[i]) % 3;
+		}
+		for (var i = 0; i < 30; i++) {
+			this.edge[cc.edge[i]] = i;
+			this.flip[cc.edge[i]] = cc.flip[i];
+		}
+		return this;
+	};
+	MgmCubie.prototype.copy = function(cc) {
+		this.corn = cc.corn.slice();
+		this.twst = cc.twst.slice();
+		this.edge = cc.edge.slice();
+		this.flip = cc.flip.slice();
+		return this;
+	};
+	MgmCubie.prototype.isEqual = function(c) {
+		for (var i = 0; i < 20; i++) if (this.corn[i] != c.corn[i] || this.twst[i] != c.twst[i]) return false;
+		for (var i = 0; i < 30; i++) if (this.edge[i] != c.edge[i] || this.flip[i] != c.flip[i]) return false;
+		return true;
+	};
+	function getComb(perm, ori, n, r, base) {
+		var thres = r;
+		var idxComb = 0;
+		var idxOri = 0;
+		var permR = [];
+		for (var i = n - 1; i >= 0; i--) if (perm[i] < thres) {
+			idxComb += mathlib.Cnk[i][r--];
+			idxOri = idxOri * base + ori[i];
+			permR[r] = perm[i];
+		}
+		return [
+			idxComb,
+			mathlib.getNPerm(permR, thres),
+			idxOri
+		];
+	}
+	function setComb(perm, ori, idx, n, r) {
+		var fill = n - 1;
+		for (var i = n - 1; i >= 0; i--) {
+			if (idx >= mathlib.Cnk[i][r]) {
+				idx -= mathlib.Cnk[i][r--];
+				perm[i] = r;
+			} else perm[i] = fill--;
+			ori[i] = 0;
+		}
+	}
+	function doCombMove4(moveTable, N_PERM, N_ORI, TT_OFFSET, idx, move) {
+		var slice = ~~(idx / N_ORI / N_PERM);
+		var perm = ~~(idx / N_ORI) % N_PERM;
+		var twst = idx % N_ORI;
+		var val = moveTable[move][slice];
+		slice = val[0];
+		perm = perm4Mult[perm][val[1]];
+		twst = N_ORI & 1 ? perm4TT[perm4MulT[val[1]][twst * TT_OFFSET] / TT_OFFSET][val[2]] : perm4MulF[val[1]][twst * TT_OFFSET] / TT_OFFSET ^ val[2];
+		return (slice * N_PERM + perm) * N_ORI + twst;
+	}
+	MgmCubie.prototype.setCComb = function(idx, r) {
+		setComb(this.corn, this.twst, idx, 20, r || 4);
+	};
+	MgmCubie.prototype.getCComb = function(r) {
+		return getComb(this.corn, this.twst, 20, r || 4, 3);
+	};
+	MgmCubie.prototype.setEComb = function(idx, r) {
+		setComb(this.edge, this.flip, idx, 30, r || 4);
+	};
+	MgmCubie.prototype.getEComb = function(r) {
+		return getComb(this.edge, this.flip, 30, r || 4, 2);
+	};
+	MgmCubie.prototype.faceletMove = function(face, pow, wide) {
+		var facelet = this.toFaceCube();
+		var state = [];
+		for (var i = 0; i < 12; i++) {
+			for (var j = 0; j < 10; j++) state[i * 11 + j] = facelet[i * 10 + j];
+			state[i * 11 + 10] = 0;
+		}
+		mathlib.minx.doMove(state, face, pow, wide);
+		for (var i = 0; i < 12; i++) for (var j = 0; j < 10; j++) facelet[i * 10 + j] = state[i * 11 + j];
+		this.fromFacelet(facelet);
+	};
+	function createMoveCube() {
+		var moveCube = [];
+		var moveHash = [];
+		for (var i = 0; i < 48; i++) moveCube[i] = new MgmCubie();
+		for (var a = 0; a < 48; a += 4) {
+			moveCube[a].faceletMove(a >> 2, 1, 0);
+			moveHash[a] = moveCube[a].hashCode();
+			for (var p = 0; p < 3; p++) {
+				MgmCubie.MgmMult(moveCube[a + p], moveCube[a], moveCube[a + p + 1]);
+				moveHash[a + p + 1] = moveCube[a + p + 1].hashCode();
+			}
+		}
+		MgmCubie.moveCube = moveCube;
+		var symCube = [];
+		var symMult = [];
+		var symMulI = [];
+		var symMulM = [];
+		var symHash = [];
+		var tmp = new MgmCubie();
+		for (var s = 0; s < 60; s++) {
+			symCube[s] = new MgmCubie().copy(tmp);
+			symHash[s] = symCube[s].hashCode();
+			symMult[s] = [];
+			symMulI[s] = [];
+			tmp.faceletMove(0, 1, 1);
+			if (s % 5 == 4) tmp.faceletMove(s % 10 == 4 ? 1 : 2, 1, 1);
+			if (s % 30 == 29) {
+				tmp.faceletMove(1, 2, 1);
+				tmp.faceletMove(2, 1, 1);
+				tmp.faceletMove(0, 3, 1);
+			}
+		}
+		for (var i = 0; i < 60; i++) for (var j = 0; j < 60; j++) {
+			MgmCubie.MgmMult(symCube[i], symCube[j], tmp);
+			var k = symHash.indexOf(tmp.hashCode());
+			symMult[i][j] = k;
+			symMulI[k][j] = i;
+		}
+		for (var s = 0; s < 60; s++) {
+			symMulM[s] = [];
+			for (var j = 0; j < 12; j++) {
+				MgmCubie.MgmMult3(symCube[symMulI[0][s]], moveCube[j * 4], symCube[s], tmp);
+				var k = moveHash.indexOf(tmp.hashCode());
+				symMulM[s][j] = k >> 2;
+			}
+		}
+		MgmCubie.symCube = symCube;
+		MgmCubie.symMult = symMult;
+		MgmCubie.symMulI = symMulI;
+		MgmCubie.symMulM = symMulM;
+	}
+	function CCombCoord(cubieMap) {
+		this.map = new MgmCubie();
+		this.imap = new MgmCubie();
+		this.map.corn = cubieMap.slice();
+		for (var i = 0; i < 20; i++) if (cubieMap.indexOf(i) == -1) this.map.corn.push(i);
+		this.imap.invFrom(this.map);
+		this.tmp = new MgmCubie();
+	}
+	CCombCoord.prototype.get = function(cc, r) {
+		MgmCubie.MgmMult3(this.imap, cc, this.map, this.tmp);
+		return this.tmp.getCComb(r);
+	};
+	CCombCoord.prototype.set = function(cc, idx, r) {
+		this.tmp.setCComb(idx, r);
+		MgmCubie.MgmMult3(this.map, this.tmp, this.imap, cc);
+	};
+	MgmCubie.CCombCoord = CCombCoord;
+	function ECombCoord(cubieMap) {
+		this.map = new MgmCubie();
+		this.imap = new MgmCubie();
+		this.map.edge = cubieMap.slice();
+		for (var i = 0; i < 30; i++) if (cubieMap.indexOf(i) == -1) this.map.edge.push(i);
+		this.imap.invFrom(this.map);
+		this.tmp = new MgmCubie();
+	}
+	ECombCoord.prototype.get = function(cc, r) {
+		MgmCubie.MgmMult3(this.imap, cc, this.map, this.tmp);
+		return this.tmp.getEComb(r);
+	};
+	ECombCoord.prototype.set = function(cc, idx, r) {
+		this.tmp.setEComb(idx, r);
+		MgmCubie.MgmMult3(this.map, this.tmp, this.imap, cc);
+	};
+	MgmCubie.ECombCoord = ECombCoord;
+	function EOriCoord(cubieMap) {
+		ECombCoord.call(this, cubieMap);
+	}
+	EOriCoord.prototype = {
+		get: function(cc, r) {
+			var idx = 0;
+			MgmCubie.MgmMult3(this.imap, cc, this.map, this.tmp);
+			for (var i = 0; i < r; i++) idx = idx | this.tmp.flip[i] << i;
+			return idx;
+		},
+		set: function(cc, idx, r) {
+			for (var i = 0; i < 30; i++) this.tmp.flip[i] = i < r ? idx >> i & 1 : 0;
+			MgmCubie.MgmMult3(this.map, this.tmp, this.imap, cc);
+		}
+	};
+	MgmCubie.EOriCoord = EOriCoord;
+	function EPermCoord(cubieMap) {
+		ECombCoord.call(this, cubieMap);
+	}
+	EPermCoord.prototype = {
+		get: function(cc, r) {
+			MgmCubie.MgmMult3(this.imap, cc, this.map, this.tmp);
+			return mathlib.getNPerm(this.tmp.edge, r);
+		},
+		set: function(cc, idx, r) {
+			var edge = [];
+			mathlib.setNPerm(edge, idx, r);
+			for (var i = 0; i < 30; i++) this.tmp.edge[i] = i < r ? edge[i] : i;
+			MgmCubie.MgmMult3(this.map, this.tmp, this.imap, cc);
+		}
+	};
+	MgmCubie.EPermCoord = EPermCoord;
+	function COriCoord(cubieMap) {
+		CCombCoord.call(this, cubieMap);
+	}
+	COriCoord.prototype = {
+		get: function(cc, r) {
+			var idx = 0;
+			MgmCubie.MgmMult3(this.imap, cc, this.map, this.tmp);
+			for (var i = 0, base = 1; i < r; i++, base *= 3) idx += this.tmp.twst[i] * base;
+			return idx;
+		},
+		set: function(cc, idx, r) {
+			for (var i = 0; i < 30; i++) {
+				this.tmp.twst[i] = i < r ? idx % 3 : 0;
+				idx = ~~(idx / 3);
+			}
+			MgmCubie.MgmMult3(this.map, this.tmp, this.imap, cc);
+		}
+	};
+	MgmCubie.COriCoord = COriCoord;
+	function CPermCoord(cubieMap) {
+		CCombCoord.call(this, cubieMap);
+	}
+	CPermCoord.prototype = {
+		get: function(cc, r) {
+			MgmCubie.MgmMult3(this.imap, cc, this.map, this.tmp);
+			return mathlib.getNPerm(this.tmp.corn, r);
+		},
+		set: function(cc, idx, r) {
+			var corn = [];
+			mathlib.setNPerm(corn, idx, r);
+			for (var i = 0; i < 20; i++) this.tmp.corn[i] = i < r ? corn[i] : i;
+			MgmCubie.MgmMult3(this.map, this.tmp, this.imap, cc);
+		}
+	};
+	MgmCubie.CPermCoord = CPermCoord;
+	var perm4Mult = [];
+	var perm4MulT = [];
+	var perm4MulF = [];
+	var perm4TT = [];
+	var ckmv = [];
+	var y2Move = [
+		0,
+		3,
+		4,
+		5,
+		1,
+		2,
+		8,
+		9,
+		10,
+		6,
+		7,
+		11
+	];
+	var yMove = [
+		0,
+		2,
+		3,
+		4,
+		5,
+		1,
+		7,
+		8,
+		9,
+		10,
+		6,
+		11
+	];
+	function comb4FullMove(moveTable, idx, move) {
+		var slice = ~~(idx / 81 / 24);
+		var perm = ~~(idx / 81) % 24;
+		var twst = idx % 81;
+		var val = moveTable[move][slice];
+		slice = val[0];
+		perm = perm4Mult[perm][val[1]];
+		twst = perm4TT[perm4MulT[val[1]][twst]][val[2]];
+		return slice * 81 * 24 + perm * 81 + twst;
+	}
+	function comb3FullMove(moveTable, idx, move) {
+		var slice = ~~(idx / 27 / 6);
+		var perm = ~~(idx / 27) % 6;
+		var twst = idx % 27;
+		var val = moveTable[move][slice];
+		slice = val[0];
+		perm = perm4Mult[perm][val[1]];
+		twst = perm4TT[perm4MulT[val[1]][twst * 3] / 3][val[2]];
+		return slice * 27 * 6 + perm * 27 + twst;
+	}
+	function init() {
+		init = function() {};
+		createMoveCube();
+		function setTwst4(arr, idx, base) {
+			for (var k = 0; k < 4; k++) {
+				arr[k] = idx % base;
+				idx = ~~(idx / base);
+			}
+		}
+		function getTwst4(arr, base) {
+			var idx = 0;
+			for (var k = 3; k >= 0; k--) idx = idx * base + arr[k];
+			return idx;
+		}
+		var perm1 = [];
+		var perm2 = [];
+		var perm3 = [];
+		for (var i = 0; i < 24; i++) {
+			perm4Mult[i] = [];
+			mathlib.setNPerm(perm1, i, 4);
+			for (var j = 0; j < 24; j++) {
+				mathlib.setNPerm(perm2, j, 4);
+				for (var k = 0; k < 4; k++) perm3[k] = perm1[perm2[k]];
+				perm4Mult[i][j] = mathlib.getNPerm(perm3, 4);
+			}
+		}
+		for (var j = 0; j < 24; j++) {
+			mathlib.setNPerm(perm2, j, 4);
+			perm4MulT[j] = [];
+			for (var i = 0; i < 81; i++) {
+				setTwst4(perm1, i, 3);
+				for (var k = 0; k < 4; k++) perm3[k] = perm1[perm2[k]];
+				perm4MulT[j][i] = getTwst4(perm3, 3);
+			}
+			perm4MulF[j] = [];
+			for (var i = 0; i < 16; i++) {
+				setTwst4(perm1, i, 2);
+				for (var k = 0; k < 4; k++) perm3[k] = perm1[perm2[k]];
+				perm4MulF[j][i] = getTwst4(perm3, 2);
+			}
+		}
+		for (var j = 0; j < 81; j++) {
+			perm4TT[j] = [];
+			setTwst4(perm2, j, 3);
+			for (var i = 0; i < 81; i++) {
+				setTwst4(perm1, i, 3);
+				for (var k = 0; k < 4; k++) perm3[k] = (perm1[k] + perm2[k]) % 3;
+				perm4TT[j][i] = getTwst4(perm3, 3);
+			}
+		}
+		var tmp1 = new MgmCubie();
+		var tmp2 = new MgmCubie();
+		for (var m1 = 0; m1 < 12; m1++) {
+			ckmv[m1] = 1 << m1;
+			for (var m2 = 0; m2 < m1; m2++) {
+				MgmCubie.MgmMult(MgmCubie.moveCube[m1 * 4], MgmCubie.moveCube[m2 * 4], tmp1);
+				MgmCubie.MgmMult(MgmCubie.moveCube[m2 * 4], MgmCubie.moveCube[m1 * 4], tmp2);
+				if (tmp1.isEqual(tmp2)) ckmv[m1] |= 1 << m2;
+			}
+		}
+	}
+	function move2str(moves) {
+		var ret = [];
+		for (var i = 0; i < moves.length; i++) ret.push([
+			"U",
+			"R",
+			"F",
+			"L",
+			"BL",
+			"BR",
+			"DR",
+			"DL",
+			"DBL",
+			"B",
+			"DBR",
+			"D"
+		][moves[i][0]] + [
+			"",
+			"2",
+			"2'",
+			"'"
+		][moves[i][1]]);
+		return ret.join(" ");
+	}
+	function move2strRURp(moves) {
+		var ret = [];
+		for (var i = 0; i < moves.length; i++) {
+			let suffix = [
+				"",
+				"2",
+				"2'",
+				"'"
+			][moves[i][1]];
+			ret.push(moves[i][0] == 0 ? "U" + suffix : "R U" + suffix + " R'");
+		}
+		return ret.join(" ");
+	}
+	var KlmPhase1Move = [];
+	var KlmPhase2Move = [];
+	var KlmPhase3Move = [];
+	var KlmPhase1Prun = [];
+	var KlmPhase2Prun = [];
+	var KlmPhase3Prun = [];
+	var klmPhase1Coord;
+	var klmPhase2Coord;
+	var klmPhase3Coord;
+	var klmSolv1 = null;
+	var klmSolv2 = null;
+	var klmSolv3 = null;
+	function initKlmPhase1() {
+		klmPhase1Coord = new CCombCoord([
+			5,
+			6,
+			7,
+			8,
+			9
+		]);
+		var tmp1 = new MgmCubie();
+		var tmp2 = new MgmCubie();
+		mathlib.createMove(KlmPhase1Move, 1140, function(idx, move) {
+			klmPhase1Coord.set(tmp1, idx, 3);
+			MgmCubie.MgmMult(tmp1, MgmCubie.moveCube[move * 4], tmp2);
+			return klmPhase1Coord.get(tmp2, 3);
+		}, 12);
+		mathlib.createPrun(KlmPhase1Prun, 0, 184680, 8, comb3FullMove.bind(null, KlmPhase1Move), 12, 4, 5);
+		var doKlmPhase1Move = comb3FullMove.bind(null, KlmPhase1Move);
+		klmSolv1 = new mathlib.Searcher(null, function(idx) {
+			return Math.max(mathlib.getPruning(KlmPhase1Prun, idx[0]), mathlib.getPruning(KlmPhase1Prun, idx[1]));
+		}, function(idx, move) {
+			var idx1 = [doKlmPhase1Move(idx[0], move), doKlmPhase1Move(idx[1], y2Move[move])];
+			if (idx1[0] == idx[0] && idx1[1] == idx[1]) return null;
+			return idx1;
+		}, 12, 4, ckmv);
+	}
+	function initKlmPhase2() {
+		klmPhase2Coord = new CCombCoord([
+			13,
+			15,
+			16,
+			0,
+			1,
+			2,
+			3,
+			4,
+			10,
+			11,
+			12,
+			14,
+			17,
+			18,
+			19
+		]);
+		var tmp1 = new MgmCubie();
+		var tmp2 = new MgmCubie();
+		mathlib.createMove(KlmPhase2Move, 455, function(idx, move) {
+			klmPhase2Coord.set(tmp1, idx, 3);
+			MgmCubie.MgmMult(tmp1, MgmCubie.moveCube[move * 4], tmp2);
+			return klmPhase2Coord.get(tmp2, 3);
+		}, 6);
+		mathlib.createPrun(KlmPhase2Prun, 0, 73710, 8, comb3FullMove.bind(null, KlmPhase2Move), 6, 4, 4);
+		var doKlmPhase2Move = comb3FullMove.bind(null, KlmPhase2Move);
+		klmSolv2 = new mathlib.Searcher(null, function(idx) {
+			return Math.max(mathlib.getPruning(KlmPhase2Prun, idx[0]), mathlib.getPruning(KlmPhase2Prun, idx[1]));
+		}, function(idx, move) {
+			var idx1 = [doKlmPhase2Move(idx[0], move), doKlmPhase2Move(idx[1], yMove[move])];
+			if (idx1[0] == idx[0] && idx1[1] == idx[1]) return null;
+			return idx1;
+		}, 6, 4, ckmv);
+	}
+	function initKlmPhase3() {
+		klmPhase3Coord = new CCombCoord([
+			0,
+			1,
+			2,
+			3,
+			4,
+			10,
+			11,
+			14,
+			17,
+			18
+		]);
+		var tmp1 = new MgmCubie();
+		var tmp2 = new MgmCubie();
+		mathlib.createMove(KlmPhase3Move, 210, function(idx, move) {
+			klmPhase3Coord.set(tmp1, idx);
+			MgmCubie.MgmMult(tmp1, MgmCubie.moveCube[move * 4], tmp2);
+			return klmPhase3Coord.get(tmp2);
+		}, 3);
+		var doKlmPhase3Move = comb4FullMove.bind(null, KlmPhase3Move);
+		mathlib.createPrun(KlmPhase3Prun, 0, 408240, 14, doKlmPhase3Move, 3, 4, 6);
+		klmSolv3 = new mathlib.Searcher(null, function(idx) {
+			return Math.max(mathlib.getPruning(KlmPhase3Prun, idx[0]), mathlib.getPruning(KlmPhase3Prun, idx[1]), mathlib.getPruning(KlmPhase3Prun, idx[2]));
+		}, function(idx, move) {
+			return [
+				doKlmPhase3Move(idx[0], move),
+				doKlmPhase3Move(idx[1], (move + 1) % 3),
+				doKlmPhase3Move(idx[2], (move + 2) % 3)
+			];
+		}, 3, 4, ckmv);
+	}
+	function initKlm() {
+		initKlm = function() {};
+		init();
+		initKlmPhase1();
+		initKlmPhase2();
+		initKlmPhase3();
+	}
+	function solveKlmCubie(cc, useSym) {
+		initKlm();
+		var kc0 = new MgmCubie();
+		var kc1 = new MgmCubie();
+		var kc2 = new MgmCubie();
+		kc0.copy(cc);
+		var idx;
+		var solsym = 0;
+		var idx1s = [];
+		for (var s = 0; s < (useSym ? 12 : 1); s++) {
+			MgmCubie.MgmMult3(MgmCubie.symCube[MgmCubie.symMulI[0][s * 5]], kc0, MgmCubie.symCube[s * 5], kc1);
+			var val0 = klmPhase1Coord.get(kc1, 3);
+			MgmCubie.MgmMult3(MgmCubie.symCube[MgmCubie.symMulI[0][2]], kc1, MgmCubie.symCube[2], kc2);
+			var val1 = klmPhase1Coord.get(kc2, 3);
+			idx1s.push([val0[0] * 27 * 6 + val0[1] * 27 + val0[2], val1[0] * 27 * 6 + val1[1] * 27 + val1[2]]);
+		}
+		var sol1s = klmSolv1.solveMulti(idx1s, 0, 9);
+		var ksym = sol1s[1] * 5;
+		var sol1 = sol1s[0];
+		MgmCubie.MgmMult3(MgmCubie.symCube[MgmCubie.symMulI[0][ksym]], kc0, MgmCubie.symCube[ksym], kc1);
+		kc0.copy(kc1);
+		solsym = MgmCubie.symMult[solsym][ksym];
+		for (var i = 0; i < sol1.length; i++) {
+			var move = sol1[i];
+			MgmCubie.MgmMult(kc0, MgmCubie.moveCube[move[0] * 4 + move[1]], kc1);
+			kc0.copy(kc1);
+			move[0] = MgmCubie.symMulM[MgmCubie.symMulI[0][solsym]][move[0]];
+		}
+		var idx2s = [];
+		for (var s = 0; s < (useSym ? 5 : 1); s++) {
+			MgmCubie.MgmMult3(MgmCubie.symCube[MgmCubie.symMulI[0][s]], kc0, MgmCubie.symCube[s], kc1);
+			var val0 = klmPhase2Coord.get(kc1, 3);
+			MgmCubie.MgmMult3(MgmCubie.symCube[MgmCubie.symMulI[0][1]], kc1, MgmCubie.symCube[1], kc2);
+			var val1 = klmPhase2Coord.get(kc2, 3);
+			idx2s.push([val0[0] * 27 * 6 + val0[1] * 27 + val0[2], val1[0] * 27 * 6 + val1[1] * 27 + val1[2]]);
+		}
+		var sol2s = klmSolv2.solveMulti(idx2s, 0, 14);
+		ksym = sol2s[1];
+		var sol2 = sol2s[0];
+		MgmCubie.MgmMult3(MgmCubie.symCube[MgmCubie.symMulI[0][ksym]], kc0, MgmCubie.symCube[ksym], kc1);
+		kc0.copy(kc1);
+		solsym = MgmCubie.symMult[solsym][ksym];
+		for (var i = 0; i < sol2.length; i++) {
+			var move = sol2[i];
+			MgmCubie.MgmMult(kc0, MgmCubie.moveCube[move[0] * 4 + move[1]], kc1);
+			kc0.copy(kc1);
+			move[0] = MgmCubie.symMulM[MgmCubie.symMulI[0][solsym]][move[0]];
+		}
+		val0 = klmPhase3Coord.get(kc0);
+		MgmCubie.MgmMult3(MgmCubie.symCube[MgmCubie.symMulI[0][6]], kc0, MgmCubie.symCube[6], kc1);
+		val1 = klmPhase3Coord.get(kc1);
+		MgmCubie.MgmMult3(MgmCubie.symCube[MgmCubie.symMulI[0][29]], kc0, MgmCubie.symCube[29], kc1);
+		var val2 = klmPhase3Coord.get(kc1);
+		idx = [
+			(val0[0] * 24 + val0[1]) * 81 + val0[2],
+			(val1[0] * 24 + val1[1]) * 81 + val1[2],
+			(val2[0] * 24 + val2[1]) * 81 + val2[2]
+		];
+		var sol3 = klmSolv3.solve(idx, 0, 14);
+		for (var i = 0; i < sol3.length; i++) {
+			var move = sol3[i];
+			move[0] = MgmCubie.symMulM[MgmCubie.symMulI[0][solsym]][move[0]];
+		}
+		return move2str(Array.prototype.concat(sol1, sol2, sol3));
+	}
+	var mgmSolv1 = null;
+	var mgmSolv2 = null;
+	var mgmSolv3 = null;
+	var mgmSolv4 = null;
+	var mgmSolv5 = null;
+	var mgmSolv6 = null;
+	var mgmSolv7 = null;
+	var mgmSolv8 = null;
+	var mgmSolv9 = null;
+	var mgmSolvA = null;
+	/**
+	* SOLE_EO: 0 = no ori, 1 = edge ori, 2 = corner ori
+	*/
+	function BlockSolver(edges, corns, N_EDGE, N_CORN, N_MOVE, SOLV_ORI) {
+		var mgmECoord = new ECombCoord(edges);
+		var mgmCCoord = new CCombCoord(corns);
+		var mgmOCoord = SOLV_ORI == 1 ? new EOriCoord(edges) : SOLV_ORI == 2 ? new COriCoord(corns) : null;
+		var MgmEMove = [];
+		var MgmCMove = [];
+		var MgmOMove = [];
+		var MgmEPrun = [];
+		var MgmCPrun = [];
+		var MgmOPrun = [];
+		var N_ECOMB = mathlib.Cnk[edges.length][N_EDGE];
+		var N_CCOMB = mathlib.Cnk[corns.length][N_CORN];
+		var N_EPERM = mathlib.fact[N_EDGE];
+		var N_CPERM = mathlib.fact[N_CORN];
+		var N_EORI = Math.pow(2, N_EDGE);
+		var N_CORI = Math.pow(3, N_CORN);
+		var N_ORI = Math.pow(1 + SOLV_ORI, SOLV_ORI == 1 ? edges.length : corns.length);
+		var tmp1 = new MgmCubie();
+		var tmp2 = new MgmCubie();
+		mathlib.createMove(MgmEMove, N_ECOMB, function(idx, move) {
+			mgmECoord.set(tmp1, idx, N_EDGE);
+			MgmCubie.MgmMult(tmp1, MgmCubie.moveCube[move * 4], tmp2);
+			return mgmECoord.get(tmp2, N_EDGE);
+		}, N_MOVE);
+		mathlib.createMove(MgmCMove, N_CCOMB, function(idx, move) {
+			mgmCCoord.set(tmp1, idx, N_CORN);
+			MgmCubie.MgmMult(tmp1, MgmCubie.moveCube[move * 4], tmp2);
+			return mgmCCoord.get(tmp2, N_CORN);
+		}, N_MOVE);
+		var doMgmEMove = doCombMove4.bind(null, MgmEMove, N_EPERM, N_EORI, 16 / N_EORI);
+		var doMgmCMove = doCombMove4.bind(null, MgmCMove, N_CPERM, N_CORI, 81 / N_CORI);
+		mathlib.createPrun(MgmEPrun, 0, N_ECOMB * N_EPERM * N_EORI, 14, doMgmEMove, N_MOVE, 4);
+		mathlib.createPrun(MgmCPrun, 0, N_CCOMB * N_CPERM * N_CORI, 14, doMgmCMove, N_MOVE, 4);
+		if (SOLV_ORI) {
+			mathlib.createMove(MgmOMove, N_ORI, function(idx, move) {
+				mgmOCoord.set(tmp1, idx, edges.length);
+				MgmCubie.MgmMult(tmp1, MgmCubie.moveCube[move * 4], tmp2);
+				return mgmOCoord.get(tmp2, edges.length);
+			}, N_MOVE);
+			mathlib.createPrun(MgmOPrun, 0, N_CCOMB * N_ORI, 14, function(idx, move) {
+				var slice = ~~(idx / N_ORI);
+				var twst = idx % N_ORI;
+				return MgmCMove[move][slice][0] * N_ORI + MgmOMove[move][twst];
+			}, N_MOVE, 4);
+		}
+		var MgmECPrun = [];
+		mathlib.createPrun(MgmECPrun, 0, N_ECOMB * N_CCOMB, 14, function(idx, move) {
+			var idxE = ~~(idx / N_CCOMB);
+			var idxC = idx % N_CCOMB;
+			return MgmEMove[move][idxE][0] * N_CCOMB + MgmCMove[move][idxC][0];
+		}, N_MOVE, 4);
+		this.solv = new mathlib.Searcher(null, function(idx) {
+			return Math.max(mathlib.getPruning(MgmEPrun, idx[0]), mathlib.getPruning(MgmCPrun, idx[1]), SOLV_ORI ? mathlib.getPruning(MgmOPrun, ~~(idx[1] / N_CPERM / N_CORI) * N_ORI + idx[2]) : 0, mathlib.getPruning(MgmECPrun, ~~(idx[0] / N_EPERM / N_EORI) * N_CCOMB + ~~(idx[1] / N_CPERM / N_CORI)));
+		}, function(idx, move) {
+			var idx1 = [
+				doMgmEMove(idx[0], move),
+				doMgmCMove(idx[1], move),
+				SOLV_ORI ? MgmOMove[move][idx[2]] : 0
+			];
+			if (idx1[0] == idx[0] && idx1[1] == idx[1] && idx1[2] == idx[2]) return null;
+			return idx1;
+		}, N_MOVE, 4, ckmv);
+		this.mgmECoord = mgmECoord;
+		this.mgmCCoord = mgmCCoord;
+		this.mgmOCoord = mgmOCoord;
+		this.N_EDGE = N_EDGE;
+		this.N_CORN = N_CORN;
+		this.N_ELEN = edges.length;
+	}
+	BlockSolver.prototype.getIdx = function(cc) {
+		var idxE = this.mgmECoord.get(cc, this.N_EDGE);
+		var idxC = this.mgmCCoord.get(cc, this.N_CORN);
+		var idxO = this.mgmOCoord ? this.mgmOCoord.get(cc, this.N_ELEN) : 0;
+		return [
+			(idxE[0] * mathlib.fact[this.N_EDGE] + idxE[1]) * Math.pow(2, this.N_EDGE) + idxE[2],
+			(idxC[0] * mathlib.fact[this.N_CORN] + idxC[1]) * Math.pow(3, this.N_CORN) + idxC[2],
+			idxO
+		];
+	};
+	BlockSolver.prototype.solve = function(kc0) {
+		var kc1 = new MgmCubie();
+		var idx = this.getIdx(kc0);
+		var sol = this.solv.solve(idx, 0, 30);
+		for (var i = 0; i < sol.length; i++) {
+			var move = sol[i];
+			MgmCubie.MgmMult(kc0, MgmCubie.moveCube[move[0] * 4 + move[1]], kc1);
+			kc0.copy(kc1);
+		}
+		return sol;
+	};
+	BlockSolver.prototype.solveMulti = function(kcs, nsol) {
+		var kc1 = new MgmCubie();
+		var idxs = [];
+		for (var i = 0; i < kcs.length; i++) idxs.push(this.getIdx(kcs[i]));
+		var solSet = /* @__PURE__ */ new Set();
+		var sols = [];
+		var kcsRet = [];
+		this.solv.solveMulti(idxs, 0, 30, function(sol, sidx) {
+			var kc0 = new MgmCubie();
+			kc0.copy(kcs[sidx]);
+			for (var i = 0; i < sol.length; i++) {
+				var move = sol[i];
+				MgmCubie.MgmMult(kc0, MgmCubie.moveCube[move[0] * 4 + move[1]], kc1);
+				kc0.copy(kc1);
+			}
+			var hashCode = kc0.hashCode();
+			if (solSet.has(hashCode)) return false;
+			solSet.add(hashCode);
+			sols.push([sol.slice(), sidx]);
+			kcsRet.push(kc0);
+			return sols.length >= nsol;
+		});
+		return [kcsRet, sols];
+	};
+	function BlockRURpSolver(edges, corns, N_EDGE, N_CORN, N_MOVE) {
+		var mgmEPCoord = new EPermCoord(edges);
+		var mgmCPCoord = new CPermCoord(corns);
+		var mgmEOCoord = new EOriCoord(edges);
+		var mgmCOCoord = new COriCoord(corns);
+		var MgmEPMove = [];
+		var MgmCPMove = [];
+		var MgmEOMove = [];
+		var MgmCOMove = [];
+		var MgmEPrun = [];
+		var MgmCPrun = [];
+		var N_EPERM = mathlib.fact[N_EDGE];
+		var N_CPERM = mathlib.fact[N_CORN];
+		var N_EORI = Math.pow(2, N_EDGE);
+		var N_CORI = Math.pow(3, N_CORN);
+		var tmp1 = new MgmCubie();
+		var tmp2 = new MgmCubie();
+		var moveRURp = new MgmCubie();
+		MgmCubie.MgmMult3(MgmCubie.moveCube[4], MgmCubie.moveCube[0], MgmCubie.moveCube[7], moveRURp);
+		var CoordMove = function(coord, N_PIECE, idx, move) {
+			coord.set(tmp1, idx, N_PIECE);
+			MgmCubie.MgmMult(tmp1, move == 0 ? MgmCubie.moveCube[0] : moveRURp, tmp2);
+			return coord.get(tmp2, N_PIECE);
+		};
+		mathlib.createMove(MgmEPMove, N_EPERM, CoordMove.bind(null, mgmEPCoord, N_EDGE), N_MOVE);
+		mathlib.createMove(MgmCPMove, N_CPERM, CoordMove.bind(null, mgmCPCoord, N_CORN), N_MOVE);
+		mathlib.createMove(MgmEOMove, N_EORI, CoordMove.bind(null, mgmEOCoord, N_EDGE), N_MOVE);
+		mathlib.createMove(MgmCOMove, N_CORI, CoordMove.bind(null, mgmCOCoord, N_CORN), N_MOVE);
+		var doXMove = function(PMove, OMove, N_ORI, idx, move) {
+			let perm = ~~(idx / N_ORI);
+			let ori = idx % N_ORI;
+			perm = PMove[move][perm];
+			ori = OMove[move][ori];
+			return perm * N_ORI + ori;
+		};
+		var doMgmEMove = doXMove.bind(null, MgmEPMove, MgmEOMove, N_EORI);
+		var doMgmCMove = doXMove.bind(null, MgmCPMove, MgmCOMove, N_CORI);
+		mathlib.createPrun(MgmEPrun, 0, N_EPERM * N_EORI, 14, doMgmEMove, N_MOVE, 4);
+		mathlib.createPrun(MgmCPrun, 0, N_CPERM * N_CORI, 14, doMgmCMove, N_MOVE, 4);
+		this.solv = new mathlib.Searcher(null, function(idx) {
+			return Math.max(mathlib.getPruning(MgmEPrun, idx[0]), mathlib.getPruning(MgmCPrun, idx[1]));
+		}, function(idx, move) {
+			return [doMgmEMove(idx[0], move), doMgmCMove(idx[1], move)];
+		}, N_MOVE, 4, ckmv);
+		this.mgmECoord = { get: (cc) => mgmEPCoord.get(cc, N_EDGE) * N_EORI + mgmEOCoord.get(cc, N_EDGE) };
+		this.mgmCCoord = { get: (cc) => mgmCPCoord.get(cc, N_CORN) * N_CORI + mgmCOCoord.get(cc, N_CORN) };
+		this.N_EDGE = N_EDGE;
+		this.N_CORN = N_CORN;
+	}
+	BlockRURpSolver.prototype.getIdx = function(cc) {
+		return [this.mgmECoord.get(cc), this.mgmCCoord.get(cc)];
+	};
+	BlockRURpSolver.prototype.solve = BlockSolver.prototype.solve;
+	BlockRURpSolver.prototype.solveMulti = BlockSolver.prototype.solveMulti;
+	function initMgm() {
+		initMgm = function() {};
+		init();
+		var edgeOrder = [
+			6,
+			7,
+			22,
+			5,
+			20,
+			9,
+			28,
+			8,
+			24,
+			26,
+			17,
+			23,
+			15,
+			16,
+			21,
+			13,
+			14,
+			29,
+			11,
+			12,
+			27,
+			18,
+			19,
+			25,
+			0,
+			1,
+			2,
+			3,
+			4,
+			10
+		];
+		var cornOrder = [
+			6,
+			5,
+			9,
+			7,
+			8,
+			16,
+			13,
+			15,
+			12,
+			19,
+			11,
+			18,
+			14,
+			17,
+			0,
+			1,
+			2,
+			3,
+			4,
+			10
+		];
+		mgmSolv1 = new BlockSolver(edgeOrder, cornOrder, 3, 1, 12);
+		mgmSolv2 = new BlockSolver(edgeOrder.slice(3), cornOrder.slice(1), 2, 1, 9);
+		mgmSolv3 = new BlockSolver(edgeOrder.slice(5), cornOrder.slice(2), 2, 1, 8);
+		mgmSolv4 = new BlockSolver(edgeOrder.slice(7), cornOrder.slice(3), 3, 2, 7);
+		mgmSolv5 = new BlockSolver(edgeOrder.slice(10), cornOrder.slice(5), 2, 1, 6);
+		mgmSolv6 = new BlockSolver(edgeOrder.slice(12), cornOrder.slice(6), 3, 2, 5);
+		mgmSolv7 = new BlockSolver(edgeOrder.slice(15), cornOrder.slice(8), 3, 2, 4);
+		mgmSolv8 = new BlockSolver(edgeOrder.slice(18), cornOrder.slice(10), 3, 2, 3, 1);
+		mgmSolv9 = new BlockSolver(edgeOrder.slice(21), cornOrder.slice(12), 3, 2, 2);
+		mgmSolvA = new BlockRURpSolver(edgeOrder.slice(24), cornOrder.slice(14), 6, 6, 2);
+	}
+	function solveMgmCubie(cc, useSym) {
+		initMgm();
+		var kc0 = new MgmCubie();
+		new MgmCubie();
+		new MgmCubie();
+		kc0.copy(cc);
+		var kcs0 = [kc0];
+		var [kcs1, sol1s] = mgmSolv1.solveMulti(kcs0, 100);
+		var [kcs2, sol2s] = mgmSolv2.solveMulti(kcs1, 100);
+		var [kcs3, sol3s] = mgmSolv3.solveMulti(kcs2, 100);
+		var [kcs4, sol4s] = mgmSolv4.solveMulti(kcs3, 10);
+		var [kcs5, sol5s] = mgmSolv5.solveMulti(kcs4, 100);
+		var [kcs6, sol6s] = mgmSolv6.solveMulti(kcs5, 100);
+		var [kcs7, sol7s] = mgmSolv7.solveMulti(kcs6, 100);
+		var [kcs8, sol8s] = mgmSolv8.solveMulti(kcs7, 5);
+		var [kcs9, sol9s] = mgmSolv9.solveMulti(kcs8, 20);
+		var [kcsA, solAs] = mgmSolvA.solveMulti(kcs9, 1);
+		var [solA, sidxA] = solAs[0];
+		var [sol9, sidx9] = sol9s[sidxA];
+		var [sol8, sidx8] = sol8s[sidx9];
+		var [sol7, sidx7] = sol7s[sidx8];
+		var [sol6, sidx6] = sol6s[sidx7];
+		var [sol5, sidx5] = sol5s[sidx6];
+		var [sol4, sidx4] = sol4s[sidx5];
+		var [sol3, sidx3] = sol3s[sidx4];
+		var [sol2, sidx2] = sol2s[sidx3];
+		var [sol1, sidx1] = sol1s[sidx2];
+		return [move2str([].concat(sol1, sol2, sol3, sol4, sol5, sol6, sol7, sol8, sol9)), move2strRURp(solA)].join(" ");
+	}
+	function checkSolver(isKlm) {
+		init();
+		var kc0 = new MgmCubie();
+		var kc1 = new MgmCubie();
+		var gen = [];
+		for (var i = 0; i < 500; i++) {
+			var move = mathlib.rn(12);
+			gen.push([move, 0]);
+			MgmCubie.MgmMult(kc0, MgmCubie.moveCube[move * 4], kc1);
+			kc0.copy(kc1);
+		}
+		return move2str(gen) + "   " + (isKlm ? solveKlmCubie : solveMgmCubie)(kc0, true);
+	}
+	return {
+		MgmCubie,
+		solveKlmCubie,
+		solveMgmCubie,
+		checkSolver: DEBUG && checkSolver
+	};
+})();
+//#endregion
+//#region src/vendor/cstimer/megaminx.js
+(function() {
+	"use strict";
+	function getKiloScramble() {
+		var cc = new mgmsolver.MgmCubie();
+		cc.corn = mathlib.rndPerm(20, true);
+		var chksum = 60;
+		for (var i = 0; i < 19; i++) {
+			var t = mathlib.rn(3);
+			cc.twst[i] = t;
+			chksum -= t;
+		}
+		cc.twst[19] = chksum % 3;
+		return mgmsolver.solveKlmCubie(cc, true);
+	}
+	function getMegaScramble() {
+		var cc = new mgmsolver.MgmCubie();
+		cc.corn = mathlib.rndPerm(20, true);
+		cc.edge = mathlib.rndPerm(30, true);
+		var chksum = 60;
+		for (var i = 0; i < 19; i++) {
+			var t = mathlib.rn(3);
+			cc.twst[i] = t;
+			chksum -= t;
+		}
+		cc.twst[19] = chksum % 3;
+		chksum = 0;
+		for (var i = 0; i < 29; i++) {
+			var t = mathlib.rn(2);
+			cc.flip[i] = t;
+			chksum ^= t;
+		}
+		cc.flip[29] = chksum;
+		return mgmsolver.solveMgmCubie(cc, true);
+	}
+	scrMgr.reg("klmso", getKiloScramble)("mgmso", getMegaScramble);
+})();
+//#endregion
+//#region src/vendor/cstimer/mgmlsll.js
+(function() {
+	var epcord = new mathlib.Coord("p", 6, -1);
+	var eocord = new mathlib.Coord("o", 6, -2);
+	var cpcord = new mathlib.Coord("p", 6, -1);
+	var cocord = new mathlib.Coord("o", 6, -3);
+	function eMove(idx, m) {
+		var perm = epcord.set([], idx >> 5);
+		var twst = eocord.set([], idx & 31);
+		if (m == 0) {
+			mathlib.acycle(twst, [
+				0,
+				1,
+				2,
+				3,
+				4
+			], 1);
+			mathlib.acycle(perm, [
+				0,
+				1,
+				2,
+				3,
+				4
+			], 1);
+		} else if (m == 1) {
+			mathlib.acycle(twst, [
+				0,
+				1,
+				2,
+				3,
+				5
+			], 1);
+			mathlib.acycle(perm, [
+				0,
+				1,
+				2,
+				3,
+				5
+			], 1);
+		} else if (m == 2) {
+			mathlib.acycle(twst, [
+				1,
+				2,
+				3,
+				4,
+				5
+			], 1, [
+				0,
+				0,
+				0,
+				0,
+				1,
+				2
+			]);
+			mathlib.acycle(perm, [
+				1,
+				2,
+				3,
+				4,
+				5
+			]);
+		}
+		return epcord.get(perm) << 5 | eocord.get(twst);
+	}
+	function cMove(idx, m) {
+		var perm = cpcord.set([], ~~(idx / 243));
+		var twst = cocord.set([], idx % 243);
+		if (m == 0) {
+			mathlib.acycle(twst, [
+				0,
+				1,
+				2,
+				3,
+				4
+			], 1);
+			mathlib.acycle(perm, [
+				0,
+				1,
+				2,
+				3,
+				4
+			], 1);
+		} else if (m == 1) {
+			mathlib.acycle(twst, [
+				0,
+				5,
+				1,
+				2,
+				3
+			], 1, [
+				2,
+				0,
+				0,
+				0,
+				0,
+				3
+			]);
+			mathlib.acycle(perm, [
+				0,
+				5,
+				1,
+				2,
+				3
+			]);
+		} else if (m == 2) {
+			mathlib.acycle(twst, [
+				0,
+				2,
+				3,
+				4,
+				5
+			], 1, [
+				1,
+				0,
+				0,
+				0,
+				1,
+				3
+			]);
+			mathlib.acycle(perm, [
+				0,
+				2,
+				3,
+				4,
+				5
+			]);
+		}
+		return cpcord.get(perm) * 243 + cocord.get(twst);
+	}
+	var solv = new mathlib.Solver(3, 4, [[
+		0,
+		eMove,
+		11520
+	], [
+		0,
+		cMove,
+		87480
+	]]);
+	function getMinxLSScramble(type, length, cases) {
+		var edge = 0;
+		var corn = 0;
+		do
+			if (type == "mlsll") {
+				edge = mathlib.rn(11520);
+				corn = mathlib.rn(87480);
+			} else if (type == "mgmpll") {
+				edge = epcord.get(mathlib.rndPerm(5, true).concat([5])) * 32;
+				corn = cpcord.get(mathlib.rndPerm(5, true).concat([5])) * 243;
+			} else if (type == "mgmll") {
+				var eo = eocord.set([], mathlib.rn(32));
+				eo[0] += eo[5];
+				eo[5] = 0;
+				var co = cocord.set([], mathlib.rn(243));
+				co[0] += co[5];
+				co[5] = 0;
+				edge = epcord.get(mathlib.rndPerm(5, true).concat([5])) * 32 + eocord.get(eo);
+				corn = cpcord.get(mathlib.rndPerm(5, true).concat([5])) * 243 + cocord.get(co);
+			}
+		while (edge == 0 && corn == 0);
+		var sol = solv.search([edge, corn], 0);
+		var ret = [];
+		for (var i = 0; i < sol.length; i++) {
+			var move = sol[i];
+			ret.push([
+				"U",
+				"R U",
+				"F' U"
+			][move[0]] + [
+				"",
+				"2",
+				"2'",
+				"'"
+			][move[1]] + [
+				"",
+				" R'",
+				" F"
+			][move[0]]);
+		}
+		return ret.join(" ").replace(/ +/g, " ");
+	}
+	scrMgr.reg("mlsll", getMinxLSScramble)("mgmpll", getMinxLSScramble)("mgmll", getMinxLSScramble);
+})();
+//#endregion
+//#region src/events/minx/index.ts
+/**
+* WCA Megaminx: 7 lines of Pochmann-style moves (R++ D-- ... U), separated by newlines.
+* Another `length` gives length / 10 lines, rounded up.
+*/
+function getMegaminxScramble(length = 70) {
+	return cstimerScramble("mgmp", length);
+}
+const eventsMinx = [
+	{
+		id: "mgmp",
+		name: "Megaminx WCA",
+		puzzle: "minx",
+		length: 70,
+		generate: getMegaminxScramble
+	},
+	cstimerEvent("mgmc", "Megaminx Carrot", "minx", 70),
+	cstimerEvent("mgmo", "Megaminx old style", "minx", 70),
+	cstimerEvent("minx2g", "Megaminx 2-generator R,U", "minx", 30),
+	cstimerEvent("mlsll", "Megaminx last slot + last layer", "minx"),
+	cstimerEvent("mgmso", "Megaminx random state", "minx"),
+	cstimerEvent("mgmpll", "Megaminx PLL", "minx"),
+	cstimerEvent("mgmll", "Megaminx Last Layer", "minx"),
+	cstimerEvent("mgms2l", "Megaminx S2L", "minx", 48)
+];
+registerEvents(...eventsMinx);
+//#endregion
+//#region src/events/pyram/index.ts
+/** WCA Pyraminx: random-state scramble, with random tip turns (u l r b) at the end. */
+function getPyraminxScramble() {
+	return cstimerScramble("pyrso");
+}
+const eventsPyram = [
+	{
+		id: "pyrso",
+		name: "Pyraminx random state",
+		puzzle: "pyram",
+		generate: getPyraminxScramble
+	},
+	cstimerEvent("pyro", "Pyraminx optimal", "pyram"),
+	cstimerEvent("pyrm", "Pyraminx random move", "pyram", 25),
+	cstimerEvent("pyrl4e", "Pyraminx L4E", "pyram"),
+	cstimerEvent("pyr4c", "Pyraminx 4 tips", "pyram"),
+	cstimerEvent("pyrnb", "Pyraminx No bar", "pyram")
+];
+registerEvents(...eventsPyram);
+//#endregion
+//#region src/events/skewb/index.ts
+/** WCA Skewb: random-state scramble in WCA notation (R U L B). */
+function getSkewbScramble() {
+	return cstimerScramble("skbso");
+}
+const eventsSkewb = [
+	{
+		id: "skbso",
+		name: "Skewb random state",
+		puzzle: "skewb",
+		generate: getSkewbScramble
+	},
+	cstimerEvent("skbo", "Skewb optimal", "skewb"),
+	cstimerEvent("skb", "Skewb random move", "skewb", 25),
+	cstimerEvent("skbnb", "Skewb No bar", "skewb")
+];
+registerEvents(...eventsSkewb);
+//#endregion
+//#region src/events/sq1/index.ts
+/** WCA Square-1: random-state scramble, e.g. "(1,0)/ (-3,0)/ ...". */
+function getSquare1Scramble() {
+	return cstimerScramble("sqrs");
+}
+const eventsSq1 = [
+	{
+		id: "sqrs",
+		name: "Square-1 random state",
+		puzzle: "sq1",
+		generate: getSquare1Scramble
+	},
+	cstimerEvent("sqrcsp", "Square-1 CSP", "sq1"),
+	cstimerEvent("sq1pll", "Square-1 PLL", "sq1"),
+	cstimerEvent("sq1h", "Square-1 face turn metric", "sq1", 40),
+	cstimerEvent("sq1t", "Square-1 twist metric", "sq1", 20)
+];
+registerEvents(...eventsSq1);
 //#endregion
 //#region src/vendor/cstimer/scramble_fto.js
 (function() {
