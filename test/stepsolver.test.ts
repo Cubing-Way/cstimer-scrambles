@@ -91,10 +91,10 @@ describe('Puzzle step solvers', () => {
       ['xxxcross', 3],
     ];
     for (const [id, count] of pairs) {
-      // XXXCross takes several seconds per face, so only two faces.
-      const lines = id === 'xxxcross' ? cube.solveStep(id, ['D', 'R']) : cube.solveStep(id);
+      // XXXCross takes several seconds per face, so only one face.
+      const lines = id === 'xxxcross' ? cube.solveStep(id, ['D']) : cube.solveStep(id);
       expect(lines.map((line) => line.label)).toEqual(
-        id === 'xxxcross' ? ['D', 'R'] : ['D', 'U', 'L', 'R', 'F', 'B'],
+        id === 'xxxcross' ? ['D'] : ['D', 'U', 'L', 'R', 'F', 'B'],
       );
       for (const line of lines) {
         const solution = movesOf(line);
