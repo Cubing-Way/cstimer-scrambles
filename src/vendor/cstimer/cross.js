@@ -1,5 +1,5 @@
 // Vendored from csTimer (src/js/tools/cross.js) @ 2547d82. GPL-3.0, (c) cs0x7f.
-// Changes: ESM import/export; $.noop -> plain JS; DEBUG disabled; ISCSTIMER = false skips its UI part.
+// Changes: ESM import/export; $.noop -> plain JS; exports solve_xcross, solve_xxcross and the face names; DEBUG disabled; ISCSTIMER = false skips its UI part.
 import mathlib from './mathlib.js';
 var DEBUG = false;
 var ISCSTIMER = false;
@@ -510,6 +510,10 @@ var cross = (function(createMove, edgeMove, createPrun, setNPerm, getNPerm, Cnk,
 
 	return {
 		solve: solve_cross,
+		xcross: solve_xcross,
+		xxcross: solve_xxcross,
+		faces: faceStr,
+		rotations: rotIdx,
 		getEasyCross: getEasyCross,
 		getEasyXCross: getEasyXCross
 	}

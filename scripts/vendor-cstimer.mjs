@@ -27,6 +27,11 @@ const NAMES = {
   toolsutil: 'tools',
   cubeutil: 'cubeutil',
   clock: 'clock',
+  toolsui: 'toolsui',
+  eoline: 'eoline',
+  roux1: 'roux1',
+  gsolver: 'gsolver',
+  thistlethwaite: 'thistlethwaite',
 };
 
 // Shims for the few csTimer globals some files read. Values copied from csTimer.
@@ -57,6 +62,8 @@ var $ = {
 };`,
   // csTimer's settings, shared with src/image.ts so it can draw with other colors.
   kernel: "import kernel from './kernel.js';",
+  // The solver tools write their answers into page elements; toolsui.js stands in for them.
+  toolsUi: 'var $ = toolsui.$;\nvar execMain = toolsui.execMain;\nvar tools = toolsui.tools;',
 };
 
 // csTimer's settings (src/js/kernel.js) that the image code reads, with their default values.
@@ -85,6 +92,74 @@ var kernel = {
 	}
 };
 export default kernel;
+`;
+
+// Stand-in for the bits of csTimer's page its solver tools use: jQuery elements, execMain
+// (src/js/lib/utillib.js) and the tools panel's solution spans (src/js/tools/tools.js).
+const TOOLSUI = `// Stand-in for the bits of csTimer's page its solver tools use: jQuery elements, execMain
+// and the tools panel's solution spans. A solver tool writes its answers into an element;
+// here an element only keeps what is appended to it, so src/stepsolver.ts can read the
+// answers back. Written by scripts/vendor-cstimer.mjs.
+function Elem() {
+	this.children = [];
+	this.value = '';
+}
+Elem.prototype.append = function() {
+	for (var i = 0; i < arguments.length; i++) {
+		this.children.push(arguments[i]);
+	}
+	return this;
+};
+Elem.prototype.empty = function() {
+	this.children = [];
+	return this;
+};
+Elem.prototype.html = function(content) {
+	if (arguments.length == 0) {
+		return '';
+	}
+	this.children = [content];
+	return this;
+};
+Elem.prototype.val = function(value) {
+	if (arguments.length == 0) {
+		return this.value;
+	}
+	this.value = value;
+	return this;
+};
+// Anything else (attr, click, show, ...) only matters on the page: it does nothing here.
+var elemHandler = {
+	get: function(target, key, proxy) {
+		if (key in target || typeof key == 'symbol') {
+			return target[key];
+		}
+		return function() {
+			return proxy;
+		};
+	}
+};
+function $(arg) {
+	// $(function) runs code when the page is ready: registering the tool and drawing its UI.
+	if (typeof arg == 'function') {
+		return;
+	}
+	return new Proxy(new Elem(), elemHandler);
+}
+var toolsui = {
+	$: $,
+	Elem: Elem,
+	execMain: function(func, params) {
+		return func.apply(null, params || []);
+	},
+	tools: {
+		// What the tools panel shows a solution with: here, the moves themselves.
+		getSolutionSpan: function(solution) {
+			return { solution: solution };
+		}
+	}
+};
+export default toolsui;
 `;
 
 const FILES = [
@@ -137,6 +212,16 @@ const FILES = [
     ['kernel'],
     ['kernel shim: no pre-scramble'],
   ],
+  // Step solvers from csTimer's tools panel (Tools > Solvers).
+  ['tools/eoline.js', ['mathlib', 'cubeutil', 'toolsui'], 'eoline', ['toolsUi']],
+  ['tools/roux1.js', ['mathlib', 'cubeutil', 'toolsui'], 'roux1', ['toolsUi']],
+  [
+    'tools/gsolver.js',
+    ['mathlib', 'cubeutil', 'min2phase', 'pat3x3', 'toolsui'],
+    'gsolver',
+    ['toolsUi', 'kernel'],
+  ],
+  ['tools/thistlethwaite.js', ['mathlib', 'grouplib', 'toolsui'], 'thistlethwaite', ['toolsUi']],
   [
     'tools/image.js',
     ['mathlib', 'svglib', 'poly3dlib', 'scramble_sq1_new', 'clock', 'cubeutil', 'toolsutil'],
@@ -200,6 +285,65 @@ const EDITS = {
     ],
   ],
 };
+
+// The step solvers' functions, which csTimer only calls from its tools panel.
+Object.assign(EDITS, {
+  'tools/cross.js': [
+    [
+      '\treturn {\n\t\tsolve: solve_cross,\n',
+      '\treturn {\n\t\tsolve: solve_cross,\n\t\txcross: solve_xcross,\n\t\txxcross: solve_xxcross,\n\t\tfaces: faceStr,\n\t\trotations: rotIdx,\n',
+      'exports solve_xcross, solve_xxcross and the face names',
+    ],
+  ],
+  'tools/eoline.js': [
+    [
+      'execMain(function(createMove',
+      'var eoline = execMain(function(createMove',
+      "keeps execMain's result",
+    ],
+    [
+      '\t});\n}, [mathlib.createMove',
+      '\t});\n\n\treturn {\n\t\tsolve: solveEOLine\n\t};\n}, [mathlib.createMove',
+      'exports solveEOLine',
+    ],
+  ],
+  'tools/roux1.js': [
+    [
+      'execMain(function(CubieCube)',
+      'var roux1 = execMain(function(CubieCube)',
+      "keeps execMain's result",
+    ],
+  ],
+  'tools/gsolver.js': [
+    [
+      '(function() {\n"use strict";',
+      'var gsolver = (function() {\n"use strict";',
+      'keeps the result',
+    ],
+    [
+      '\t\treturn {\n\t\t\texec: exec333StepSolver,\n',
+      '\t\treturn {\n\t\t\tsetOri: function(ori) {\n\t\t\t\tcurOri = ori;\n\t\t\t},\n\t\t\texec: exec333StepSolver,\n',
+      "exports a setter for the 3x3x3 step solvers' orientation",
+    ],
+    [
+      '\t\treturn execFunc;\n\t});\n\n\tvar twophase',
+      '\t\texecFunc.presets = presets;\n\t\treturn execFunc;\n\t});\n\n\tvar twophase',
+      "exports the 3x3x3 general solver's preset patterns",
+    ],
+    [
+      '\t\t});\n\t});\n})();',
+      '\t\t});\n\t});\n\n\treturn {\n\t\tpocketCube: pocketCube,\n\t\trubiksCube: rubiksCube,\n\t\tsq1Cube: sq1Cube,\n\t\tskewbCube: skewbCube,\n\t\tpyraCube: pyraCube,\n\t\tpresets: general333Solver.presets\n\t};\n})();',
+      'exports the solvers',
+    ],
+  ],
+  'tools/thistlethwaite.js': [
+    [
+      '\treturn {\n\t\tfillStepsCandidates: fillStepsCandidates\n',
+      '\treturn {\n\t\tfillStepsCandidates: fillStepsCandidates,\n\t\ttoPrettyStyle: toPrettyStyle\n',
+      'exports toPrettyStyle',
+    ],
+  ],
+});
 
 const JQUERY = [
   ['$.now()', 'Date.now()'],
@@ -336,6 +480,8 @@ if (!cstimer) {
 vendorScrMgr(cstimer);
 writeFileSync('src/vendor/cstimer/kernel.js', KERNEL);
 console.log('wrote kernel.js');
+writeFileSync('src/vendor/cstimer/toolsui.js', TOOLSUI);
+console.log('wrote toolsui.js');
 console.log('vendored', vendorSvgLib(cstimer));
 console.log('vendored', vendorToolsUtil(cstimer));
 for (const file of FILES) console.log('vendored', vendorFile(cstimer, file));

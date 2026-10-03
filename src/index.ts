@@ -17,6 +17,9 @@ export type {
   SliceMoves,
   WideMoves,
   SolveStatus,
+  StepSolverId,
+  StepSolverInfo,
+  StepSolution,
   SolverKind,
 } from './puzzle.js';
 

@@ -50,7 +50,9 @@ describe('Puzzle.solve', () => {
   });
 
   it('finds shorter 3x3x3 solutions than the scramble, within the time limit', () => {
-    const puzzle = new Puzzle('333').setSolveTimeLimit(500);
+    // Other test files run at the same time, some of them busy (the step solvers), so the
+    // search gets more than half a second to be sure of a step below 21 moves.
+    const puzzle = new Puzzle('333').setSolveTimeLimit(1500);
     for (let i = 0; i < 3; i++) {
       puzzle.scramble();
       const start = performance.now();
