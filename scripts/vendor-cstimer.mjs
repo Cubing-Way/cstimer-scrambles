@@ -156,6 +156,14 @@ const EDITS = {
       'exports nnnImage.genPosit (cube stickers after a scramble)',
     ],
   ],
+  // Puzzle.solve needs csTimer's optimal 2x2x2 solver, which 2x2x2.js only uses for scrambles.
+  'scramble/2x2x2.js': [
+    [
+      '\treturn {\n\t\tgetEGLLImage:',
+      '\treturn {\n\t\tsolveFacelet: function(f) {\n\t\t\tvar perm = [];\n\t\t\tvar ori = [];\n\t\t\tif (mathlib.detectFacelet(cFacelet, f, perm, ori, 4) == -1) {\n\t\t\t\treturn null;\n\t\t\t}\n\t\t\tvar sol = solv.search([mathlib.getNPerm(perm, 7), oriCoord.get(ori)], 0);\n\t\t\treturn sol && solv.toStr(sol, "URF", " 2\'").trim();\n\t\t},\n\t\tgetEGLLImage:',
+      'exports solveFacelet (optimal solution of a 2x2x2 state)',
+    ],
+  ],
 };
 
 const JQUERY = [
