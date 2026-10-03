@@ -1,5 +1,5 @@
 // Minimal typings for the parts of csTimer's mathlib this library uses.
-export interface CubieCube {
+interface CubieCube {
   ca: number[];
   ea: number[];
   ori: number;
@@ -8,7 +8,7 @@ export interface CubieCube {
   toFaceCube(): string;
 }
 
-export interface CubieCubeStatic {
+interface CubieCubeStatic {
   new (): CubieCube;
   CubeMult(a: CubieCube, b: CubieCube, prod: CubieCube): void;
   moveCube: CubieCube[];
@@ -25,3 +25,4 @@ declare const mathlib: {
   setSeed(count: number, seed: string): void;
 };
 export default mathlib;
+export type { CubieCube, CubieCubeStatic };

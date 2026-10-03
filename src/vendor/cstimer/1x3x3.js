@@ -1,0 +1,27 @@
+// Vendored from csTimer (src/js/scramble/1x3x3.js) @ 2547d82. GPL-3.0, (c) cs0x7f.
+// Changes: ESM import/export; DEBUG disabled.
+import mathlib from './mathlib.js';
+import scrMgr from './scrmgr.js';
+var DEBUG = false;
+(function() {
+	var solv = new mathlib.Solver(4, 1, [[0, doMove, 384]]);
+	var movePieces = [
+		[0, 1],
+		[2, 3],
+		[0, 3],
+		[1, 2]
+	];
+
+	function doMove(idx, m) {
+		var arr = mathlib.setNPerm([], idx >> 4, 4);
+		mathlib.acycle(arr, movePieces[m]);
+		return (mathlib.getNPerm(arr, 4) << 4) + ((idx & 15) ^ (1 << m));
+	}
+
+	function generateScramble() {
+		var c = 1 + mathlib.rn(191);
+		c = c * 2 + ((mathlib.getNParity(c >> 3, 4) ^ (c >> 1) ^ (c >> 2) ^ c) & 1);
+		return solv.toStr(solv.search([c], 0), "RLFB", [""]);
+	}
+	scrMgr.reg('133', generateScramble);
+})();

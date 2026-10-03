@@ -31,17 +31,130 @@
         color: var(--fg);
         font-family: system-ui, sans-serif;
       }
+      /* Between the old side-by-side panels and the full 1280px. */
       main {
-        max-width: 720px;
+        max-width: 1000px;
         margin: 0 auto;
+      }
+      h1 {
+        margin: 0 0 4px;
+      }
+      h2 {
+        margin: 0 0 12px;
+        font-size: 1.1rem;
+      }
+      /* The scramble and solution boxes on the left half, the visualizer on the right
+         half as tall as both, then the options for each, one section below the other.
+         One column on narrow screens. */
+      main > .top,
+      main > .panel {
+        margin-top: 20px;
+      }
+      .top {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+        gap: 20px;
+      }
+      .inputs {
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+        min-width: 0;
+      }
+      /* The two boxes share the visualizer's height; the text boxes take what is left. */
+      .inputs .panel {
+        flex: 1 0 auto;
+        display: flex;
+        flex-direction: column;
+      }
+      .inputs .moves {
+        flex: 1 0 auto;
+        display: flex;
+        flex-direction: column;
+      }
+      .inputs textarea {
+        flex: 1 0 auto;
+      }
+      /* The picture or 3D view in the middle of the visualizer box. */
+      .top > .panel {
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+      }
+      .top > .panel .stage {
+        margin: auto;
+      }
+      .inputs .controls {
+        margin-top: 12px;
+      }
+      .inputs .controls .meta {
+        margin: 0;
+      }
+      @media (max-width: 800px) {
+        .top {
+          grid-template-columns: minmax(0, 1fr);
+        }
+      }
+      .panel {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 16px;
+        min-width: 0;
+      }
+      .panel .meta {
+        margin: 12px 0 0;
+      }
+      /* The visualizer options in two columns across the full width, one on narrow
+         screens. The scramble and solution options are fewer and smaller, so they sit
+         in one row that wraps. */
+      .options {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+        gap: 16px 24px;
+        align-items: start;
+      }
+      .options.row-wrap {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 16px 32px;
+      }
+      .option {
+        min-width: 0;
+      }
+      .option select {
+        max-width: 100%;
+      }
+      .option > span {
+        display: block;
+        margin-bottom: 4px;
+        color: var(--muted);
+        font-size: 0.85rem;
+      }
+      .option.off > span {
+        opacity: 0.6;
+      }
+      /* As wide as the Size box says, centered, never wider than the panel. */
+      .stage {
+        min-width: 0;
+        max-width: 100%;
+        margin: 0 auto;
+        display: flex;
+        justify-content: center;
       }
       .controls {
         display: flex;
         gap: 8px;
         flex-wrap: wrap;
+        align-items: center;
+      }
+      .controls select {
+        max-width: 100%;
       }
       select,
-      button {
+      button,
+      input[type='number'],
+      textarea {
         font: inherit;
         padding: 8px 12px;
         border-radius: 6px;
@@ -49,27 +162,178 @@
         background: var(--card);
         color: var(--fg);
       }
+      input[type='number'] {
+        width: 5em;
+      }
+      /* Size changes only on Enter or Apply, not while typing. */
+      .size {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        margin: 0;
+      }
+      /* No gap above the Solve button while every move is allowed. */
+      #solution-note:empty {
+        display: none;
+      }
+      input:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+      }
+      .note {
+        color: var(--muted);
+        font-size: 0.85rem;
+      }
+      .note[hidden] {
+        display: none;
+      }
       button {
         background: var(--accent);
         border-color: var(--accent);
         color: #fff;
         cursor: pointer;
       }
-      #scramble {
-        margin: 24px 0 8px;
-        padding: 20px;
-        background: var(--card);
+      .colors {
+        display: flex;
+        gap: 8px 12px;
+        flex-wrap: wrap;
+      }
+      .colors label,
+      .controls label {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      input[type='color'] {
+        width: 36px;
+        height: 28px;
+        padding: 0;
         border: 1px solid var(--border);
-        border-radius: 8px;
+        border-radius: 4px;
+        background: none;
+      }
+      .moves {
+        display: block;
+      }
+      .moves > span {
+        display: block;
+        margin-bottom: 4px;
+        color: var(--muted);
+        font-size: 0.9rem;
+      }
+      textarea {
+        box-sizing: border-box;
+        width: 100%;
+        resize: vertical;
         font:
-          1.5rem/1.6 ui-monospace,
+          1.1rem/1.6 ui-monospace,
           monospace;
         word-spacing: 0.3em;
-        min-height: 2em;
+      }
+      /* Shown at the size set with setImageSize, but never wider than the page.
+         The images have no background of their own, so they sit on the page. */
+      #image {
+        max-width: 100%;
+      }
+      /* The 3D view is as wide as the Size box says; drag it to turn the cube. */
+      #cube3d {
+        max-width: 100%;
+      }
+      /* Choices as a row of buttons, the one in use filled in. */
+      /* Never wider than its half of the page: buttons that don't fit go on a new row. */
+      .toggle {
+        display: inline-flex;
+        flex-wrap: wrap;
+        max-width: 100%;
+      }
+      .toggle button {
+        padding: 6px 8px;
+      }
+      .toggle button {
+        background: var(--card);
+        border-color: var(--border);
+        color: var(--fg);
+      }
+      .toggle button {
+        border-radius: 0;
+      }
+      .toggle button + button {
+        margin-left: -1px;
+      }
+      .toggle button:first-child {
+        border-radius: 6px 0 0 6px;
+      }
+      .toggle button:last-child {
+        border-radius: 0 6px 6px 0;
+      }
+      .toggle button[aria-pressed='true'] {
+        background: var(--accent);
+        border-color: var(--accent);
+        color: #fff;
+      }
+      .toggle button:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+      /* Number boxes for the camera angle and the floating face's offset, in rows. */
+      .xyz {
+        display: grid;
+        grid-template-columns: 3.2em repeat(3, 5.5em);
+        justify-content: start;
+        gap: 6px;
+        align-items: center;
+      }
+      .xyz input[type='number'] {
+        width: 100%;
+        box-sizing: border-box;
+        padding: 6px 8px;
+      }
+      .xyz .head {
+        color: var(--muted);
+        font-size: 0.85rem;
+        text-align: center;
+      }
+      .row {
+        display: flex;
+        gap: 6px;
+        align-items: center;
+        margin-top: 6px;
+      }
+      .row button,
+      .row select {
+        padding: 6px 10px;
+      }
+      #cube3d[hidden] {
+        display: none;
+      }
+      #image svg {
+        display: block;
+        max-width: 100%;
+        height: auto;
+      }
+      /* Relays and multi-blind number each puzzle in black; use the page's text color. */
+      #image svg > text[text-anchor='start'] {
+        fill: var(--fg) !important;
+      }
+      #image[hidden] {
+        display: none;
+      }
+      .css-list {
+        margin: 6px 0 0;
+        padding-left: 1.2em;
+        font:
+          0.85rem/1.5 ui-monospace,
+          monospace;
+      }
+      .css-list:empty {
+        display: none;
       }
       .meta {
         color: var(--muted);
         font-size: 0.9rem;
+      }
+      .error {
+        color: #dc2626;
       }
     </style>
   </head>
@@ -80,41 +344,870 @@
         csTimer's scramble generators running in your browser.
         <a href="https://github.com/Cubing-Way/cstimer-scrambles">Source on GitHub</a>
       </p>
-      <div class="controls">
-        <select id="event" aria-label="Scramble type"></select>
-        <button id="next">New scramble</button>
+      <div class="top">
+        <div class="inputs">
+          <section class="panel" aria-labelledby="scramble-heading">
+            <h2 id="scramble-heading">Scramble</h2>
+            <label class="moves">
+              <span id="scramble-label">Scramble</span>
+              <textarea id="scramble" rows="2" spellcheck="false"></textarea>
+            </label>
+            <div class="controls">
+              <button id="next">New scramble</button>
+              <p class="meta" id="info"></p>
+            </div>
+          </section>
+          <section class="panel" aria-labelledby="solution-heading">
+            <h2 id="solution-heading">Solution</h2>
+            <label class="moves">
+              <span id="solution-label">Solution</span>
+              <textarea
+                id="solution"
+                rows="2"
+                spellcheck="false"
+                placeholder="Type moves here"
+              ></textarea>
+            </label>
+            <p class="note" id="solution-note"></p>
+            <div class="controls">
+              <button id="solve">Solve</button>
+              <p class="meta" id="solve-info"></p>
+            </div>
+          </section>
+        </div>
+        <section class="panel" aria-labelledby="viewer-heading">
+          <h2 id="viewer-heading">Visualizer</h2>
+          <div class="stage" id="stage">
+            <div id="image"></div>
+            <div id="cube3d"></div>
+          </div>
+        </section>
       </div>
-      <div id="scramble"></div>
-      <p class="meta" id="info"></p>
+      <section class="panel" aria-labelledby="scramble-options-heading">
+        <h2 id="scramble-options-heading">Scramble options</h2>
+        <div class="options row-wrap">
+          <div class="option">
+            <span>Puzzle</span>
+            <select id="puzzle" aria-label="Puzzle"></select>
+          </div>
+          <div class="option">
+            <span>Scramble type</span>
+            <select id="type" aria-label="Scramble type"></select>
+          </div>
+          <div class="option">
+            <span>Method</span>
+            <select id="method" aria-label="Scramble method"></select>
+          </div>
+          <label class="option">
+            <span>Length</span>
+            <input id="length" type="number" min="1" max="999" placeholder="n/a" />
+            <span class="note" id="length-note">set by this scramble type</span>
+          </label>
+        </div>
+      </section>
+      <section class="panel" aria-labelledby="solution-options-heading">
+        <h2 id="solution-options-heading">Solution options</h2>
+        <div class="options row-wrap">
+          <div class="option" id="rotations-option">
+            <span>Rotations x y z</span>
+            <div class="toggle" role="group" aria-label="Rotations x y z">
+              <button type="button" data-rotations="count">Count</button>
+              <button type="button" data-rotations="free">Don’t count</button>
+            </div>
+          </div>
+          <div class="option" id="slice-option">
+            <span>Slice moves M S E</span>
+            <div class="toggle" role="group" aria-label="Slice moves M S E">
+              <button type="button" data-slice="one-move">1 move</button>
+              <button type="button" data-slice="two-moves">2 moves</button>
+              <button type="button" data-slice="not-allowed">Not allowed</button>
+            </div>
+          </div>
+          <div class="option" id="wide-option">
+            <span>Wide moves</span>
+            <div class="toggle" role="group" aria-label="Wide moves">
+              <button type="button" data-wide="Rw-or-r">Rw or r</button>
+              <button type="button" data-wide="Rw-only">Rw only</button>
+            </div>
+          </div>
+          <div class="option" id="fmc-option">
+            <span>FMC mode</span>
+            <div class="toggle" role="group" aria-label="FMC mode">
+              <button type="button" data-fmc="off">Off</button>
+              <button type="button" data-fmc="on">On</button>
+            </div>
+          </div>
+          <div class="option" id="search-option">
+            <span>Solver search time</span>
+            <div class="toggle" role="group" aria-label="Solver search time">
+              <button type="button" data-limit="seconds">Up to</button>
+              <button type="button" data-limit="none">No limit</button>
+            </div>
+            <label class="size">
+              <input
+                id="search-seconds"
+                type="number"
+                min="0.1"
+                max="600"
+                step="0.5"
+                aria-label="Seconds to search"
+              />
+              <span>s</span>
+            </label>
+          </div>
+        </div>
+        <p class="note" id="solution-options-note"></p>
+      </section>
+      <section class="panel" aria-labelledby="viewer-options-heading">
+        <h2 id="viewer-options-heading">Visualizer options</h2>
+        <div class="options">
+          <div class="option">
+            <span>View</span>
+            <div class="toggle" role="group" aria-label="View">
+              <button type="button" id="view-2d" aria-pressed="true">2D</button>
+              <button type="button" id="view-3d" aria-pressed="false">3D</button>
+            </div>
+          </div>
+          <div class="option" id="style-option">
+            <span>2D faces</span>
+            <div class="toggle" role="group" aria-label="2D faces">
+              <button type="button" data-style="separated">Separated</button>
+              <button type="button" data-style="joined">Joined</button>
+              <button type="button" data-style="cstimer">csTimer</button>
+            </div>
+          </div>
+          <div class="option" id="cube-style-option">
+            <span>Cube style</span>
+            <div class="toggle" role="group" aria-label="Cube style">
+              <button type="button" data-cube-style="classic">Classic</button>
+              <button type="button" data-cube-style="stickered">Stickered</button>
+              <button type="button" data-cube-style="stickered-round">Stickered round</button>
+              <button type="button" data-cube-style="stickerless">Stickerless</button>
+              <button type="button" data-cube-style="stickerless-round">Stickerless round</button>
+            </div>
+            <span class="note">Cubes only, in 2D and 3D</span>
+          </div>
+          <div class="option" id="hidden-option">
+            <span>3D back faces</span>
+            <div class="toggle" role="group" aria-label="3D back faces">
+              <button type="button" data-hidden="hidden">Hidden</button>
+              <button type="button" data-hidden="floating">Floating</button>
+            </div>
+          </div>
+          <div class="option" id="camera-option">
+            <span>3D camera</span>
+            <div class="toggle" role="group" aria-label="3D camera">
+              <button type="button" data-camera="mouse">Mouse</button>
+              <button type="button" data-camera="fixed">Fixed</button>
+            </div>
+            <div class="xyz" style="margin-top: 6px">
+              <span class="head">Angle</span>
+              <input id="angle-x" type="number" step="5" aria-label="Camera tilt (x) in degrees" />
+              <input id="angle-y" type="number" step="5" aria-label="Camera turn (y) in degrees" />
+              <button type="button" id="angle-reset">Reset</button>
+            </div>
+            <span class="note">x tilts, y turns, in degrees</span>
+          </div>
+          <div class="option" id="offset-option">
+            <span>Face position</span>
+            <div class="toggle" role="group" aria-label="Which face to move">
+              <button type="button" data-target="floating">Floating copy</button>
+              <button type="button" data-target="cube">Cube face</button>
+            </div>
+            <div class="xyz" style="margin-top: 6px">
+              <span></span>
+              <span class="head">x</span>
+              <span class="head">y</span>
+              <span class="head">z</span>
+              <span class="head">Move</span>
+              <input data-offset="x" type="number" step="0.25" aria-label="Move x (toward R)" />
+              <input data-offset="y" type="number" step="0.25" aria-label="Move y (toward U)" />
+              <input data-offset="z" type="number" step="0.25" aria-label="Move z (toward F)" />
+              <span class="head">Turn</span>
+              <input data-offset="rotateX" type="number" step="15" aria-label="Turn x in degrees" />
+              <input data-offset="rotateY" type="number" step="15" aria-label="Turn y in degrees" />
+              <input data-offset="rotateZ" type="number" step="15" aria-label="Turn z in degrees" />
+            </div>
+            <div class="row">
+              <select id="offset-face" aria-label="Face to move">
+                <option>U</option>
+                <option>R</option>
+                <option>F</option>
+                <option>D</option>
+                <option selected>L</option>
+                <option>B</option>
+              </select>
+              <button type="button" id="offset-reset">Reset all</button>
+            </div>
+            <span class="note"
+              >Move in face widths, turn in degrees; x toward R, y toward U, z toward F</span
+            >
+          </div>
+          <form id="css-form" class="option" novalidate>
+            <span>Element styles</span>
+            <div class="toggle" role="group" aria-label="Part to style">
+              <button type="button" data-part="image">Image</button>
+              <button type="button" data-part="face">Face</button>
+              <button type="button" data-part="tile">Tile</button>
+            </div>
+            <div class="row">
+              <select id="css-face" aria-label="Which face">
+                <option value="">All faces</option>
+                <option>U</option>
+                <option>R</option>
+                <option>F</option>
+                <option>D</option>
+                <option>L</option>
+                <option>B</option>
+              </select>
+              <input
+                id="css-tile"
+                type="number"
+                min="0"
+                placeholder="all tiles"
+                aria-label="Tile number"
+                style="width: 6.5em"
+              />
+            </div>
+            <div class="row">
+              <input
+                id="css-text"
+                type="text"
+                spellcheck="false"
+                aria-label="CSS"
+                style="flex: 1; padding: 6px 8px"
+              />
+              <button type="submit">Add</button>
+              <button type="button" id="css-reset">Reset all</button>
+            </div>
+            <span class="note" id="css-note"></span>
+            <ul id="css-list" class="css-list"></ul>
+          </form>
+          <form id="size-form" class="option" novalidate>
+            <span>Size</span>
+            <div class="size">
+              <input
+                id="size"
+                type="number"
+                min="100"
+                max="480"
+                step="10"
+                value="300"
+                aria-label="Size in pixels"
+              />
+              px
+              <button type="submit">Apply</button>
+            </div>
+            <span class="note" id="face-size"></span>
+          </form>
+          <div class="option" id="colors-option">
+            <span>Colors</span>
+            <div class="colors" id="colors"></div>
+          </div>
+        </div>
+      </section>
     </main>
     <script type="module">
-      import { listEvents, getScramble } from './index.mjs';
+      import { Puzzle, listPuzzles } from './index.mjs';
 
-      const select = document.getElementById('event');
-      const out = document.getElementById('scramble');
-      const info = document.getElementById('info');
+      // One Puzzle object per puzzle, so each keeps its own settings and scramble.
+      const puzzles = new Map(listPuzzles().map((id) => [id, new Puzzle(id)]));
+      const $ = (id) => document.getElementById(id);
+      const puzzleSelect = $('puzzle');
+      const typeSelect = $('type');
+      const methodSelect = $('method');
+      const lengthInput = $('length');
+      const sizeInput = $('size');
+      // The size in use: the box's value only counts once applied.
+      let imageSize = Number(sizeInput.value);
+      const view2D = $('view-2d');
+      const view3D = $('view-3d');
+      const colorsDiv = $('colors');
+      const scrambleInput = $('scramble');
+      const solutionInput = $('solution');
+      const image = $('image');
+      const cube3d = $('cube3d');
+      const info = $('info');
+      const scrambleLabel = $('scramble-label');
+      const solutionLabel = $('solution-label');
+      // How long each puzzle's last scramble() took, until its scramble is edited.
+      const scrambleTimes = new Map();
 
-      for (const event of listEvents()) {
-        select.add(new Option(`${event.name} (${event.id})`, event.id));
+      // The WCA puzzles, then every other puzzle csTimer has scrambles for.
+      const WCA = [
+        '222',
+        '333',
+        '444',
+        '555',
+        '666',
+        '777',
+        'clock',
+        'minx',
+        'pyram',
+        'skewb',
+        'sq1',
+      ];
+      const wca = document.createElement('optgroup');
+      wca.label = 'WCA';
+      const other = document.createElement('optgroup');
+      other.label = 'Other puzzles';
+      for (const [id, puzzle] of puzzles) {
+        (WCA.includes(id) ? wca : other).append(new Option(puzzle.name, id));
+      }
+      puzzleSelect.append(wca, other);
+
+      const current = () => puzzles.get(puzzleSelect.value);
+      // <input type="color"> wants #rrggbb.
+      const long = (c) => (c.length === 4 ? '#' + [...c.slice(1)].map((x) => x + x).join('') : c);
+
+      let view = '2d';
+      // The 2D faces and 3D back faces picked, applied to whichever puzzle is shown.
+      let imageStyle = 'separated';
+      let hiddenFaces = 'hidden';
+      // The cube style picked, applied to every cube.
+      let cubeStyle = 'classic';
+      const cubeStyleButtons = [...document.querySelectorAll('[data-cube-style]')];
+      const styleButtons = [...document.querySelectorAll('[data-style]')];
+      const hiddenButtons = [...document.querySelectorAll('[data-hidden]')];
+      // The 3D camera and the floating faces' offsets picked, applied to every cube.
+      let cameraMode = 'mouse';
+      let cameraAngle = new Puzzle('333').getCameraAngle();
+      // Offsets for the floating copies and for the cube's own faces, by face.
+      const offsets = { floating: {}, cube: {} };
+      let offsetTarget = 'floating';
+      const targetButtons = [...document.querySelectorAll('[data-target]')];
+      // Element styles added in the demo, applied to every puzzle (faces and tile numbers
+      // only to the cubes): { part, css, where }.
+      const elementStyles = [];
+      let cssPart = 'tile';
+      const partButtons = [...document.querySelectorAll('[data-part]')];
+      // An example for each part, shown in the empty CSS box.
+      const CSS_EXAMPLES = {
+        image: 'background: #def; border-radius: 12px',
+        face: 'opacity: 0.4',
+        tile: 'stroke: #fff; stroke-width: 2',
+      };
+      const cameraButtons = [...document.querySelectorAll('[data-camera]')];
+      const offsetInputs = [...document.querySelectorAll('[data-offset]')];
+      const offsetFace = $('offset-face');
+      const angleInputs = [$('angle-x'), $('angle-y')];
+      // Shows the camera angle and the picked face's offset in their boxes.
+      function showCameraAndOffset() {
+        $('angle-x').value = +cameraAngle.x.toFixed(2);
+        $('angle-y').value = +cameraAngle.y.toFixed(2);
+        const offset = offsets[offsetTarget][offsetFace.value] ?? {};
+        for (const input of offsetInputs) input.value = offset[input.dataset.offset] ?? 0;
+      }
+      const moves = (n) => `${n} ${n === 1 ? 'move' : 'moves'}`;
+      // The solution options picked, applied to every cube.
+      const solutionOptions = {
+        countRotations: true,
+        sliceMoves: 'one-move',
+        wideMoves: 'Rw-or-r',
+        fmc: false,
+      };
+      // How long the Solve button searches for a shorter solution: some seconds, or until
+      // the solution is the shortest there is.
+      const searchTime = { seconds: 3, limit: true };
+      const limitButtons = [...document.querySelectorAll('[data-limit]')];
+      $('search-seconds').value = searchTime.seconds;
+      const rotationButtons = [...document.querySelectorAll('[data-rotations]')];
+      const sliceButtons = [...document.querySelectorAll('[data-slice]')];
+      const wideButtons = [...document.querySelectorAll('[data-wide]')];
+      const fmcButtons = [...document.querySelectorAll('[data-fmc]')];
+      const STATUS_TEXT = { solved: 'Solved', '+2': '+2', DNF: 'DNF' };
+      // The last solve done with the Solve button: which puzzle, scramble and solution, how
+      // long it took and whether it is the shortest there is.
+      let lastSolve;
+      // The solve the Solve button is running: which puzzle and scramble, and when it began.
+      let searching;
+
+      // Applies the solution options to the puzzle and shows them, with the solution's
+      // move count, solve status and any moves the options don't allow.
+      function showSolution(puzzle) {
+        const cube = puzzle.has3DView();
+        const { countRotations, sliceMoves, wideMoves, fmc } = solutionOptions;
+        if (cube) {
+          puzzle
+            .setCountRotations(countRotations)
+            .setSliceMoves(sliceMoves)
+            .setWideMoves(wideMoves)
+            .setFmcMode(fmc);
+        }
+        const groups = [
+          [rotationButtons, 'rotations', countRotations ? 'count' : 'free', 'rotations-option'],
+          [sliceButtons, 'slice', sliceMoves, 'slice-option'],
+          [wideButtons, 'wide', wideMoves, 'wide-option'],
+          [fmcButtons, 'fmc', fmc ? 'on' : 'off', 'fmc-option'],
+        ];
+        for (const [buttons, key, value, option] of groups) {
+          // FMC mode sets the other three, which are kept for when it is turned off.
+          const off = !cube || (fmc && key !== 'fmc');
+          for (const button of buttons) {
+            button.setAttribute('aria-pressed', String(button.dataset[key] === value));
+            button.disabled = off;
+          }
+          $(option).classList.toggle('off', off);
+        }
+        const status = puzzle.getSolveStatus();
+        solutionLabel.textContent =
+          `Solution · ${moves(puzzle.getSolutionMoveCount())}` +
+          (status ? ` · ${STATUS_TEXT[status]}` : '');
+        // Moves that aren't allowed aren't done on the cube in the visualizer.
+        const invalid = [...new Set(puzzle.getInvalidMoves())];
+        $('solution-note').textContent = invalid.length
+          ? `Not allowed, so not done on the cube: ${invalid.join(' ')}`
+          : '';
+        // The Solve button, for the puzzles with a solver, and how long the last solve took
+        // while its solution is still the one in the box.
+        const solveButton = $('solve');
+        solveButton.disabled = !puzzle.hasSolver();
+        solveButton.title = puzzle.hasSolver() ? '' : 'Only 2x2x2 and 3x3x3 can be solved for now';
+        const running = searching && searching.puzzle === puzzle;
+        solveButton.textContent = running ? 'Stop' : 'Solve';
+        const solved =
+          lastSolve &&
+          lastSolve.puzzle === puzzle &&
+          lastSolve.scramble === puzzle.getScramble() &&
+          lastSolve.solution === puzzle.getSolution();
+        $('solve-info').textContent = running
+          ? `Searching for a shorter solution… ${moves(puzzle.getSolutionMoveCount())} so far`
+          : solved
+            ? `Solved by the computer in ${lastSolve.ms.toFixed(0)} ms, ` +
+              (puzzle.isSolutionShortest()
+                ? 'the shortest solution there is'
+                : 'the shortest it found in the time allowed')
+            : '';
+        for (const button of limitButtons) {
+          button.setAttribute(
+            'aria-pressed',
+            String((button.dataset.limit === 'seconds') === searchTime.limit),
+          );
+          button.disabled = !puzzle.hasSolver();
+        }
+        $('search-seconds').disabled = !puzzle.hasSolver() || !searchTime.limit;
+        $('search-option').classList.toggle('off', !puzzle.hasSolver());
+        $('solution-options-note').textContent = !cube
+          ? 'Solution options and solve status are for the cubes only'
+          : fmc
+            ? 'FMC: rotations don’t count, no M S E, wide moves only as Rw, no +2'
+            : '';
+      }
+
+      function draw() {
+        const puzzle = current();
+        puzzle.setImageSize(imageSize);
+        // Wide enough for the widest picture: the cube's separated faces, a face being a
+        // quarter of the size in 2D and 3D alike.
+        $('stage').style.width = `${Math.ceil(imageSize * 1.045)}px`;
+        $('face-size').textContent = puzzle.has3DView()
+          ? `One face: ${imageSize / 4} px in 2D and 3D`
+          : '';
+        const ms = scrambleTimes.get(puzzle.id);
+        scrambleLabel.textContent =
+          `Scramble · ${moves(puzzle.getScrambleMoveCount())}` +
+          (ms === undefined ? '' : ` · generated in ${ms.toFixed(0)} ms`);
+        showSolution(puzzle);
+        // 3D only for the cubes; the other puzzles are shown in 2D, and the cubes go back
+        // to the view picked last.
+        view3D.disabled = !puzzle.has3DView();
+        view3D.title = puzzle.has3DView() ? '' : 'Only the cubes have a 3D view for now';
+        const in3D = view === '3d' && puzzle.has3DView();
+        view2D.setAttribute('aria-pressed', String(!in3D));
+        view3D.setAttribute('aria-pressed', String(in3D));
+        // Only the cubes have faces to join; the others show the picked style otherwise
+        // as separated, and go back to joined when a cube is picked again.
+        const style = imageStyle === 'joined' && !puzzle.has3DView() ? 'separated' : imageStyle;
+        puzzle.setImageStyle(style);
+        for (const button of styleButtons) {
+          button.setAttribute('aria-pressed', String(button.dataset.style === style));
+          button.disabled = in3D || (button.dataset.style === 'joined' && !puzzle.has3DView());
+          button.title =
+            button.dataset.style === 'joined' && !puzzle.has3DView()
+              ? 'Only the cubes have faces to join'
+              : '';
+        }
+        $('style-option').classList.toggle('off', in3D);
+        if (puzzle.has3DView()) puzzle.setCubeStyle(cubeStyle);
+        // The csTimer picture keeps csTimer's own look.
+        const noCubeStyle = !puzzle.has3DView() || (!in3D && style === 'cstimer');
+        for (const button of cubeStyleButtons) {
+          button.setAttribute('aria-pressed', String(button.dataset.cubeStyle === cubeStyle));
+          button.disabled = noCubeStyle;
+        }
+        $('cube-style-option').classList.toggle('off', noCubeStyle);
+        if (puzzle.has3DView()) puzzle.setHiddenFaces(hiddenFaces);
+        for (const button of hiddenButtons) {
+          button.setAttribute('aria-pressed', String(button.dataset.hidden === hiddenFaces));
+          button.disabled = !in3D;
+        }
+        $('hidden-option').classList.toggle('off', !in3D);
+        if (puzzle.has3DView()) {
+          puzzle
+            .setCameraMode(cameraMode)
+            .setCameraAngle(cameraAngle)
+            .resetFloatingFaceOffsets()
+            .resetFaceOffsets();
+          for (const [face, offset] of Object.entries(offsets.floating)) {
+            puzzle.setFloatingFaceOffset(face, offset);
+          }
+          for (const [face, offset] of Object.entries(offsets.cube)) {
+            puzzle.setFaceOffset(face, offset);
+          }
+        }
+        puzzle.resetElementStyles();
+        for (const { part, css, where } of elementStyles) {
+          if (puzzle.has3DView() || (where.face === undefined && where.tile === undefined)) {
+            puzzle.setElementStyle(part, css, where);
+          }
+        }
+        for (const button of partButtons) {
+          button.setAttribute('aria-pressed', String(button.dataset.part === cssPart));
+        }
+        $('css-face').disabled = cssPart === 'image' || !puzzle.has3DView();
+        $('css-tile').disabled = cssPart !== 'tile' || !puzzle.has3DView();
+        $('css-text').placeholder = CSS_EXAMPLES[cssPart];
+        $('css-note').textContent = puzzle.has3DView()
+          ? in3D
+            ? 'HTML CSS in 3D, e.g. background, border-radius, opacity'
+            : 'SVG CSS in 2D, e.g. fill, stroke, opacity; a face’s fill is its background'
+          : 'This puzzle has no faces or tile numbers to pick, only the image and every tile';
+        for (const button of cameraButtons) {
+          button.setAttribute('aria-pressed', String(button.dataset.camera === cameraMode));
+          button.disabled = !in3D;
+        }
+        for (const input of angleInputs) input.disabled = !in3D;
+        $('angle-reset').disabled = !in3D;
+        $('camera-option').classList.toggle('off', !in3D);
+        // The cube's own faces can move whenever the 3D view shows; the copies only float
+        // with floating back faces.
+        const movable = in3D && (offsetTarget === 'cube' || hiddenFaces === 'floating');
+        for (const input of offsetInputs) input.disabled = !movable;
+        offsetFace.disabled = !movable;
+        $('offset-reset').disabled = !in3D;
+        for (const button of targetButtons) {
+          button.setAttribute('aria-pressed', String(button.dataset.target === offsetTarget));
+          button.disabled = !in3D;
+        }
+        $('offset-option').classList.toggle('off', !in3D);
+        cube3d.title = cameraMode === 'mouse' ? 'Drag to turn the cube' : '';
+        $('colors-option').hidden = colorsDiv.childElementCount === 0;
+        image.hidden = in3D;
+        cube3d.hidden = !in3D;
+        info.classList.remove('error');
+        info.textContent = `csTimer scramble type: ${puzzle.getScrambleType()}`;
+        try {
+          // The 3D view keeps its angle when redrawn.
+          if (in3D) puzzle.show3D(cube3d);
+          else if (puzzle.hasImage()) image.innerHTML = puzzle.getImage();
+          else
+            image.innerHTML = '<p class="meta">csTimer has no picture for this scramble type.</p>';
+        } catch (e) {
+          info.classList.add('error');
+          info.textContent = e.message;
+        }
+      }
+
+      // Shows the puzzle's scramble, solution, type, method and length in the inputs.
+      function showMoves() {
+        const puzzle = current();
+        scrambleInput.value = puzzle.getScramble();
+        fit(scrambleInput);
+        solutionInput.value = puzzle.getSolution();
+        typeSelect.value = puzzle.getScrambleType();
+        // Blank when the type was picked from the list rather than by a method.
+        methodSelect.value = puzzle.getScrambleMethod() ?? '';
+        // Random-state and case scrambles are as long as they need to be: the box says
+        // "n/a", greyed out, with the reason next to it.
+        const length = puzzle.getScrambleLength();
+        lengthInput.disabled = length === undefined;
+        lengthInput.value = length ?? '';
+        $('length-note').hidden = length !== undefined;
+        draw();
+      }
+
+      // Grows a box to show all its lines (megaminx scrambles and relays are several).
+      function fit(textarea) {
+        textarea.style.height = 'auto';
+        textarea.style.height = `${textarea.scrollHeight + 2}px`;
       }
 
       function next() {
+        stopSearch();
         const start = performance.now();
-        const scramble = getScramble(select.value);
-        const ms = performance.now() - start;
-        out.textContent = scramble;
-        info.textContent = `${scramble.split(' ').length} moves, generated in ${ms.toFixed(0)} ms`;
+        current().scramble();
+        scrambleTimes.set(current().id, performance.now() - start);
+        showMoves();
       }
 
-      document.getElementById('next').addEventListener('click', next);
-      select.addEventListener('change', next);
+      function showPuzzle() {
+        stopSearch();
+        const puzzle = current();
+        typeSelect.replaceChildren(
+          ...puzzle.getScrambleTypes().map((t) => new Option(`${t.name} (${t.id})`, t.id)),
+        );
+        methodSelect.replaceChildren(
+          new Option('(type from the list)', '', false, false),
+          ...puzzle.getScrambleMethods().map((m) => new Option(m, m)),
+        );
+        methodSelect.options[0].hidden = true;
+        colorsDiv.replaceChildren();
+        for (const [face, color] of Object.entries(puzzle.getColors())) {
+          const label = document.createElement('label');
+          const input = document.createElement('input');
+          input.type = 'color';
+          input.value = long(color);
+          input.addEventListener('input', () => {
+            puzzle.setColor(face, input.value);
+            draw();
+          });
+          label.append(input, face);
+          colorsDiv.append(label);
+        }
+        // Every puzzle starts scrambled.
+        if (!puzzle.getScramble()) next();
+        else showMoves();
+      }
+
+      puzzleSelect.addEventListener('change', showPuzzle);
+      typeSelect.addEventListener('change', () => {
+        current().setScrambleType(typeSelect.value);
+        next();
+      });
+      methodSelect.addEventListener('change', () => {
+        current().setScrambleMethod(methodSelect.value);
+        next();
+      });
+      lengthInput.addEventListener('change', () => {
+        const length = Number(lengthInput.value);
+        if (Number.isInteger(length) && length >= 1) current().setScrambleLength(length);
+        next();
+      });
+      $('size-form').addEventListener('submit', (e) => {
+        e.preventDefault();
+        // Kept between the box's min and max, in whole pixels.
+        const value = Math.round(Number(sizeInput.value));
+        imageSize = Math.min(480, Math.max(100, Number.isFinite(value) && value > 0 ? value : 300));
+        sizeInput.value = imageSize;
+        draw();
+      });
+      for (const [button, value] of [
+        [view2D, '2d'],
+        [view3D, '3d'],
+      ]) {
+        button.addEventListener('click', () => {
+          view = value;
+          draw();
+        });
+      }
+      for (const button of styleButtons) {
+        button.addEventListener('click', () => {
+          imageStyle = button.dataset.style;
+          draw();
+        });
+      }
+      for (const button of cubeStyleButtons) {
+        button.addEventListener('click', () => {
+          cubeStyle = button.dataset.cubeStyle;
+          draw();
+        });
+      }
+      for (const button of hiddenButtons) {
+        button.addEventListener('click', () => {
+          hiddenFaces = button.dataset.hidden;
+          draw();
+        });
+      }
+      for (const button of cameraButtons) {
+        button.addEventListener('click', () => {
+          cameraMode = button.dataset.camera;
+          draw();
+        });
+      }
+      for (const input of angleInputs) {
+        input.addEventListener('change', () => {
+          const x = Number($('angle-x').value);
+          const y = Number($('angle-y').value);
+          if (Number.isFinite(x) && Number.isFinite(y)) cameraAngle = { x, y };
+          showCameraAndOffset();
+          draw();
+        });
+      }
+      $('angle-reset').addEventListener('click', () => {
+        cameraAngle = new Puzzle('333').getCameraAngle();
+        showCameraAndOffset();
+        draw();
+      });
+      offsetFace.addEventListener('change', showCameraAndOffset);
+      for (const input of offsetInputs) {
+        input.addEventListener('input', () => {
+          const offset = {};
+          for (const box of offsetInputs) {
+            const value = Number(box.value);
+            offset[box.dataset.offset] = Number.isFinite(value) ? value : 0;
+          }
+          offsets[offsetTarget][offsetFace.value] = offset;
+          draw();
+        });
+      }
+      $('offset-reset').addEventListener('click', () => {
+        offsets.floating = {};
+        offsets.cube = {};
+        showCameraAndOffset();
+        draw();
+      });
+      for (const button of targetButtons) {
+        button.addEventListener('click', () => {
+          offsetTarget = button.dataset.target;
+          showCameraAndOffset();
+          draw();
+        });
+      }
+      for (const button of partButtons) {
+        button.addEventListener('click', () => {
+          cssPart = button.dataset.part;
+          draw();
+        });
+      }
+      // Reads "stroke: #fff; stroke-width: 2" into { stroke: '#fff', 'stroke-width': '2' }.
+      function parseCss(text) {
+        const css = {};
+        for (const declaration of text.split(';')) {
+          const colon = declaration.indexOf(':');
+          if (colon < 0) continue;
+          const property = declaration.slice(0, colon).trim();
+          const value = declaration.slice(colon + 1).trim();
+          if (property && value) css[property] = value;
+        }
+        return css;
+      }
+      function showStyles() {
+        $('css-list').replaceChildren(
+          ...elementStyles.map(({ part, css, where }) => {
+            const li = document.createElement('li');
+            const at = [where.face, where.tile === undefined ? '' : `#${where.tile}`].join('');
+            const text = Object.entries(css)
+              .map(([k, v]) => `${k}: ${v}`)
+              .join('; ');
+            li.textContent = `${part}${at ? ` ${at}` : ''} { ${text} }`;
+            return li;
+          }),
+        );
+      }
+      $('css-form').addEventListener('submit', (e) => {
+        e.preventDefault();
+        const css = parseCss($('css-text').value || CSS_EXAMPLES[cssPart]);
+        const where = {};
+        if (cssPart !== 'image' && $('css-face').value) where.face = $('css-face').value;
+        const tile = $('css-tile').value;
+        if (cssPart === 'tile' && tile !== '') where.tile = Number(tile);
+        try {
+          // Checked on a cube, so faces and tile numbers can be given on any puzzle.
+          new Puzzle('333').setElementStyle(cssPart, css, where);
+          elementStyles.push({ part: cssPart, css, where });
+          $('css-text').value = '';
+        } catch (error) {
+          info.classList.add('error');
+          info.textContent = error.message;
+          return;
+        }
+        showStyles();
+        draw();
+      });
+      $('css-reset').addEventListener('click', () => {
+        elementStyles.length = 0;
+        showStyles();
+        draw();
+      });
+      scrambleInput.addEventListener('input', () => {
+        stopSearch();
+        current().setScramble(scrambleInput.value);
+        scrambleTimes.delete(current().id);
+        fit(scrambleInput);
+        draw();
+      });
+      // Ends the running solve, if any, keeping the shortest solution it found.
+      function stopSearch() {
+        searching?.puzzle.stopSolving();
+      }
+      $('solve').addEventListener('click', async () => {
+        if (searching) {
+          stopSearch();
+          return;
+        }
+        const puzzle = current();
+        const scramble = puzzle.getScramble();
+        puzzle.setSolveTimeLimit(searchTime.limit ? searchTime.seconds * 1000 : Infinity);
+        const start = performance.now();
+        searching = { puzzle, scramble };
+        // Shows each shorter solution as it is found.
+        const show = (solution) => {
+          if (current() !== puzzle || puzzle.getScramble() !== scramble) return;
+          puzzle.setSolution(solution);
+          solutionInput.value = solution;
+          draw();
+        };
+        try {
+          const solution = await puzzle.solveAsync(show);
+          lastSolve = { puzzle, scramble, solution, ms: performance.now() - start };
+        } catch (error) {
+          info.classList.add('error');
+          info.textContent = error.message;
+          return;
+        } finally {
+          const { typed } = searching;
+          searching = undefined;
+          if (typed) puzzle.setSolution(solutionInput.value);
+        }
+        if (current() === puzzle && puzzle.getScramble() === scramble) {
+          solutionInput.value = puzzle.getSolution();
+        }
+        draw();
+      });
+      solutionInput.addEventListener('input', () => {
+        // What is typed wins over what the solve found.
+        if (searching) searching.typed = true;
+        stopSearch();
+        current().setSolution(solutionInput.value);
+        draw();
+      });
+      for (const button of limitButtons) {
+        button.addEventListener('click', () => {
+          searchTime.limit = button.dataset.limit === 'seconds';
+          draw();
+        });
+      }
+      $('search-seconds').addEventListener('change', (e) => {
+        const seconds = Number(e.target.value);
+        if (seconds > 0) searchTime.seconds = seconds;
+        e.target.value = searchTime.seconds;
+      });
+      for (const [buttons, apply] of [
+        [
+          rotationButtons,
+          (b) => (solutionOptions.countRotations = b.dataset.rotations === 'count'),
+        ],
+        [sliceButtons, (b) => (solutionOptions.sliceMoves = b.dataset.slice)],
+        [wideButtons, (b) => (solutionOptions.wideMoves = b.dataset.wide)],
+        [fmcButtons, (b) => (solutionOptions.fmc = b.dataset.fmc === 'on')],
+      ]) {
+        for (const button of buttons) {
+          button.addEventListener('click', () => {
+            apply(button);
+            draw();
+          });
+        }
+      }
+      $('next').addEventListener('click', next);
       document.addEventListener('keydown', (e) => {
         if (e.code === 'Space' && e.target === document.body) {
           e.preventDefault();
           next();
         }
       });
-      next();
+      puzzleSelect.value = '333';
+      showCameraAndOffset();
+      showPuzzle();
     </script>
   </body>
 </html>

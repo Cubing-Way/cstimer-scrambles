@@ -1,13 +1,18 @@
 import { describe, expect, it } from 'vitest';
 import min2phase from '../src/vendor/cstimer/min2phase.js';
 import mathlib from '../src/vendor/cstimer/mathlib.js';
-import { getScramble, listEvents, setSeed } from '../src/index.js';
+import { getAnyScramble, getScramble, listEvents, setSeed } from '../src/index.js';
 
 const MOVE = /^[URFDLB][2']?$/;
 
 describe('3x3 scrambles', () => {
   it('registers the 3x3 events', () => {
-    expect(listEvents().map((e) => e.id)).toEqual(['333', '333fm', 'edges', 'corners', 'll']);
+    expect(
+      listEvents()
+        .filter((e) => e.puzzle === '333')
+        .slice(0, 8)
+        .map((e) => e.id),
+    ).toEqual(['333', '333oh', '333fm', '333ni', 'r3ni', 'edges', 'corners', 'll']);
   });
 
   it('produces valid, unsolved random-state scrambles', () => {
@@ -40,5 +45,29 @@ describe('3x3 scrambles', () => {
     const s = getScramble('333fm');
     expect(s.startsWith("R' U' F ")).toBe(true);
     expect(s.endsWith("R' U' F")).toBe(true);
+  });
+
+  it('adds wide moves to blindfolded scrambles', () => {
+    for (let i = 0; i < 10; i++) {
+      const moves = getScramble('333ni').split(' ');
+      expect(moves.every((m) => /^[URFDLB]w?[2']?$/.test(m))).toBe(true);
+    }
+  });
+
+  it('numbers one blindfolded scramble per cube for multi-blind', () => {
+    const lines = getScramble('r3ni', 3).split('\n');
+    expect(lines).toHaveLength(3);
+    lines.forEach((line, i) => expect(line.startsWith(`${i + 1}) `)).toBe(true));
+    expect(getScramble('r3ni').split('\n')).toHaveLength(5);
+  });
+
+  it('keeps fixed pieces solved with getAnyScramble', () => {
+    // Corners fixed in place: every corner sticker stays on its own face.
+    const f = min2phase.fromScramble(getAnyScramble({ cp: 0x76543210, co: 0 }));
+    for (const face of [0, 9, 18, 27, 36, 45]) {
+      for (const corner of [0, 2, 6, 8]) {
+        expect(f[face + corner]).toBe(f[face + 4]);
+      }
+    }
   });
 });

@@ -1,5 +1,5 @@
 // Minimal typings for csTimer's min2phase (two-phase 3x3 solver by Shuang Chen).
-export interface Search {
+interface Search {
   solution(
     facelets: string,
     maxDepth?: number,
@@ -9,6 +9,8 @@ export interface Search {
     firstAxisFilter?: number,
     lastAxisFilter?: number,
   ): string;
+  /** Carries on the last search: a shorter solution, `Error 8` if still looking, `Error 7` if done. */
+  next(probeMax: number, probeMin: number, verbose: number): string;
 }
 
 declare const min2phase: {
@@ -20,3 +22,4 @@ declare const min2phase: {
   INVERSE_SOLUTION: number;
 };
 export default min2phase;
+export type { Search };
