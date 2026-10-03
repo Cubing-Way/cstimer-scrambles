@@ -2,7 +2,7 @@
 // and stickers with rounded corners. Cubes get their own drawing; the other puzzles keep
 // csTimer's drawing with thicker black borders.
 
-import { isStickerless, tileCorners } from './cubestyle.js';
+import { CLASSIC_RADIUS, isStickerless, tileCorners } from './cubestyle.js';
 import type { CubeStyle } from './cubestyle.js';
 
 /**
@@ -72,7 +72,7 @@ function drawCubeNet(
   const gap = stickerless ? 0 : GAP;
   const padding = stickerless ? 0 : PADDING;
   const cell = (SIDE - 2 * padding - (size - 1) * gap) / size;
-  const radius = round(cell * 0.12);
+  const radius = round(cell * CLASSIC_RADIUS);
   const parts: string[] = [];
   if (layout === 'joined') {
     // The black behind the faces as two overlapping strips, a row and a column, so there

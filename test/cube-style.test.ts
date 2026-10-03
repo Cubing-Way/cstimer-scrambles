@@ -18,9 +18,9 @@ describe('Puzzle cube styles', () => {
   it('rounds corners toward the face center on a stickered 3x3', () => {
     // Top left corner, top edge, center: corners TL, TR, BR, BL.
     expect(tileCorners('stickered', 3, 0)).toEqual([0, 0, 0, 0]);
-    expect(tileCorners('stickered', 3, 1)).toEqual([0, 0, 0.25, 0.25]);
-    expect(tileCorners('stickered', 3, 3)).toEqual([0, 0.25, 0.25, 0]);
-    expect(tileCorners('stickered', 3, 4)).toEqual([0.25, 0.25, 0.25, 0.25]);
+    expect(tileCorners('stickered', 3, 1)).toEqual([0, 0, 0.28, 0.28]);
+    expect(tileCorners('stickered', 3, 3)).toEqual([0, 0.28, 0.28, 0]);
+    expect(tileCorners('stickered', 3, 4)).toEqual([0.28, 0.28, 0.28, 0.28]);
   });
 
   it('also rounds a corner tile’s inner corner in the round styles', () => {
@@ -31,8 +31,8 @@ describe('Puzzle cube styles', () => {
 
   it('treats a big cube’s border as edges and its inside as centers', () => {
     // 5x5: tile 6 is inside, tile 2 on the top border, tile 24 the bottom right corner.
-    expect(tileCorners('stickered', 5, 6)).toEqual([0.25, 0.25, 0.25, 0.25]);
-    expect(tileCorners('stickered', 5, 2)).toEqual([0, 0, 0.25, 0.25]);
+    expect(tileCorners('stickered', 5, 6)).toEqual([0.28, 0.28, 0.28, 0.28]);
+    expect(tileCorners('stickered', 5, 2)).toEqual([0, 0, 0.28, 0.28]);
     expect(tileCorners('stickered', 5, 24)).toEqual([0, 0, 0, 0]);
   });
 
