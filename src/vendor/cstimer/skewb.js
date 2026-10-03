@@ -1,9 +1,9 @@
 // Vendored from csTimer (src/js/scramble/skewb.js) @ 2547d82. GPL-3.0, (c) cs0x7f.
-// Changes: ESM import/export; DEBUG disabled.
+// Changes: ESM import/export; named skewb; exports its optimal solver; DEBUG disabled.
 import mathlib from './mathlib.js';
 import scrMgr from './scrmgr.js';
 var DEBUG = false;
-(function() {
+var skewb = (function() {
 
 	/**	1 2   U
 		 0  LFRB
@@ -139,5 +139,8 @@ var DEBUG = false;
 	}
 
 	scrMgr.reg(['skbo', 'skbso', 'skbnb'], getScramble)(['ivyo', 'ivyso'], getScrambleIvy);
-
+	return {
+		solver: solv
+	};
 })();
+export default skewb;
