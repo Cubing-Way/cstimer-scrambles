@@ -1747,8 +1747,8 @@ function getSeed() {
 }
 //#endregion
 //#region src/vendor/cstimer/svglib.js
-var $$2 = {};
-$$2.svg = (function() {
+var $$7 = {};
+$$7.svg = (function() {
 	function SVG(width, height) {
 		this.elems = [];
 		this.width = width;
@@ -1782,7 +1782,7 @@ $$2.svg = (function() {
 	};
 	return SVG;
 })();
-$$2.ctxDrawPolygon = function(ctx, color, arr, trans) {
+$$7.ctxDrawPolygon = function(ctx, color, arr, trans) {
 	if (!ctx) return;
 	trans = trans || [
 		1,
@@ -1792,8 +1792,8 @@ $$2.ctxDrawPolygon = function(ctx, color, arr, trans) {
 		1,
 		0
 	];
-	arr = $$2.ctxTransform(arr, trans);
-	if (ctx instanceof $$2.svg) return ctx.addPoly(arr, color);
+	arr = $$7.ctxTransform(arr, trans);
+	if (ctx instanceof $$7.svg) return ctx.addPoly(arr, color);
 	ctx.beginPath();
 	ctx.fillStyle = color;
 	ctx.moveTo(arr[0][0], arr[1][0]);
@@ -1802,8 +1802,8 @@ $$2.ctxDrawPolygon = function(ctx, color, arr, trans) {
 	ctx.fill();
 	ctx.stroke();
 };
-$$2.ctxRotate = function(arr, theta) {
-	return $$2.ctxTransform(arr, [
+$$7.ctxRotate = function(arr, theta) {
+	return $$7.ctxTransform(arr, [
 		Math.cos(theta),
 		-Math.sin(theta),
 		0,
@@ -1812,7 +1812,7 @@ $$2.ctxRotate = function(arr, theta) {
 		0
 	]);
 };
-$$2.ctxTransform = function(arr) {
+$$7.ctxTransform = function(arr) {
 	var ret;
 	for (var i = 1; i < arguments.length; i++) {
 		var trans = arguments[i];
@@ -1832,7 +1832,7 @@ $$2.ctxTransform = function(arr) {
 	}
 	return ret;
 };
-$$2.nearColor = function(color, ref, longFormat) {
+$$7.nearColor = function(color, ref, longFormat) {
 	var col, m = /^#([0-9a-fA-F])([0-9a-fA-F])([0-9a-fA-F])$/.exec(color);
 	if (m) col = [
 		m[1] + m[1],
@@ -1852,10 +1852,10 @@ $$2.nearColor = function(color, ref, longFormat) {
 	}
 	return "#" + (longFormat ? col[0] + col[0] + col[1] + col[1] + col[2] + col[2] : col[0] + col[1] + col[2]);
 };
-$$2.col2std = function(col, faceMap) {
+$$7.col2std = function(col, faceMap) {
 	var ret = [];
 	col = (col || "").match(/#[0-9a-fA-F]{3}/g) || [];
-	for (var i = 0; i < col.length; i++) ret.push(~~$$2.nearColor(col[faceMap[i]], 0, true).replace("#", "0x"));
+	for (var i = 0; i < col.length; i++) ret.push(~~$$7.nearColor(col[faceMap[i]], 0, true).replace("#", "0x"));
 	return ret;
 };
 //#endregion
@@ -1920,7 +1920,7 @@ function puzzleType(scrambleType) {
 	else if (/^gear(o|so)?$/.exec(scrambleType)) return "gear";
 	else return scrambleType;
 }
-var tools = {
+var tools$4 = {
 	scrambleType,
 	puzzleType,
 	isPuzzle,
@@ -1955,7 +1955,7 @@ var kernel = {
 };
 //#endregion
 //#region src/vendor/cstimer/poly3dlib.js
-var $$1 = {
+var $$6 = {
 	col2std: function(col, faceMap) {
 		var ret = [];
 		col = (col || "").match(/#[0-9a-fA-F]{3}/g) || [];
@@ -3009,7 +3009,7 @@ var poly3d = (function() {
 				} else if (layer == 1) return axis.toUpperCase() + powfix;
 				else if (layer == 3) return axis.toLowerCase() + powfix;
 			}, function(scramble) {
-				if (/^(\s*([+-]{2}\s*)+U'?\s*\n?)*$/.exec(scramble)) scramble = tools.carrot2poch(scramble);
+				if (/^(\s*([+-]{2}\s*)+U'?\s*\n?)*$/.exec(scramble)) scramble = tools$4.carrot2poch(scramble);
 				return scramble;
 			});
 		} else if (name == "heli" || name == "helicv" || name == "heli2x2") {
@@ -3140,13 +3140,13 @@ var poly3d = (function() {
 		];
 		else return null;
 		var nFace = polyParam[0];
-		if (nFace == 4) colors = $$1.col2std(kernel.getProp("colpyr"), [
+		if (nFace == 4) colors = $$6.col2std(kernel.getProp("colpyr"), [
 			3,
 			1,
 			2,
 			0
 		]);
-		else if (nFace == 6) colors = $$1.col2std(kernel.getProp("colcube"), [
+		else if (nFace == 6) colors = $$6.col2std(kernel.getProp("colcube"), [
 			3,
 			4,
 			5,
@@ -3154,7 +3154,7 @@ var poly3d = (function() {
 			1,
 			2
 		]);
-		else if (nFace == 8) colors = $$1.col2std(kernel.getProp("colfto"), [
+		else if (nFace == 8) colors = $$6.col2std(kernel.getProp("colfto"), [
 			0,
 			3,
 			1,
@@ -3164,7 +3164,7 @@ var poly3d = (function() {
 			5,
 			4
 		]);
-		else if (nFace == 12) colors = $$1.col2std(kernel.getProp("colmgm"), [
+		else if (nFace == 12) colors = $$6.col2std(kernel.getProp("colmgm"), [
 			0,
 			2,
 			1,
@@ -3178,7 +3178,7 @@ var poly3d = (function() {
 			6,
 			10
 		]);
-		else if (nFace == 20) colors = $$1.col2std(kernel.getProp("colico"), [
+		else if (nFace == 20) colors = $$6.col2std(kernel.getProp("colico"), [
 			0,
 			1,
 			2,
@@ -3221,7 +3221,7 @@ var poly3d = (function() {
 		makeParser,
 		makePuzzleParser,
 		getFamousPuzzle,
-		udpolyre: new RegExp("^(" + $$1.UDPOLY_RE + ")$"),
+		udpolyre: new RegExp("^(" + $$6.UDPOLY_RE + ")$"),
 		parsePolyParam
 	};
 })();
@@ -5168,7 +5168,7 @@ var cubeutil = (function() {
 	function getScrambledState(scramble, reqFace) {
 		scramble[0];
 		var scrSeq = scramble[1];
-		if (!tools.isPuzzle("333", scramble)) return;
+		if (!tools$4.isPuzzle("333", scramble)) return;
 		var scr = parseScramble(scrSeq, "URFDLB");
 		var c = new mathlib.CubieCube();
 		var d = new mathlib.CubieCube();
@@ -5273,7 +5273,7 @@ var cubeutil = (function() {
 	var scrambleReg = /^([\d]+(?:-\d+)?)?([FRUBLDfrubldzxySME])(?:([w])|&sup([\d]);)?([2'])?$/;
 	function parseScramble(scramble, moveMap, addPreScr) {
 		scramble = scramble || "";
-		if (addPreScr) scramble = kernel.getProp(tools.isCurTrainScramble() ? "preScrT" : "preScr") + " " + scramble;
+		if (addPreScr) scramble = kernel.getProp(tools$4.isCurTrainScramble() ? "preScrT" : "preScr") + " " + scramble;
 		var moveseq = [];
 		var moves = scramble.split(" ");
 		var m, w, f, p;
@@ -5322,7 +5322,7 @@ var cubeutil = (function() {
 		});
 	}
 	function getPreConj() {
-		var preScr = kernel.getProp(tools.isCurTrainScramble() ? "preScrT" : "preScr", "").split(" ");
+		var preScr = kernel.getProp(tools$4.isCurTrainScramble() ? "preScrT" : "preScr", "").split(" ");
 		var cc = new mathlib.CubieCube();
 		for (var i = 0; i < preScr.length; i++) cc.selfMoveStr(preScr[i]);
 		return cc.ori || 0;
@@ -5336,8 +5336,8 @@ var cubeutil = (function() {
 			"666": "6x6x6",
 			"777": "7x7x7"
 		};
-		if (puzzle && !dim[puzzle] && typeof tools != "undefined" && tools.puzzleType) puzzle = tools.puzzleType(puzzle) || puzzle;
-		if (!puzzle || !dim[puzzle]) puzzle = typeof tools != "undefined" && tools.getCurPuzzle && tools.getCurPuzzle() || "333";
+		if (puzzle && !dim[puzzle] && typeof tools$4 != "undefined" && tools$4.puzzleType) puzzle = tools$4.puzzleType(puzzle) || puzzle;
+		if (!puzzle || !dim[puzzle]) puzzle = typeof tools$4 != "undefined" && tools$4.getCurPuzzle && tools$4.getCurPuzzle() || "333";
 		var url = "https://alg.cubing.net/?alg=" + encodeURIComponent(alg || "") + "&setup=" + encodeURIComponent(setup || "");
 		if (dim[puzzle]) url += "&puzzle=" + dim[puzzle];
 		return url;
@@ -5379,9 +5379,9 @@ var image$1 = (function() {
 	var img;
 	var hsq3 = Math.sqrt(3) / 2;
 	var PI = Math.PI;
-	var Rotate = $$2.ctxRotate;
-	var Transform = $$2.ctxTransform;
-	var drawPolygon = $$2.ctxDrawPolygon;
+	var Rotate = $$7.ctxRotate;
+	var Transform = $$7.ctxTransform;
+	var drawPolygon = $$7.ctxDrawPolygon;
 	var clkImage = (function() {
 		function drawClock(svg, color, trans, time) {
 			var points = Transform(Rotate([[
@@ -5673,7 +5673,7 @@ var image$1 = (function() {
 			}
 		}
 		function llImage(sc, sq2sc, img) {
-			var svg = new $$2.svg();
+			var svg = new $$7.svg();
 			var cols = kernel.getProp("colsq1").match(colre);
 			colors = {
 				"U": cols[0],
@@ -6613,7 +6613,7 @@ var image$1 = (function() {
 	*/
 	var llImage = (function() {
 		function drawImage(pieces, arrows, img) {
-			var svg = new $$2.svg();
+			var svg = new $$7.svg();
 			var colors = kernel.getProp("colcube").match(colre);
 			var dim = 3;
 			if (pieces.length == 12) dim = 2;
@@ -6769,7 +6769,7 @@ var image$1 = (function() {
 			]
 		];
 		function drawImage(pieces, img) {
-			var svg = new $$2.svg();
+			var svg = new $$7.svg();
 			var colors = kernel.getProp("colcube").match(colre);
 			svg.width = (6 * width + gap * 2) * hsq3;
 			svg.height = 6 * width + gap * 1.5;
@@ -6799,7 +6799,7 @@ var image$1 = (function() {
 	var pyrllImage = (function() {
 		var width = 20;
 		function drawImage(pieces, img) {
-			var svg = new $$2.svg();
+			var svg = new $$7.svg();
 			svg.width = 6 * hsq3 * width;
 			svg.height = 6 * hsq3 * width;
 			var colors = kernel.getProp("colpyr").match(colre);
@@ -6877,7 +6877,7 @@ var image$1 = (function() {
 				posit = posit2;
 			}
 			if (type == "skb") {
-				colors = $$2.col2std(kernel.getProp("colskb"), [
+				colors = $$7.col2std(kernel.getProp("colskb"), [
 					0,
 					2,
 					4,
@@ -7048,8 +7048,8 @@ var image$1 = (function() {
 	];
 	function renderSVG(svg, scramble) {
 		var type = scramble[0];
-		if (type == "input") type = tools.scrambleType(scramble[1]);
-		type = tools.puzzleType(type);
+		if (type == "input") type = tools$4.scrambleType(scramble[1]);
+		type = tools$4.puzzleType(type);
 		var size = types_nnn.indexOf(type);
 		var recons = 0;
 		if (size >= 0) recons = nnnImage.draw(svg, size + 2, scramble[1]);
@@ -7085,7 +7085,7 @@ var image$1 = (function() {
 			for (var i = 0; i < subScrs.length; i++) {
 				var x = i % n_width * GRID_WIDTH;
 				var y = ~~(i / n_width) * GRID_HEIGHT;
-				var subSvg = new $$2.svg();
+				var subSvg = new $$7.svg();
 				renderSVG(subSvg, subScrs[i]);
 				svg.addElem(subSvg.renderGroup(x, y, GRID_WIDTH, GRID_HEIGHT));
 				svg.addText((i + 1).toString(), [x, y], {
@@ -7097,7 +7097,7 @@ var image$1 = (function() {
 		return recons;
 	}
 	function genImage(scramble, renderTool) {
-		var svg = new $$2.svg();
+		var svg = new $$7.svg();
 		var recons = renderSVG(svg, scramble);
 		if (recons == -1) return false;
 		if (!renderTool) return svg;
@@ -7112,7 +7112,7 @@ var image$1 = (function() {
 				replay.popupReplay.apply(null, recons);
 			}.bind(null, recons));
 		} else img.click(function(svg, scale) {
-			var popImg = $$2("<img style=\"display:block;\">");
+			var popImg = $$7("<img style=\"display:block;\">");
 			popImg.attr("src", "data:image/svg+xml;base64," + btoa(svg.render()));
 			popImg.css("object-fit", "contain");
 			kernel.showDialog([
@@ -7253,7 +7253,7 @@ const IMAGE_PUZZLES = [
 const MULTI_TYPES = /^r(3(ni)?|23\d+w?|mngf)$/;
 /** Whether `getScrambleImage` can draw scrambles of this csTimer scramble type id. */
 function hasScrambleImage(type) {
-	return MULTI_TYPES.test(type) || IMAGE_PUZZLES.includes(tools.puzzleType(type));
+	return MULTI_TYPES.test(type) || IMAGE_PUZZLES.includes(tools$4.puzzleType(type));
 }
 /**
 * Draws the scrambled puzzle as an SVG string, the same picture csTimer shows in its
@@ -11248,7 +11248,9 @@ var grouplib = (function(rn) {
 		SubgroupSolver
 	};
 })(mathlib.rn);
-(function() {
+//#endregion
+//#region src/vendor/cstimer/pat3x3.js
+var pat3x3 = (function() {
 	var bitCount = mathlib.bitCount;
 	function iterFill(depth, mask, ori, parity, memo, candidates, nOri, sampleArr) {
 		var key = (mask * nOri + ori) * 2 + parity;
@@ -11450,6 +11452,23 @@ var cross = (function(createMove, edgeMove, createPrun, setNPerm, getNPerm, Cnk,
 			return comb * 24 + getNPerm(pm, 4) << 4 | t;
 		}
 	}
+	function xxinit() {
+		xxinit = function() {};
+		xinit();
+		var obj1 = 4;
+		var obj2 = 5;
+		createPrun(xxPrun01, obj1 * 3 * 24 + obj1 * 2 + 576 * (obj2 * 3 * 24 + obj2 * 2), 331776, 7, function(q, m) {
+			var ec1 = q % 576;
+			var ec2 = ~~(q / 576);
+			return c1mv[~~(ec1 / 24)][m] * 24 + e1mv[ec1 % 24][m] + 576 * (c1mv[~~(ec2 / 24)][m] * 24 + e1mv[ec2 % 24][m]);
+		});
+		obj2 = 6;
+		createPrun(xxPrun02, obj1 * 3 * 24 + obj1 * 2 + 576 * (obj2 * 3 * 24 + obj2 * 2), 331776, 7, function(q, m) {
+			var ec1 = q % 576;
+			var ec2 = ~~(q / 576);
+			return c1mv[~~(ec1 / 24)][m] * 24 + e1mv[ec1 % 24][m] + 576 * (c1mv[~~(ec2 / 24)][m] * 24 + e1mv[ec2 % 24][m]);
+		});
+	}
 	function xinit() {
 		xinit = function() {};
 		init();
@@ -11640,7 +11659,7 @@ var cross = (function(createMove, edgeMove, createPrun, setNPerm, getNPerm, Cnk,
 		18,
 		36
 	]);
-	new mathlib.Searcher((idx) => idx[0] + idx[1] == 0 && idx[2] == 8 && idx[3] == 12 && (idx[4] == 10 && idx[5] == 15 || idx[4] == 12 && idx[5] == 18), (idx) => Math.max(getPruning(permPrun, idx[0]), getPruning(flipPrun, idx[1]), getPruning(idx[6], idx[3] * 24 + idx[2] + 576 * (idx[5] * 24 + idx[4]))), (idx, move) => [
+	var solvXXCross = new mathlib.Searcher((idx) => idx[0] + idx[1] == 0 && idx[2] == 8 && idx[3] == 12 && (idx[4] == 10 && idx[5] == 15 || idx[4] == 12 && idx[5] == 18), (idx) => Math.max(getPruning(permPrun, idx[0]), getPruning(flipPrun, idx[1]), getPruning(idx[6], idx[3] * 24 + idx[2] + 576 * (idx[5] * 24 + idx[4]))), (idx, move) => [
 		pmv(idx[0], move),
 		fmv(idx[1], move),
 		e1mv[idx[2]][move],
@@ -11656,7 +11675,7 @@ var cross = (function(createMove, edgeMove, createPrun, setNPerm, getNPerm, Cnk,
 		18,
 		36
 	]);
-	new mathlib.Searcher((idx) => idx[0] + idx[1] == 0 && idx[2] == 8 && idx[3] == 12 && idx[4] == 10 && idx[5] == 15 && idx[6] == 12 && idx[7] == 18, (idx) => Math.max(getPruning(permPrun, idx[0]), getPruning(flipPrun, idx[1]), getPruning(xxPrun01, idx[3] * 24 + idx[2] + 576 * (idx[5] * 24 + idx[4])), getPruning(xxPrun02, idx[3] * 24 + idx[2] + 576 * (idx[7] * 24 + idx[6]))), (idx, move) => [
+	var solvXXXCross = new mathlib.Searcher((idx) => idx[0] + idx[1] == 0 && idx[2] == 8 && idx[3] == 12 && idx[4] == 10 && idx[5] == 15 && idx[6] == 12 && idx[7] == 18, (idx) => Math.max(getPruning(permPrun, idx[0]), getPruning(flipPrun, idx[1]), getPruning(xxPrun01, idx[3] * 24 + idx[2] + 576 * (idx[5] * 24 + idx[4])), getPruning(xxPrun02, idx[3] * 24 + idx[2] + 576 * (idx[7] * 24 + idx[6]))), (idx, move) => [
 		pmv(idx[0], move),
 		fmv(idx[1], move),
 		e1mv[idx[2]][move],
@@ -11673,6 +11692,14 @@ var cross = (function(createMove, edgeMove, createPrun, setNPerm, getNPerm, Cnk,
 		18,
 		36
 	]);
+	var faceStr = [
+		"D",
+		"U",
+		"L",
+		"R",
+		"F",
+		"B"
+	];
 	var moveIdx = [
 		"FRUBLD",
 		"FLDBRU",
@@ -11680,6 +11707,20 @@ var cross = (function(createMove, edgeMove, createPrun, setNPerm, getNPerm, Cnk,
 		"FULBDR",
 		"URBDLF",
 		"DRFULB"
+	];
+	var rotIdx = [
+		"&nbsp;&nbsp;",
+		"z2",
+		"z'",
+		"z&nbsp;",
+		"x'",
+		"x&nbsp;"
+	];
+	var yrotIdx = [
+		"FRUBLD",
+		"RBULFD",
+		"BLUFRD",
+		"LFURBD"
 	];
 	function solve_cross(moves) {
 		init();
@@ -11700,6 +11741,116 @@ var cross = (function(createMove, edgeMove, createPrun, setNPerm, getNPerm, Cnk,
 			ret.push(sol);
 		}
 		return ret;
+	}
+	function solve_xcross(moves, face) {
+		xinit();
+		var flip = 0;
+		var perm = 0;
+		var e1 = [
+			8,
+			10,
+			12,
+			14
+		];
+		var c1 = [
+			12,
+			15,
+			18,
+			21
+		];
+		for (var i = 0; i < moves.length; i++) {
+			var m = moveIdx[face].indexOf("FRUBLD".charAt(moves[i][0]));
+			var p = moves[i][2];
+			for (var j = 0; j < p; j++) {
+				flip = fmv(flip, m);
+				perm = pmv(perm, m);
+				for (var obj = 0; obj < 4; obj++) {
+					e1[obj] = e1mv[e1[obj]][m];
+					c1[obj] = c1mv[c1[obj]][m];
+				}
+			}
+		}
+		var idxs = [];
+		for (var i = 0; i < 4; i++) idxs.push([
+			perm,
+			flip,
+			e1[i],
+			c1[i],
+			i
+		]);
+		var sol = solvXCross.solveMulti(idxs, 0, 20)[0];
+		for (var i = 0; i < sol.length; i++) sol[i] = "FRUBLD".charAt(sol[i][0]) + " 2'".charAt(sol[i][1]);
+		return sol;
+	}
+	function solve_xxcross(moves, face, is3x) {
+		xxinit();
+		var idxs = [];
+		var id3s = [];
+		var yrot = 0;
+		for (yrot = 0; yrot < 4; yrot++) {
+			var flip = 0;
+			var perm = 0;
+			var e1 = [
+				8,
+				10,
+				12
+			];
+			var c1 = [
+				12,
+				15,
+				18
+			];
+			for (var i = 0; i < moves.length; i++) {
+				var m = yrotIdx[yrot].indexOf("FRUBLD".charAt(moveIdx[face].indexOf("FRUBLD".charAt(moves[i][0]))));
+				var p = moves[i][2];
+				for (var j = 0; j < p; j++) {
+					flip = fmv(flip, m);
+					perm = pmv(perm, m);
+					e1 = [
+						e1mv[e1[0]][m],
+						e1mv[e1[1]][m],
+						e1mv[e1[2]][m]
+					];
+					c1 = [
+						c1mv[c1[0]][m],
+						c1mv[c1[1]][m],
+						c1mv[c1[2]][m]
+					];
+				}
+			}
+			idxs.push([
+				perm,
+				flip,
+				e1[0],
+				c1[0],
+				e1[1],
+				c1[1],
+				xxPrun01
+			]);
+			idxs.push([
+				perm,
+				flip,
+				e1[0],
+				c1[0],
+				e1[2],
+				c1[2],
+				xxPrun02
+			]);
+			id3s.push([
+				perm,
+				flip,
+				e1[0],
+				c1[0],
+				e1[1],
+				c1[1],
+				e1[2],
+				c1[2]
+			]);
+		}
+		+/* @__PURE__ */ new Date();
+		var sol = is3x ? solvXXXCross.solveMulti(id3s, 0, 20) : solvXXCross.solveMulti(idxs, 0, 20);
+		var yrot = is3x ? sol[1] : sol[1] >> 1;
+		return sol[0].map((move) => yrotIdx[yrot][move[0]] + " 2'"[move[1]]);
 	}
 	function fullInit() {
 		fullInit = function() {};
@@ -11888,6 +12039,10 @@ var cross = (function(createMove, edgeMove, createPrun, setNPerm, getNPerm, Cnk,
 	}
 	return {
 		solve: solve_cross,
+		xcross: solve_xcross,
+		xxcross: solve_xxcross,
+		faces: faceStr,
+		rotations: rotIdx,
 		getEasyCross,
 		getEasyXCross
 	};
@@ -21534,7 +21689,7 @@ function invertMoves(moves) {
 	return moves.split(/\s+/).filter(Boolean).reverse().map((move) => move.endsWith("'") ? move.slice(0, -1) : move.endsWith("2") ? move : move + "'").join(" ");
 }
 /** The 24 ways to hold a cube, as rotations from the way it is held. */
-const ROTATIONS = [
+const ROTATIONS$1 = [
 	"",
 	"y",
 	"y2",
@@ -21574,7 +21729,7 @@ function solve444(moves) {
 	if (facelets.every((face, i) => face === facelets[i - i % 16])) return "";
 	const made = scramble_444.genFacelet(facelets.map((f) => FACES[f]).join(""));
 	const state = facelets.join();
-	const rotation = ROTATIONS.find((r) => cubeFacelets(4, `${made} ${r}`).join() === state);
+	const rotation = ROTATIONS$1.find((r) => cubeFacelets(4, `${made} ${r}`).join() === state);
 	if (rotation === void 0) throw new Error(`Can't solve this 4x4x4: "${moves}"`);
 	return moveRotationLast(invertMoves(made), invertMoves(rotation));
 }
@@ -21836,6 +21991,3084 @@ function startSearch(id, moves) {
 		case "fto": return new DoneSearch(moves, solveFto(moves), false);
 		default: throw new Error(`No solver for puzzle "${id}"`);
 	}
+}
+//#endregion
+//#region src/vendor/cstimer/toolsui.js
+function Elem() {
+	this.children = [];
+	this.value = "";
+}
+Elem.prototype.append = function() {
+	for (var i = 0; i < arguments.length; i++) this.children.push(arguments[i]);
+	return this;
+};
+Elem.prototype.empty = function() {
+	this.children = [];
+	return this;
+};
+Elem.prototype.html = function(content) {
+	if (arguments.length == 0) return "";
+	this.children = [content];
+	return this;
+};
+Elem.prototype.val = function(value) {
+	if (arguments.length == 0) return this.value;
+	this.value = value;
+	return this;
+};
+var elemHandler = { get: function(target, key, proxy) {
+	if (key in target || typeof key == "symbol") return target[key];
+	return function() {
+		return proxy;
+	};
+} };
+function $$5(arg) {
+	if (typeof arg == "function") return;
+	return new Proxy(new Elem(), elemHandler);
+}
+var toolsui = {
+	$: $$5,
+	Elem,
+	execMain: function(func, params) {
+		return func.apply(null, params || []);
+	},
+	tools: { getSolutionSpan: function(solution) {
+		return { solution };
+	} }
+};
+//#endregion
+//#region src/vendor/cstimer/eoline.js
+var $$4 = toolsui.$;
+var execMain$3 = toolsui.execMain;
+var tools$3 = toolsui.tools;
+var eoline = execMain$3(function(createMove, edgeMove, createPrun, getPruning) {
+	var fmv = [];
+	var pmv = [];
+	function permMove(idx, m) {
+		var arr = [
+			0,
+			0,
+			0,
+			0,
+			0,
+			0,
+			0,
+			0,
+			0,
+			0,
+			0,
+			0
+		];
+		var a = idx % 12;
+		var b = ~~(idx / 12);
+		if (b >= a) b++;
+		arr[a] = 2;
+		arr[b] = 4;
+		edgeMove(arr, m);
+		for (var i = 0; i < 12; i++) if (arr[i] >> 1 == 1) a = i;
+		else if (arr[i] >> 1 == 2) b = i;
+		if (b > a) b--;
+		return b * 12 + a;
+	}
+	function init() {
+		init = function() {};
+		createMove(fmv, 2048, [
+			edgeMove,
+			"o",
+			12,
+			-2
+		]);
+		createMove(pmv, 132, permMove);
+	}
+	var solv = new mathlib.Solver(6, 3, [[
+		0,
+		[
+			edgeMove,
+			"o",
+			12,
+			-2
+		],
+		2048
+	], [
+		116,
+		permMove,
+		132
+	]]);
+	var solv2 = new mathlib.Solver(6, 3, [
+		[
+			0,
+			[
+				edgeMove,
+				"o",
+				12,
+				-2
+			],
+			2048
+		],
+		[
+			116,
+			permMove,
+			132
+		],
+		[
+			129,
+			permMove,
+			132
+		]
+	]);
+	var faceStr = [
+		"D(LR)",
+		"D(FB)",
+		"U(LR)",
+		"U(FB)",
+		"L(UD)",
+		"L(FB)",
+		"R(UD)",
+		"R(FB)",
+		"F(LR)",
+		"F(UD)",
+		"B(LR)",
+		"B(UD)"
+	];
+	var moveIdx = [
+		"FRUBLD",
+		"RBULFD",
+		"FLDBRU",
+		"LBDRFU",
+		"FDRBUL",
+		"DBRUFL",
+		"FULBDR",
+		"UBLDFR",
+		"URBDLF",
+		"RDBLUF",
+		"DRFULB",
+		"RUFLDB"
+	];
+	var rotIdx = [
+		"&nbsp;&nbsp;&nbsp;",
+		"&nbsp;y&nbsp;",
+		"z2&nbsp;",
+		"z2y",
+		"z'&nbsp;",
+		"z'y",
+		"&nbsp;z&nbsp;",
+		"z&nbsp;y",
+		"x'&nbsp;",
+		"x'y",
+		"&nbsp;x&nbsp;",
+		"x&nbsp;y"
+	];
+	function solveEOLine(scramble, isCross, fdiv) {
+		init();
+		var moves = cubeutil.parseScramble(scramble, "FRUBLD");
+		fdiv.empty();
+		for (var face = 0; face < 12; face++) {
+			var flip = 0;
+			var perm1 = 116;
+			var perm2 = 129;
+			for (var i = 0; i < moves.length; i++) {
+				var m = moveIdx[face].indexOf("FRUBLD".charAt(moves[i][0]));
+				var p = moves[i][2];
+				for (var j = 0; j < p; j++) {
+					flip = fmv[m][flip];
+					perm1 = pmv[m][perm1];
+					perm2 = pmv[m][perm2];
+				}
+			}
+			var sol = isCross ? solv2.search([
+				flip,
+				perm1,
+				perm2
+			], 0) : solv.search([flip, perm1], 0);
+			sol = sol.map((move) => "FRUBLD".charAt(move[0]) + " 2'".charAt(move[1]));
+			fdiv.append($$4("<span class=\"sol\">").append(faceStr[face] + ": " + rotIdx[face], tools$3.getSolutionSpan(sol)), "<br>");
+		}
+	}
+	function execFunc(type, fdiv) {
+		if (!fdiv) return;
+		if (tools$3.isPuzzle("333")) solveEOLine(tools$3.getCurScramble()[1], type == "eocross", fdiv);
+		else fdiv.html(IMAGE_UNAVAILABLE);
+	}
+	$$4(function() {
+		tools$3.regTool("eoline", TOOLS_SOLVERS + ">" + TOOLS_EOLINE, execFunc.bind(null, "eoline"));
+		tools$3.regTool("eocross", TOOLS_SOLVERS + ">EOCross", execFunc.bind(null, "eocross"));
+	});
+	return { solve: solveEOLine };
+}, [
+	mathlib.createMove,
+	mathlib.edgeMove,
+	mathlib.createPrun,
+	mathlib.getPruning
+]);
+//#endregion
+//#region src/vendor/cstimer/gsolver.js
+var $$3 = toolsui.$;
+var execMain$2 = toolsui.execMain;
+var tools$2 = toolsui.tools;
+var gsolver = (function() {
+	"use strict";
+	var curScramble;
+	var curScrambleStr;
+	var sol;
+	function stateInit(doMove, state) {
+		for (var i = 0; i < curScramble.length; i++) state = doMove(state, curScramble[i]);
+		for (var i = 0; i < sol.length; i++) state = doMove(state, sol[i]);
+		return state;
+	}
+	function appendSuffix(moves, suffix) {
+		var ret = {};
+		suffix = suffix || " 2'";
+		for (var m in moves) for (var i = 0; i < suffix.length; i++) ret[m + suffix[i]] = moves[m];
+		return ret;
+	}
+	function solveParallel(doMove, solvs, maps, fmov, mask, MAXL) {
+		var solcur;
+		out: for (var maxl = 0; maxl < MAXL + 1; maxl++) for (var solved in solvs) {
+			if ((maps[solved] | mask) != maps[solved]) continue;
+			var state = stateInit(doMove, solved);
+			solcur = solvs[solved].search(state, 0, maxl);
+			if (solcur != void 0) {
+				mask |= maps[solved];
+				break out;
+			}
+			for (var m = 0; m < fmov.length; m++) {
+				var fstate = doMove(state, fmov[m]);
+				solcur = solvs[solved].search(fstate, 0, maxl);
+				if (solcur != void 0) {
+					solcur.unshift(fmov[m]);
+					mask |= maps[solved];
+					break out;
+				}
+			}
+		}
+		return [solcur, mask];
+	}
+	var pocketCube = (function() {
+		var faceStr = [
+			"U",
+			"R",
+			"F",
+			"D",
+			"L",
+			"B"
+		];
+		var moveData = [
+			[
+				[
+					0,
+					1,
+					3,
+					2
+				],
+				[
+					4,
+					8,
+					16,
+					20
+				],
+				[
+					5,
+					9,
+					17,
+					21
+				]
+			],
+			[
+				[
+					4,
+					5,
+					7,
+					6
+				],
+				[
+					1,
+					22,
+					13,
+					9
+				],
+				[
+					3,
+					20,
+					15,
+					11
+				]
+			],
+			[
+				[
+					8,
+					9,
+					11,
+					10
+				],
+				[
+					2,
+					4,
+					13,
+					19
+				],
+				[
+					3,
+					6,
+					12,
+					17
+				]
+			]
+		];
+		function pocketMove(state, move) {
+			var ret = state.split("");
+			var swaps = moveData["URF".indexOf(move[0])];
+			var pow = "? 2'".indexOf(move[1]);
+			for (var i = 0; i < swaps.length; i++) mathlib.acycle(ret, swaps[i], pow);
+			return ret.join("");
+		}
+		var solv = new mathlib.gSolver([
+			"XXXX????????????????????",
+			"????XXXX????????????????",
+			"????????XXXX????????????",
+			"????????????XXXX????????",
+			"????????????????XXXX????",
+			"????????????????????XXXX"
+		], pocketMove, appendSuffix({
+			"U": 1,
+			"R": 2,
+			"F": 3
+		}));
+		function execPocketFace(scramble, span) {
+			curScramble = cubeutil.parseScramble(scramble, "URF");
+			var state = "UUUURRRRFFFFDDDDLLLLBBBB";
+			for (var i = 0; i < curScramble.length; i++) {
+				var m = curScramble[i];
+				state = pocketMove(state, "URF".charAt(m[0]) + " 2'".charAt(m[2] - 1));
+			}
+			for (var face = 0; face < 6; face++) {
+				var faceState = [];
+				for (var i = 0; i < 24; i++) faceState.push(state[i] == "URFDLB".charAt(face) ? "X" : "?");
+				var sol = solv.search(faceState.join(""), 0);
+				span.append(faceStr[face] + ": ", tools$2.getSolutionSpan(sol), "<br>");
+			}
+		}
+		return execPocketFace;
+	})();
+	var rubiksCube = (function() {
+		var U1 = 0, U2 = 1, U3 = 2, U4 = 3, U5 = 4, U6 = 5, U7 = 6, U8 = 7, U9 = 8, R1 = 9, R2 = 10, R3 = 11, R4 = 12, R5 = 13, R6 = 14, R7 = 15, R8 = 16, R9 = 17, F1 = 18, F2 = 19, F3 = 20, F4 = 21, F5 = 22, F6 = 23, F7 = 24, F8 = 25, F9 = 26, D1 = 27, D2 = 28, D3 = 29, D4 = 30, D5 = 31, D6 = 32, D7 = 33, D8 = 34, D9 = 35, L1 = 36, L2 = 37, L3 = 38, L4 = 39, L5 = 40, L6 = 41, L7 = 42, L8 = 43, L9 = 44, B1 = 45, B2 = 46, B3 = 47, B4 = 48, B5 = 49, B6 = 50, B7 = 51, B8 = 52, B9 = 53;
+		var moveData = [
+			[
+				[
+					U1,
+					U3,
+					U9,
+					U7
+				],
+				[
+					U2,
+					U6,
+					U8,
+					U4
+				],
+				[
+					F1,
+					L1,
+					B1,
+					R1
+				],
+				[
+					F2,
+					L2,
+					B2,
+					R2
+				],
+				[
+					F3,
+					L3,
+					B3,
+					R3
+				]
+			],
+			[
+				[
+					R1,
+					R3,
+					R9,
+					R7
+				],
+				[
+					R2,
+					R6,
+					R8,
+					R4
+				],
+				[
+					U3,
+					B7,
+					D3,
+					F3
+				],
+				[
+					U6,
+					B4,
+					D6,
+					F6
+				],
+				[
+					U9,
+					B1,
+					D9,
+					F9
+				]
+			],
+			[
+				[
+					F1,
+					F3,
+					F9,
+					F7
+				],
+				[
+					F2,
+					F6,
+					F8,
+					F4
+				],
+				[
+					U7,
+					R1,
+					D3,
+					L9
+				],
+				[
+					U8,
+					R4,
+					D2,
+					L6
+				],
+				[
+					U9,
+					R7,
+					D1,
+					L3
+				]
+			],
+			[
+				[
+					D1,
+					D3,
+					D9,
+					D7
+				],
+				[
+					D2,
+					D6,
+					D8,
+					D4
+				],
+				[
+					F7,
+					R7,
+					B7,
+					L7
+				],
+				[
+					F8,
+					R8,
+					B8,
+					L8
+				],
+				[
+					F9,
+					R9,
+					B9,
+					L9
+				]
+			],
+			[
+				[
+					L1,
+					L3,
+					L9,
+					L7
+				],
+				[
+					L2,
+					L6,
+					L8,
+					L4
+				],
+				[
+					U1,
+					F1,
+					D1,
+					B9
+				],
+				[
+					U4,
+					F4,
+					D4,
+					B6
+				],
+				[
+					U7,
+					F7,
+					D7,
+					B3
+				]
+			],
+			[
+				[
+					B1,
+					B3,
+					B9,
+					B7
+				],
+				[
+					B2,
+					B6,
+					B8,
+					B4
+				],
+				[
+					U3,
+					L1,
+					D7,
+					R9
+				],
+				[
+					U2,
+					L4,
+					D8,
+					R6
+				],
+				[
+					U1,
+					L7,
+					D9,
+					R3
+				]
+			],
+			[
+				[
+					U1,
+					U3,
+					U9,
+					U7
+				],
+				[
+					U2,
+					U6,
+					U8,
+					U4
+				],
+				[
+					F1,
+					L1,
+					B1,
+					R1
+				],
+				[
+					F2,
+					L2,
+					B2,
+					R2
+				],
+				[
+					F3,
+					L3,
+					B3,
+					R3
+				],
+				[
+					F4,
+					L4,
+					B4,
+					R4
+				],
+				[
+					F5,
+					L5,
+					B5,
+					R5
+				],
+				[
+					F6,
+					L6,
+					B6,
+					R6
+				]
+			],
+			[
+				[
+					R1,
+					R3,
+					R9,
+					R7
+				],
+				[
+					R2,
+					R6,
+					R8,
+					R4
+				],
+				[
+					U3,
+					B7,
+					D3,
+					F3
+				],
+				[
+					U6,
+					B4,
+					D6,
+					F6
+				],
+				[
+					U9,
+					B1,
+					D9,
+					F9
+				],
+				[
+					U2,
+					B8,
+					D2,
+					F2
+				],
+				[
+					U5,
+					B5,
+					D5,
+					F5
+				],
+				[
+					U8,
+					B2,
+					D8,
+					F8
+				]
+			],
+			[
+				[
+					F1,
+					F3,
+					F9,
+					F7
+				],
+				[
+					F2,
+					F6,
+					F8,
+					F4
+				],
+				[
+					U7,
+					R1,
+					D3,
+					L9
+				],
+				[
+					U8,
+					R4,
+					D2,
+					L6
+				],
+				[
+					U9,
+					R7,
+					D1,
+					L3
+				],
+				[
+					U4,
+					R2,
+					D6,
+					L8
+				],
+				[
+					U5,
+					R5,
+					D5,
+					L5
+				],
+				[
+					U6,
+					R8,
+					D4,
+					L2
+				]
+			],
+			[
+				[
+					D1,
+					D3,
+					D9,
+					D7
+				],
+				[
+					D2,
+					D6,
+					D8,
+					D4
+				],
+				[
+					F7,
+					R7,
+					B7,
+					L7
+				],
+				[
+					F8,
+					R8,
+					B8,
+					L8
+				],
+				[
+					F9,
+					R9,
+					B9,
+					L9
+				],
+				[
+					F4,
+					R4,
+					B4,
+					L4
+				],
+				[
+					F5,
+					R5,
+					B5,
+					L5
+				],
+				[
+					F6,
+					R6,
+					B6,
+					L6
+				]
+			],
+			[
+				[
+					L1,
+					L3,
+					L9,
+					L7
+				],
+				[
+					L2,
+					L6,
+					L8,
+					L4
+				],
+				[
+					U1,
+					F1,
+					D1,
+					B9
+				],
+				[
+					U4,
+					F4,
+					D4,
+					B6
+				],
+				[
+					U7,
+					F7,
+					D7,
+					B3
+				],
+				[
+					U2,
+					F2,
+					D2,
+					B8
+				],
+				[
+					U5,
+					F5,
+					D5,
+					B5
+				],
+				[
+					U8,
+					F8,
+					D8,
+					B2
+				]
+			],
+			[
+				[
+					B1,
+					B3,
+					B9,
+					B7
+				],
+				[
+					B2,
+					B6,
+					B8,
+					B4
+				],
+				[
+					U3,
+					L1,
+					D7,
+					R9
+				],
+				[
+					U2,
+					L4,
+					D8,
+					R6
+				],
+				[
+					U1,
+					L7,
+					D9,
+					R3
+				],
+				[
+					U6,
+					L2,
+					D4,
+					R8
+				],
+				[
+					U5,
+					L5,
+					D5,
+					R5
+				],
+				[
+					U4,
+					L8,
+					D6,
+					R2
+				]
+			],
+			[
+				[
+					U2,
+					F2,
+					D2,
+					B8
+				],
+				[
+					U5,
+					F5,
+					D5,
+					B5
+				],
+				[
+					U8,
+					F8,
+					D8,
+					B2
+				]
+			],
+			[
+				[
+					F4,
+					R4,
+					B4,
+					L4
+				],
+				[
+					F5,
+					R5,
+					B5,
+					L5
+				],
+				[
+					F6,
+					R6,
+					B6,
+					L6
+				]
+			],
+			[
+				[
+					U4,
+					R2,
+					D6,
+					L8
+				],
+				[
+					U5,
+					R5,
+					D5,
+					L5
+				],
+				[
+					U6,
+					R8,
+					D4,
+					L2
+				]
+			],
+			[
+				[
+					R1,
+					R3,
+					R9,
+					R7
+				],
+				[
+					R2,
+					R6,
+					R8,
+					R4
+				],
+				[
+					U3,
+					B7,
+					D3,
+					F3
+				],
+				[
+					U6,
+					B4,
+					D6,
+					F6
+				],
+				[
+					U9,
+					B1,
+					D9,
+					F9
+				],
+				[
+					L1,
+					L7,
+					L9,
+					L3
+				],
+				[
+					L2,
+					L4,
+					L8,
+					L6
+				],
+				[
+					U1,
+					B9,
+					D1,
+					F1
+				],
+				[
+					U4,
+					B6,
+					D4,
+					F4
+				],
+				[
+					U7,
+					B3,
+					D7,
+					F7
+				],
+				[
+					U2,
+					B8,
+					D2,
+					F2
+				],
+				[
+					U5,
+					B5,
+					D5,
+					F5
+				],
+				[
+					U8,
+					B2,
+					D8,
+					F8
+				]
+			],
+			[
+				[
+					U1,
+					U3,
+					U9,
+					U7
+				],
+				[
+					U2,
+					U6,
+					U8,
+					U4
+				],
+				[
+					F1,
+					L1,
+					B1,
+					R1
+				],
+				[
+					F2,
+					L2,
+					B2,
+					R2
+				],
+				[
+					F3,
+					L3,
+					B3,
+					R3
+				],
+				[
+					D1,
+					D7,
+					D9,
+					D3
+				],
+				[
+					D2,
+					D4,
+					D8,
+					D6
+				],
+				[
+					F7,
+					L7,
+					B7,
+					R7
+				],
+				[
+					F8,
+					L8,
+					B8,
+					R8
+				],
+				[
+					F9,
+					L9,
+					B9,
+					R9
+				],
+				[
+					F4,
+					L4,
+					B4,
+					R4
+				],
+				[
+					F5,
+					L5,
+					B5,
+					R5
+				],
+				[
+					F6,
+					L6,
+					B6,
+					R6
+				]
+			],
+			[
+				[
+					F1,
+					F3,
+					F9,
+					F7
+				],
+				[
+					F2,
+					F6,
+					F8,
+					F4
+				],
+				[
+					U7,
+					R1,
+					D3,
+					L9
+				],
+				[
+					U8,
+					R4,
+					D2,
+					L6
+				],
+				[
+					U9,
+					R7,
+					D1,
+					L3
+				],
+				[
+					B1,
+					B7,
+					B9,
+					B3
+				],
+				[
+					B2,
+					B4,
+					B8,
+					B6
+				],
+				[
+					U3,
+					R9,
+					D7,
+					L1
+				],
+				[
+					U2,
+					R6,
+					D8,
+					L4
+				],
+				[
+					U1,
+					R3,
+					D9,
+					L7
+				],
+				[
+					U4,
+					R2,
+					D6,
+					L8
+				],
+				[
+					U5,
+					R5,
+					D5,
+					L5
+				],
+				[
+					U6,
+					R8,
+					D4,
+					L2
+				]
+			]
+		];
+		var moves = appendSuffix({
+			"U": 0,
+			"R": 17,
+			"F": 34,
+			"D": 48,
+			"L": 65,
+			"B": 82
+		});
+		var movesWithoutD = appendSuffix({
+			"U": 0,
+			"R": 17,
+			"F": 34,
+			"L": 65,
+			"B": 82
+		});
+		var movesRouxSB = appendSuffix({
+			"U": 0,
+			"R": 17,
+			"M": 97,
+			"r": 113
+		});
+		var movesZZF2L = appendSuffix({
+			"U": 0,
+			"R": 17,
+			"L": 65
+		});
+		function cubeMove(state, move) {
+			var ret = state.split("");
+			var swaps = moveData["URFDLBurfdlbMESxyz".indexOf(move[0])];
+			var pow = "? 2'".indexOf(move[1]);
+			for (var i = 0; i < swaps.length; i++) mathlib.acycle(ret, swaps[i], pow);
+			return ret.join("");
+		}
+		var cfmeta = [
+			{
+				"move": moves,
+				"maxl": 8,
+				"head": "Cross",
+				"step": { "----U--------R--R-----F--F--D-DDD-D-----L--L-----B--B-": 0 }
+			},
+			{
+				"move": movesWithoutD,
+				"head": "F2L-1",
+				"step": {
+					"----U-------RR-RR-----FF-FF-DDDDD-D-----L--L-----B--B-": 1,
+					"----U--------R--R----FF-FF-DD-DDD-D-----LL-LL----B--B-": 2,
+					"----U--------RR-RR----F--F--D-DDD-DD----L--L----BB-BB-": 4,
+					"----U--------R--R-----F--F--D-DDDDD----LL-LL-----BB-BB": 8
+				}
+			},
+			{
+				"move": movesWithoutD,
+				"head": "F2L-2",
+				"step": {
+					"----U-------RR-RR----FFFFFFDDDDDD-D-----LL-LL----B--B-": 3,
+					"----U-------RRRRRR----FF-FF-DDDDD-DD----L--L----BB-BB-": 5,
+					"----U--------RR-RR---FF-FF-DD-DDD-DD----LL-LL---BB-BB-": 6,
+					"----U-------RR-RR-----FF-FF-DDDDDDD----LL-LL-----BB-BB": 9,
+					"----U--------R--R----FF-FF-DD-DDDDD----LLLLLL----BB-BB": 10,
+					"----U--------RR-RR----F--F--D-DDDDDD---LL-LL----BBBBBB": 12
+				}
+			},
+			{
+				"move": movesWithoutD,
+				"head": "F2L-3",
+				"step": {
+					"----U-------RRRRRR---FFFFFFDDDDDD-DD----LL-LL---BB-BB-": 7,
+					"----U-------RR-RR----FFFFFFDDDDDDDD----LLLLLL----BB-BB": 11,
+					"----U-------RRRRRR----FF-FF-DDDDDDDD---LL-LL----BBBBBB": 13,
+					"----U--------RR-RR---FF-FF-DD-DDDDDD---LLLLLL---BBBBBB": 14
+				}
+			},
+			{
+				"move": movesWithoutD,
+				"head": "F2L-4",
+				"step": { "----U-------RRRRRR---FFFFFFDDDDDDDDD---LLLLLL---BBBBBB": 15 }
+			}
+		];
+		var sabmeta = [{
+			"move": moves,
+			"maxl": 10,
+			"fmov": [
+				"x ",
+				"x2",
+				"x'"
+			],
+			"head": "Step 1",
+			"step": { "---------------------F--F--D--D--D-----LLLLLL-----B--B": 0 }
+		}, {
+			"move": movesRouxSB,
+			"maxl": 16,
+			"head": "Step 2",
+			"step": { "------------RRRRRR---F-FF-FD-DD-DD-D---LLLLLL---B-BB-B": 1 }
+		}];
+		var petrusmeta = [{
+			"move": moves,
+			"maxl": 8,
+			"head": "2x2x2",
+			"step": {
+				"---------------------FF-FF-DD-DD--------LL-LL---------": 1,
+				"------------------------------DD-DD----LL-LL-----BB-BB": 2
+			}
+		}, {
+			"move": moves,
+			"maxl": 10,
+			"head": "2x2x3",
+			"step": { "---------------------FF-FF-DD-DD-DD----LLLLLL----BB-BB": 3 }
+		}];
+		var zzmeta = [
+			{
+				"move": moves,
+				"maxl": 10,
+				"head": "EOLine",
+				"step": { "-H-HUH-H-----R-------HFH-F--D-HDH-D-----L-------HBH-B-": 0 }
+			},
+			{
+				"move": movesZZF2L,
+				"maxl": 16,
+				"head": "ZZF2L1",
+				"step": {
+					"-H-HUH-H----RRRRRR---HFF-FF-DDHDD-DD----L-------BBHBB-": 1,
+					"-H-HUH-H-----R-------FFHFF-DD-DDHDD----LLLLLL---HBB-BB": 2
+				}
+			},
+			{
+				"move": movesZZF2L,
+				"maxl": 16,
+				"head": "ZZF2L2",
+				"step": { "-H-HUH-H----RRRRRR---FFFFFFDDDDDDDDD---LLLLLL---BBBBBB": 3 }
+			}
+		];
+		var eodrmeta = [{
+			"move": moves,
+			"maxl": 7,
+			"head": "EO",
+			"step": { "-H-HUH-H-----R-------HFH----H-HDH-H-----L-------HBH---": 0 }
+		}, {
+			"move": moves,
+			"maxl": 10,
+			"head": "DR",
+			"step": { "UUUUUUUUU---RRR------FFF---UUUUUUUUU---RRR------FFF---": 1 }
+		}];
+		function toAlgLink(meta, sols, ori) {
+			var solstr = ori + " // orientation \n";
+			for (var i = 0; i < sols.length; i++) {
+				if (sols[i] == void 0) break;
+				solstr += sols[i].join(" ").replace(/\s+/g, " ") + " // " + meta[i]["head"] + (sols[i].length == 0 ? " skip" : "") + "\n";
+			}
+			return "https://alg.cubing.net/?alg=" + encodeURIComponent(solstr);
+		}
+		function solveStepByStep(meta, span) {
+			+/* @__PURE__ */ new Date();
+			var ret = [null, 0];
+			var sols = [];
+			sol = [];
+			for (var i = 0; i < meta.length; i++) {
+				if (!meta[i]["solv"]) {
+					meta[i]["solv"] = {};
+					for (var solved in meta[i]["step"]) meta[i]["solv"][solved] = new mathlib.gSolver([solved], cubeMove, meta[i]["move"]);
+				}
+				ret = solveParallel(cubeMove, meta[i]["solv"], meta[i]["step"], meta[i]["fmov"] || [], ret[1], meta[i]["maxl"] || 10);
+				sols[i] = ret[0];
+				if (ret[0] == void 0) {
+					span.append(meta[i]["head"] + ": &nbsp;(no solution found in %d moves)".replace("%d", meta[i]["maxl"] || 10), "<br>");
+					break;
+				}
+				span.append(meta[i]["head"] + ": ", sols[i].length == 0 ? "&nbsp;(skip)" : tools$2.getSolutionSpan(sols[i]), "<br>");
+				sol = sol.concat(sols[i]);
+			}
+			span.append($$3("<a class=\"click\" target=\"_blank\">alg.cubing.net</a>").attr("href", toAlgLink(meta, sols, curOri) + "&setup=" + encodeURIComponent(curScrambleStr)));
+		}
+		var block222solv;
+		function block222Solver(scramble, span) {
+			curScramble = cubeutil.parseScramble(scramble, "URFDLB");
+			for (var i = 0; i < curScramble.length; i++) curScramble[i] = "URFDLB".charAt(curScramble[i][0]) + " 2'".charAt(curScramble[i][2] - 1);
+			var faceStr = [
+				"URF",
+				"UFL",
+				"ULB",
+				"UBR",
+				"DFR",
+				"DLF",
+				"DBL",
+				"DRB"
+			];
+			var faceSolved = [
+				"----UU-UURR-RR-----FF-FF------------------------------",
+				"---UU-UU----------FF-FF--------------LL-LL------------",
+				"UU-UU-------------------------------LL-LL-----BB-BB---",
+				"-UU-UU----RR-RR------------------------------BB-BB----",
+				"------------RR-RR-----FF-FF-DD-DD---------------------",
+				"---------------------FF-FF-DD-DD--------LL-LL---------",
+				"------------------------------DD-DD----LL-LL-----BB-BB",
+				"-------------RR-RR-------------DD-DD------------BB-BB-"
+			];
+			block222solv = block222solv || new mathlib.gSolver(faceSolved, cubeMove, moves);
+			for (var i = 0; i < 8; i++) {
+				span.append(faceStr[i] + ": ");
+				sol = [];
+				var sol1 = block222solv.search(stateInit(cubeMove, faceSolved[i]), 0);
+				if (sol1) span.append(tools$2.getSolutionSpan(sol1), "<br>");
+				else span.append("no solution found<br>");
+			}
+		}
+		function getMoveMap(ori) {
+			var rot = ori.split(" ");
+			var map = [
+				0,
+				1,
+				2,
+				3,
+				4,
+				5
+			];
+			var rotMap = [
+				[
+					5,
+					1,
+					0,
+					2,
+					4,
+					3
+				],
+				[
+					0,
+					2,
+					4,
+					3,
+					5,
+					1
+				],
+				[
+					1,
+					3,
+					2,
+					4,
+					0,
+					5
+				]
+			];
+			for (var i = 0; i < rot.length; i++) {
+				if (!rot[i][0]) continue;
+				var axis = "xyz".indexOf(rot[i][0]);
+				var pow = "? 2'".indexOf(rot[i][1] || " ");
+				for (var p = 0; p < pow; p++) for (var j = 0; j < 6; j++) map[j] = rotMap[axis][map[j]];
+			}
+			for (var j = 0; j < 6; j++) map[j] = "URFDLB".charAt(map[j]);
+			return map.join("");
+		}
+		var oriSelect;
+		var curType;
+		var curSpan;
+		var curOri = "z2";
+		function oriChange() {
+			curOri = oriSelect.val();
+			rubiksCube.exec(curType, curScrambleStr, curSpan.empty());
+		}
+		execMain$2(function() {
+			var cubeOris = [
+				"z2",
+				"",
+				"z ",
+				"z'",
+				"x ",
+				"x'"
+			];
+			for (var i = 0; i < 6; i++) for (var j = 0; j < 3; j++) cubeOris.push(cubeOris[i] + " y" + " 2'".charAt(j));
+			oriSelect = $$3("<select>");
+			for (var i = 0; i < cubeOris.length; i++) oriSelect.append($$3("<option>").val(cubeOris[i]).html(cubeOris[i]));
+		});
+		function exec333StepSolver(type, scramble, span) {
+			if (type == "222") {
+				block222Solver(scramble, span);
+				return;
+			}
+			curSpan = span;
+			curType = type;
+			var moveMap = getMoveMap(curOri);
+			curScramble = cubeutil.parseScramble(scramble, "URFDLB");
+			for (var i = 0; i < curScramble.length; i++) curScramble[i] = moveMap.charAt(curScramble[i][0]) + " 2'".charAt(curScramble[i][2] - 1);
+			span.append("Orientation:", oriSelect.unbind("change").change(oriChange), "<br>");
+			if (type == "cf") solveStepByStep(cfmeta, span);
+			if (type == "roux") solveStepByStep(sabmeta, span);
+			if (type == "petrus") solveStepByStep(petrusmeta, span);
+			if (type == "zz") solveStepByStep(zzmeta, span);
+			if (type == "eodr") solveStepByStep(eodrmeta, span);
+		}
+		return {
+			setOri: function(ori) {
+				curOri = ori;
+			},
+			exec: exec333StepSolver,
+			move: cubeMove
+		};
+	})();
+	var sq1Cube = (function() {
+		var moves = { "0": 33 };
+		for (var m = 1; m < 12; m++) {
+			moves["" + m] = 0;
+			moves["" + -m] = 16;
+		}
+		function sq1Move(state, move) {
+			if (!state) return null;
+			move = ~~move;
+			state = state.split("|");
+			if (move == 0) {
+				var tmp = state[0].slice(6);
+				state[0] = state[0].slice(0, 6) + state[1].slice(6);
+				state[1] = state[1].slice(0, 6) + tmp;
+			} else {
+				var idx = move > 0 ? 0 : 1;
+				move = Math.abs(move);
+				state[idx] = state[idx].slice(move) + state[idx].slice(0, move);
+				if (/[a-h]/.exec(state[idx][0] + state[idx][6])) return null;
+			}
+			return state.join("|");
+		}
+		var solv1;
+		var solv2;
+		function prettySq1Arr(sol) {
+			var u = 0;
+			var d = 0;
+			var ret = [];
+			for (var i = 0; i < sol.length; i++) if (sol[i] == 0) {
+				if (u == 0 && d == 0) ret.push("/");
+				else ret.push((u + 5) % 12 - 5 + "," + ((d + 5) % 12 - 5) + "/");
+				u = d = 0;
+			} else if (sol[i] > 0) u += ~~sol[i];
+			else d -= ~~sol[i];
+			return ret;
+		}
+		function sq1Solver(scramble, span) {
+			solv1 = solv1 || new mathlib.gSolver([
+				"0Aa0Aa0Aa0Aa|Aa0Aa0Aa0Aa0",
+				"0Aa0Aa0Aa0Aa|0Aa0Aa0Aa0Aa",
+				"Aa0Aa0Aa0Aa0|Aa0Aa0Aa0Aa0",
+				"Aa0Aa0Aa0Aa0|0Aa0Aa0Aa0Aa"
+			], sq1Move, moves);
+			solv2 = solv2 || new mathlib.gSolver([
+				"0Aa0Aa0Aa0Aa|Bb1Bb1Bb1Bb1",
+				"0Aa0Aa0Aa0Aa|1Bb1Bb1Bb1Bb",
+				"Aa0Aa0Aa0Aa0|Bb1Bb1Bb1Bb1",
+				"Aa0Aa0Aa0Aa0|1Bb1Bb1Bb1Bb"
+			], sq1Move, moves);
+			curScramble = [];
+			var movere = /^\s*\(\s*(-?\d+),\s*(-?\d+)\s*\)\s*$/;
+			var moveseq = scramble.split("/");
+			for (var i = 0; i < moveseq.length; i++) {
+				if (/^\s*$/.exec(moveseq[i])) {
+					curScramble.push(0);
+					continue;
+				}
+				var m = movere.exec(moveseq[i]);
+				if (~~m[1]) curScramble.push((~~m[1] + 12) % 12);
+				if (~~m[2]) curScramble.push(-(~~m[2] + 12) % 12);
+				curScramble.push(0);
+			}
+			if (curScramble.length > 0) curScramble.pop();
+			sol = [];
+			var sol1 = solv1.search(stateInit(sq1Move, "0Aa0Aa0Aa0Aa|Aa0Aa0Aa0Aa0"), 0);
+			span.append("Shape: ", tools$2.getSolutionSpan(prettySq1Arr(sol1)), "<br>");
+			sol = sol.concat(sol1);
+			var sol2 = solv2.search(stateInit(sq1Move, "0Aa0Aa0Aa0Aa|Bb1Bb1Bb1Bb1"), 0);
+			span.append("Color: ", tools$2.getSolutionSpan(prettySq1Arr(sol2)), "<br>");
+		}
+		return sq1Solver;
+	})();
+	var skewbCube = (function() {
+		var U0 = 0, U1 = 1, U2 = 2, U3 = 3, U4 = 4, R0 = 5, R1 = 6, R2 = 7, R3 = 8, R4 = 9, F0 = 10, F1 = 11, F2 = 12, F3 = 13, F4 = 14, D0 = 15, D1 = 16, D2 = 17, D3 = 18, D4 = 19, L0 = 20, L1 = 21, L2 = 22, L3 = 23, L4 = 24, B0 = 25, B1 = 26, B2 = 27, B3 = 28, B4 = 29;
+		/**	1 2   U
+		0  LFRB
+		3 4   D  */
+		var moveData = [
+			[
+				[
+					R0,
+					B0,
+					D0
+				],
+				[
+					R4,
+					B3,
+					D2
+				],
+				[
+					R2,
+					B4,
+					D1
+				],
+				[
+					R3,
+					B1,
+					D4
+				],
+				[
+					L3,
+					F4,
+					U4
+				]
+			],
+			[
+				[
+					U0,
+					L0,
+					B0
+				],
+				[
+					U2,
+					L1,
+					B2
+				],
+				[
+					U4,
+					L2,
+					B4
+				],
+				[
+					U1,
+					L3,
+					B1
+				],
+				[
+					D4,
+					R2,
+					F1
+				]
+			],
+			[
+				[
+					F0,
+					D0,
+					L0
+				],
+				[
+					F3,
+					D3,
+					L4
+				],
+				[
+					F1,
+					D1,
+					L3
+				],
+				[
+					F4,
+					D4,
+					L2
+				],
+				[
+					B4,
+					U1,
+					R3
+				]
+			],
+			[
+				[
+					B0,
+					L0,
+					D0
+				],
+				[
+					B4,
+					L3,
+					D4
+				],
+				[
+					B3,
+					L1,
+					D3
+				],
+				[
+					B2,
+					L4,
+					D2
+				],
+				[
+					F3,
+					R4,
+					U2
+				]
+			],
+			[
+				[
+					U0,
+					B0,
+					R0
+				],
+				[
+					U4,
+					B1,
+					R2
+				],
+				[
+					U3,
+					B2,
+					R4
+				],
+				[
+					U2,
+					B3,
+					R1
+				],
+				[
+					D2,
+					F2,
+					L1
+				]
+			],
+			[
+				[
+					U0,
+					L0,
+					B0
+				],
+				[
+					U2,
+					L1,
+					B2
+				],
+				[
+					U4,
+					L2,
+					B4
+				],
+				[
+					U1,
+					L3,
+					B1
+				],
+				[
+					D4,
+					R2,
+					F1
+				]
+			],
+			[
+				[
+					U0,
+					B0,
+					D0,
+					F0
+				],
+				[
+					U1,
+					B2,
+					D4,
+					F3
+				],
+				[
+					U2,
+					B4,
+					D3,
+					F1
+				],
+				[
+					U3,
+					B1,
+					D2,
+					F4
+				],
+				[
+					U4,
+					B3,
+					D1,
+					F2
+				],
+				[
+					R1,
+					R2,
+					R4,
+					R3
+				],
+				[
+					L1,
+					L3,
+					L4,
+					L2
+				]
+			],
+			[
+				[
+					R0,
+					F0,
+					L0,
+					B0
+				],
+				[
+					R1,
+					F1,
+					L1,
+					B1
+				],
+				[
+					R2,
+					F2,
+					L2,
+					B2
+				],
+				[
+					R3,
+					F3,
+					L3,
+					B3
+				],
+				[
+					R4,
+					F4,
+					L4,
+					B4
+				],
+				[
+					U1,
+					U2,
+					U4,
+					U3
+				],
+				[
+					D1,
+					D3,
+					D4,
+					D2
+				]
+			],
+			[]
+		];
+		var solv;
+		function skewbMove(state, move) {
+			var ret = state.split("");
+			var swaps = moveData["RULBrbxy".indexOf(move[0])];
+			var pow = "? '*".indexOf(move[1]);
+			for (var i = 0; i < swaps.length; i++) mathlib.acycle(ret, swaps[i], pow);
+			return ret.join("");
+		}
+		function skewbSolver(scramble, span) {
+			solv = solv || new mathlib.gSolver([
+				"?L?L??B?B?UUUUU?R?R???F?F?????",
+				"?F?F??L?L?UUUUU?B?B???R?R?????",
+				"?R?R??F?F?UUUUU?L?L???B?B?????",
+				"?B?B??R?R?UUUUU?F?F???L?L?????"
+			], skewbMove, appendSuffix({
+				"R": 0,
+				"r": 1,
+				"B": 2,
+				"b": 3
+			}, " '"));
+			curScramble = cubeutil.parseScramble(scramble, "RULB");
+			for (var i = 0; i < curScramble.length; i++) curScramble[i] = "RULB".charAt(curScramble[i][0]) + " 2'".charAt(curScramble[i][2] - 1);
+			var faceStr = [
+				"U",
+				"R",
+				"F",
+				"D",
+				"L",
+				"B"
+			];
+			var faceSolved = [
+				"UUUUU?RR???FF????????LL???BB??",
+				"???BBUUUUU??L?L?FF????????R?R?",
+				"?B?B??R?R?UUUUU?F?F???L?L?????",
+				"????????RR???BBUUUUU???LL???FF",
+				"?BB????????R?R????FFUUUUU??L?L",
+				"??F?F??R?R???????B?B?L?L?UUUUU"
+			];
+			for (var i = 0; i < 6; i++) {
+				sol = [];
+				var state = stateInit(skewbMove, "U????R????F????D????L????B????");
+				var ori = [
+					"x*",
+					"y ",
+					null,
+					"x ",
+					"y*",
+					"y'"
+				];
+				var uidx = ~~(state.indexOf(faceStr[i]) / 5);
+				if (ori[uidx]) sol.push(ori[uidx]);
+				var sol1 = solv.search(stateInit(skewbMove, faceSolved[i]), 0);
+				if (sol1) {
+					span.append(faceStr[i] + ": ");
+					if (sol[0]) span.append("&nbsp;" + sol[0].replace("'", "2").replace("*", "'"));
+					span.append(tools$2.getSolutionSpan(sol1), "<br>");
+				} else span.append(faceStr[i] + ": no solution found<br>");
+			}
+		}
+		return skewbSolver;
+	})();
+	var pyraCube = (function() {
+		var F0 = 0, F1 = 1, F2 = 2, F3 = 3, F4 = 4, F5 = 5, R0 = 6, R1 = 7, R2 = 8, R3 = 9, R4 = 10, R5 = 11, L0 = 12, L1 = 13, L2 = 14, L3 = 15, L4 = 16, L5 = 17, D0 = 18, D1 = 19, D2 = 20;
+		var moveData = [
+			[
+				[
+					F5,
+					R3,
+					22
+				],
+				[
+					F0,
+					R1,
+					D2
+				],
+				[
+					F1,
+					R2,
+					D0
+				]
+			],
+			[
+				[
+					F3,
+					L4,
+					R5
+				],
+				[
+					F1,
+					L2,
+					R0
+				],
+				[
+					F2,
+					L0,
+					R1
+				]
+			],
+			[
+				[
+					F4,
+					23,
+					L3
+				],
+				[
+					F2,
+					D0,
+					L1
+				],
+				[
+					F0,
+					D1,
+					L2
+				]
+			],
+			[
+				[
+					R4,
+					L5,
+					21
+				],
+				[
+					R2,
+					L0,
+					D1
+				],
+				[
+					R0,
+					L1,
+					D2
+				]
+			]
+		];
+		function pyraMove(state, move) {
+			var ret = state.split("");
+			var swaps = moveData["RULB".indexOf(move[0])];
+			var pow = "? '".indexOf(move[1]);
+			for (var i = 0; i < swaps.length; i++) mathlib.acycle(ret, swaps[i], pow);
+			return ret.join("");
+		}
+		var solv;
+		function pyraSolver(scramble, span) {
+			solv = solv || new mathlib.gSolver(["????FF??RRR??L?L?L?DDDDD"], pyraMove, appendSuffix({
+				"R": 0,
+				"U": 1,
+				"L": 2,
+				"B": 3
+			}, " '"));
+			curScramble = cubeutil.parseScramble(scramble, "RULBrulb");
+			scramble = [];
+			for (var i = 0; i < curScramble.length; i++) if (curScramble[i][1] == 1) scramble.push("RULB".charAt(curScramble[i][0]) + " 2'".charAt(curScramble[i][2] - 1));
+			var faceStr = [
+				"D",
+				"L",
+				"R",
+				"F"
+			];
+			var rawMap = "RULB";
+			var moveMaps = [
+				[
+					"RULB",
+					"LUBR",
+					"BURL"
+				],
+				[
+					"URBL",
+					"LRUB",
+					"BRLU"
+				],
+				[
+					"RLBU",
+					"ULRB",
+					"BLUR"
+				],
+				[
+					"RBUL",
+					"UBLR",
+					"LBRU"
+				]
+			];
+			for (var i = 0; i < 4; i++) {
+				sol = [];
+				var sol1;
+				out: for (var depth = 0; depth < 99; depth++) for (var j = 0; j < 3; j++) {
+					var moveMap = moveMaps[i][j];
+					curScramble = [];
+					for (var m = 0; m < scramble.length; m++) curScramble.push(rawMap[moveMap.indexOf(scramble[m][0])] + scramble[m][1]);
+					sol1 = solv.search(stateInit(pyraMove, "????FF??RRR??L?L?L?DDDDD"), depth, depth);
+					if (!sol1) continue;
+					for (var m = 0; m < sol1.length; m++) sol1[m] = moveMap[rawMap.indexOf(sol1[m][0])] + sol1[m][1];
+					break out;
+				}
+				if (sol1) span.append(faceStr[i] + ": ", tools$2.getSolutionSpan(sol1), "<br>");
+				else span.append(faceStr[i] + ": no solution found<br>");
+			}
+		}
+		return pyraSolver;
+	})();
+	var general333Solver = execMain$2(function() {
+		var isSolving = 0;
+		var selectPre = $$3("<select style=\"font-size:0.75em;\">");
+		var selectMode = $$3("<select style=\"font-size:0.75em;\">");
+		var solveButton = $$3("<input type=\"button\" value=\"Solve!\" style=\"font-size:0.75em;\">");
+		var resultText = $$3("<textarea wrap=off rows=\"8\" cols=\"30\" style=\"font-size:0.75em; display:none;\">");
+		var resultSpan = $$3("<span>");
+		var subsetInfo = $$3("<span style=\"display:block;\">");
+		var resultArr = [];
+		var presets = {
+			"3x3x3": mathlib.SOLVED_FACELET,
+			"Empty": "----U--------R--------F--------D--------L--------B----",
+			"2x2x2": "----UU-UURR-RR-----FF-FF------------------------------",
+			"2x2x3": "---UUUUUURR-RR----FFFFFF-------------LL-LL------------",
+			"Cross": "----U--------R--R-----F--F--D-DDD-D-----L--L-----B--B-",
+			"XCross": "----U-------RR-RR-----FF-FF-DDDDD-D-----L--L-----B--B-",
+			"EOLine": "-X-XUX-X-----R-------XFX-F--D-XDX-D-----L-------XBX-B-",
+			"Roux1": "---------------------F--F--D--D--D-----LLLLLL-----B--B",
+			"Domino": "UUUUUUUUU---RRR------FFF---UUUUUUUUU---RRR------FFF---",
+			"EO&CO": "XYXYUYXYX----R-------YFY---XYXYDYXYX----L-------YBY---",
+			"Corner": "U-U---U-UR-R---R-RF-F---F-FD-D---D-DL-L---L-LB-B---B-B"
+		};
+		var canvas, ctx;
+		var solvedState = mathlib.SOLVED_FACELET;
+		var colors = {
+			"U": "#fff",
+			"R": "#f00",
+			"F": "#0d0",
+			"D": "#ff0",
+			"L": "#fa0",
+			"B": "#00f",
+			"-": "#777",
+			"X": "#0ff",
+			"Y": "#f0f",
+			"Z": "#000"
+		};
+		var selColor = "-";
+		var width = 30;
+		var offxs = [
+			1,
+			2,
+			1,
+			1,
+			0,
+			3,
+			7.25
+		];
+		var offys = [
+			0,
+			1,
+			1,
+			2,
+			1,
+			1,
+			.5
+		];
+		var selXYs = [[
+			-.7,
+			-.7,
+			.7,
+			.7
+		], [
+			-.7,
+			.7,
+			.7,
+			-.7
+		]];
+		var offw = 3.3;
+		var stateRE = /^[URFDLBXYZ-]{54}$/;
+		function procClick(e) {
+			clearSolve();
+			var rect = canvas[0].getBoundingClientRect();
+			var cordX = e.offsetX / width * canvas[0].width / rect.width;
+			var cordY = e.offsetY / width * canvas[0].height / rect.height;
+			for (var face = 0; face < 6; face++) if (cordX >= offxs[face] * offw && cordX <= offxs[face] * offw + 3 && cordY >= offys[face] * offw && cordY <= offys[face] * offw + 3) {
+				var i = ~~(cordX - offxs[face] * offw);
+				var j = ~~(cordY - offys[face] * offw);
+				var tmp = solvedState.split("");
+				tmp[face * 9 + 3 * j + i] = selColor;
+				setState(tmp.join(""));
+				drawFacelet(ctx, face, i, j, solvedState);
+			}
+			if (cordX >= offxs[6] && cordX <= offxs[6] + 5 && cordY >= offys[6] && cordY <= offys[6] + 2) {
+				var i = ~~(cordX - offxs[6]);
+				var j = ~~(cordY - offys[6]);
+				selColor = "URFDLB-XYZ".charAt(i * 2 + j);
+				$$3.ctxDrawPolygon(ctx, colors[selColor], selXYs, [
+					width,
+					1.5,
+					1.5
+				]);
+			}
+		}
+		function drawFacelet(ctx, face, i, j, state) {
+			$$3.ctxDrawPolygon(ctx, colors[state[face * 9 + j * 3 + i]], [[
+				i,
+				i,
+				i + 1,
+				i + 1
+			], [
+				j,
+				j + 1,
+				j + 1,
+				j
+			]], [
+				width,
+				offxs[face] * offw + .1,
+				offys[face] * offw + .1
+			]);
+		}
+		function drawCube(ctx, state) {
+			var imgSize = kernel.getProp("imgSize") / 48;
+			canvas.width(39 * imgSize + "em");
+			canvas.height(29 * imgSize + "em");
+			canvas.attr("width", 13 * width + 1);
+			canvas.attr("height", 87 / 9 * width + 1);
+			for (var face = 0; face < 6; face++) for (var i = 0; i < 3; i++) for (var j = 0; j < 3; j++) drawFacelet(ctx, face, i, j, state);
+			for (var i = 0; i < 5; i++) for (var j = 0; j < 2; j++) $$3.ctxDrawPolygon(ctx, colors["URFDLB-XYZ".charAt(i * 2 + j)], [[
+				i,
+				i,
+				i + 1,
+				i + 1
+			], [
+				j,
+				j + 1,
+				j + 1,
+				j
+			]], [
+				width,
+				7.25,
+				.5
+			]);
+			$$3.ctxDrawPolygon(ctx, colors[selColor], selXYs, [
+				width,
+				1.5,
+				1.5
+			]);
+		}
+		function selectChange(e) {
+			var state = selectPre.val();
+			selectPre.val("");
+			kernel.blur();
+			if (state == "input") {
+				state = prompt("U1U2...U9R1..R9F1..D1..L1..B1..B9", solvedState);
+				if (state == null) return;
+				if (!stateRE.exec(state)) {
+					logohint.push(LGHINT_INVALID);
+					return;
+				}
+				setState(state);
+			} else if (state != "") setState(state);
+		}
+		function setState(state) {
+			if (solvedState == state) return;
+			solvedState = state;
+			drawCube(ctx, solvedState);
+			params = pat3x3.calcPattern(solvedState, solvedState);
+			var indexH = 0x2583dfbd1b8000000 / (params[0][0] * params[1][0] + params[0][1] * params[1][1]);
+			subsetInfo.html("|G:H|=" + (indexH > 1e8 ? indexH.toExponential(3) : indexH));
+			clearSolve();
+		}
+		var curSolver = ["", null];
+		var params = [[0, 0], [0, 0]];
+		var startTime = 0;
+		var solveTid = 0;
+		function searchThread() {
+			if (!isSolving) return;
+			var ret = curSolver[1].searchNext(1e3, 1e3);
+			var curStatus = "";
+			curStatus = resultArr.length + " sol(s), @" + ~~((+/* @__PURE__ */ new Date() - startTime) / 1e3) + "s|" + curSolver[1].maxl + "f";
+			if (ret) resultArr.push(ret.join(" ") + " (" + ret.length + "f)");
+			if (isSolving == 1) {
+				resultSpan.html(ret ? resultArr.join("\n") : curStatus);
+				if (ret) {
+					solveTid = 0;
+					return;
+				}
+			} else {
+				resultText.html(resultArr.join("\n") + "\n" + curStatus);
+				resultText[0].scrollTop = resultText[0].scrollHeight;
+			}
+			solveTid = setTimeout(searchThread, 1);
+		}
+		function clearSolve() {
+			if (isSolving == 1 || isSolving == 2) toggleSolve();
+		}
+		function startSolve() {
+			if (curSolver[0] != solvedState) {
+				curSolver[0] = solvedState;
+				curSolver[1] = new mathlib.gSolver([solvedState], rubiksCube.move, appendSuffix({
+					"U": 0,
+					"R": 17,
+					"F": 34,
+					"D": 48,
+					"L": 65,
+					"B": 82
+				}));
+			}
+			if (isSolving == 2) {
+				canvas.hide();
+				subsetInfo.addClass("click");
+				resultSpan.hide();
+				resultText.show();
+			} else {
+				canvas.show();
+				subsetInfo.removeClass("click");
+				resultSpan.html("Searching...").show();
+				resultText.hide();
+			}
+			var startState = stateInit(rubiksCube.move, solvedState);
+			curSolver[1].search(startState, 0, 0);
+			startTime = +/* @__PURE__ */ new Date();
+			resultArr = [];
+			searchThread();
+		}
+		function toggleSolve() {
+			if (isSolving == 0) {
+				solveButton.val("Stop!");
+				selectMode.prop("disabled", true);
+				isSolving = selectMode.val() == "batch" ? 2 : 1;
+			} else {
+				solveButton.val("Solve!");
+				selectMode.prop("disabled", false);
+				isSolving = 0;
+			}
+			kernel.blur();
+			if (!isSolving) return;
+			startSolve();
+		}
+		function execFunc(scramble, span) {
+			curScramble = cubeutil.parseScramble(scramble, "URFDLB");
+			for (var i = 0; i < curScramble.length; i++) curScramble[i] = "URFDLB".charAt(curScramble[i][0]) + " 2'".charAt(curScramble[i][2] - 1);
+			sol = [];
+			span.empty().append($$3("<table class=\"table\">").append($$3("<tr>").append($$3("<td style=\"padding:0;\">").append(selectPre.unbind("change").change(selectChange), selectMode, solveButton.unbind("click").click(toggleSolve))), $$3("<tr>").append($$3("<td>").append(resultText.empty(), resultSpan)), $$3("<tr>").append($$3("<td style=\"padding:0;\">").append(canvas.unbind("mousedown").bind("mousedown", procClick), subsetInfo.unbind("click").click(function() {
+				clearSolve();
+				canvas.show();
+				subsetInfo.removeClass("click");
+			})))));
+			if (isSolving) {
+				if (solveTid) {
+					clearTimeout(solveTid);
+					solveTid = 0;
+				}
+				startSolve();
+			}
+		}
+		$$3(function() {
+			canvas = $$3("<canvas>");
+			if (!canvas[0].getContext) return;
+			ctx = canvas[0].getContext("2d");
+			selectPre.append($$3("<option>").val("").html("Edit subset"));
+			for (var subset in presets) selectPre.append($$3("<option>").val(presets[subset]).html(subset));
+			selectPre.append($$3("<option>").val("input").html("..."));
+			selectMode.append($$3("<option>").val("single").html("Single"));
+			selectMode.append($$3("<option>").val("batch").html("Batch"));
+			setState(presets["Cross"]);
+		});
+		execFunc.presets = presets;
+		return execFunc;
+	});
+	var twophase = execMain$2(function() {
+		var isSolving = 0;
+		var selectMode = $$3("<select style=\"font-size:0.75em;\">");
+		var solveButton = $$3("<input type=\"button\" value=\"Solve!\" style=\"font-size:0.75em;\">");
+		var resultText = $$3("<textarea rows=\"8\" cols=\"30\" style=\"font-size:0.75em;\">");
+		var resultArr = [], canvas;
+		var solvedState = mathlib.SOLVED_FACELET;
+		var search = new min2phase.Search();
+		var startTime = 0;
+		var solveTid = 0;
+		function searchThread() {
+			if (!isSolving) return;
+			var ret = search.next(1e3, 0);
+			var curStatus = resultArr.length + " sol(s), @" + ~~((+/* @__PURE__ */ new Date() - startTime) / 1e3) + "s|" + search.length1 + "f";
+			if (ret.startsWith("Error 7")) {
+				resultText.html(resultArr.join("\n") + "\n" + curStatus + "*");
+				solveTid = 0;
+				return;
+			} else if (!ret.startsWith("Error")) resultArr.push(ret.replace(/ +/g, " ") + " (" + ~~(ret.length / 3) + "f)");
+			resultText.html(resultArr.join("\n") + "\n" + curStatus);
+			if (isSolving == 1) {
+				if (ret) {
+					solveTid = 0;
+					return;
+				}
+			} else resultText[0].scrollTop = resultText[0].scrollHeight;
+			solveTid = setTimeout(searchThread, 1);
+		}
+		function startSolve() {
+			var startState = stateInit(rubiksCube.move, solvedState);
+			search.solution(startState, 30, 0, 0);
+			startTime = +/* @__PURE__ */ new Date();
+			resultArr = [];
+			searchThread();
+		}
+		function toggleSolve() {
+			if (isSolving == 0) {
+				solveButton.val("Stop!");
+				selectMode.prop("disabled", true);
+				isSolving = selectMode.val() == "batch" ? 2 : 1;
+			} else {
+				solveButton.val("Solve!");
+				selectMode.prop("disabled", false);
+				isSolving = 0;
+			}
+			kernel.blur();
+			if (!isSolving) return;
+			startSolve();
+		}
+		function execFunc(scramble, span) {
+			curScramble = cubeutil.parseScramble(scramble, "URFDLB");
+			for (var i = 0; i < curScramble.length; i++) curScramble[i] = "URFDLB".charAt(curScramble[i][0]) + " 2'".charAt(curScramble[i][2] - 1);
+			sol = [];
+			span.empty().append($$3("<table class=\"table\">").append($$3("<tr>").append($$3("<td style=\"padding:0;\">").append(selectMode, solveButton.unbind("click").click(toggleSolve))), $$3("<tr>").append($$3("<td>").append(resultText.empty()))));
+			if (isSolving) {
+				if (solveTid) {
+					clearTimeout(solveTid);
+					solveTid = 0;
+				}
+				startSolve();
+			}
+		}
+		$$3(function() {
+			canvas = $$3("<canvas>");
+			if (!canvas[0].getContext) return;
+			canvas[0].getContext("2d");
+			selectMode.append($$3("<option>").val("single").html("Single"));
+			selectMode.append($$3("<option>").val("batch").html("Batch"));
+		});
+		return execFunc;
+	});
+	execMain$2(function() {
+		function execFunc(type, fdiv) {
+			if (!fdiv) return;
+			fdiv.empty();
+			var span = $$3("<span class=\"sol\"/>");
+			var scramble = tools$2.getCurScramble();
+			curScrambleStr = scramble[1];
+			if (type == "222face" && tools$2.isPuzzle("222")) pocketCube(scramble[1], span);
+			else if (type == "333udf" && tools$2.isPuzzle("333") && /^[URFDLB 2']+$/.exec(scramble[1])) general333Solver(scramble[1], span);
+			else if (type == "333koc" && tools$2.isPuzzle("333") && /^[URFDLB 2']+$/.exec(scramble[1])) twophase(scramble[1], span);
+			else if (type.startsWith("333") && tools$2.isPuzzle("333") && /^[URFDLB 2']+$/.exec(scramble[1])) rubiksCube.exec(type.slice(3), scramble[1], span);
+			else if (type == "sq1cs" && tools$2.isPuzzle("sq1")) sq1Cube(scramble[1], span);
+			else if (type == "skbl1" && tools$2.isPuzzle("skb")) skewbCube(scramble[1], span);
+			else if (type == "pyrv" && tools$2.isPuzzle("pyr")) pyraCube(scramble[1], span);
+			else {
+				fdiv.html(IMAGE_UNAVAILABLE);
+				return;
+			}
+			fdiv.append(span);
+		}
+		$$3(function() {
+			tools$2.regTool("222face", TOOLS_SOLVERS + ">" + TOOLS_222FACE, execFunc.bind(null, "222face"));
+			tools$2.regTool("333cf", TOOLS_SOLVERS + ">Cross + F2L", execFunc.bind(null, "333cf"));
+			tools$2.regTool("333roux", TOOLS_SOLVERS + ">Roux S1 + S2", execFunc.bind(null, "333roux"));
+			tools$2.regTool("333petrus", TOOLS_SOLVERS + ">2x2x2 + 2x2x3", execFunc.bind(null, "333petrus"));
+			tools$2.regTool("333zz", TOOLS_SOLVERS + ">EOLine + ZZF2L", execFunc.bind(null, "333zz"));
+			tools$2.regTool("333222", TOOLS_SOLVERS + ">2x2x2", execFunc.bind(null, "333222"));
+			tools$2.regTool("333eodr", TOOLS_SOLVERS + ">EO + DR", execFunc.bind(null, "333eodr"));
+			tools$2.regTool("sq1cs", TOOLS_SOLVERS + ">SQ1 S1 + S2", execFunc.bind(null, "sq1cs"));
+			tools$2.regTool("pyrv", TOOLS_SOLVERS + ">Pyraminx V", execFunc.bind(null, "pyrv"));
+			tools$2.regTool("skbl1", TOOLS_SOLVERS + ">Skewb Face", execFunc.bind(null, "skbl1"));
+			tools$2.regTool("333udf", TOOLS_SOLVERS + ">3x3x3 General", execFunc.bind(null, "333udf"));
+			tools$2.regTool("333koc", TOOLS_SOLVERS + ">3x3x3 TwoPhase", execFunc.bind(null, "333koc"));
+		});
+	});
+	return {
+		pocketCube,
+		rubiksCube,
+		sq1Cube,
+		skewbCube,
+		pyraCube,
+		presets: general333Solver.presets
+	};
+})();
+//#endregion
+//#region src/vendor/cstimer/roux1.js
+var $$2 = toolsui.$;
+var execMain$1 = toolsui.execMain;
+var tools$1 = toolsui.tools;
+var roux1 = execMain$1(function(CubieCube) {
+	var cc = new CubieCube();
+	var cd = new CubieCube();
+	function cMove(idx, m) {
+		cc.ca = [
+			0,
+			0,
+			0,
+			0,
+			0,
+			0,
+			0,
+			0
+		];
+		for (var i = 1; i < 3; i++) {
+			var val = idx % 24;
+			idx = ~~(idx / 24);
+			cc.ca[val & 7] = i | val & 24;
+		}
+		CubieCube.CornMult(cc, CubieCube.moveCube[m * 3], cd);
+		var ret = [];
+		for (var i = 0; i < 8; i++) ret[cd.ca[i] & 7] = i | cd.ca[i] & 24;
+		idx = 0;
+		for (var i = 2; i > 0; i--) idx = idx * 24 + ret[i];
+		return idx;
+	}
+	function eMove(idx, m) {
+		cc.ea = [
+			0,
+			0,
+			0,
+			0,
+			0,
+			0,
+			0,
+			0,
+			0,
+			0,
+			0,
+			0
+		];
+		for (var i = 1; i < 4; i++) {
+			var val = idx % 24;
+			idx = ~~(idx / 24);
+			cc.ea[val >> 1] = i << 1 | val & 1;
+		}
+		CubieCube.EdgeMult(cc, CubieCube.moveCube[m * 3], cd);
+		var ret = [];
+		for (var i = 0; i < 12; i++) ret[cd.ea[i] >> 1] = i << 1 | cd.ea[i] & 1;
+		idx = 0;
+		for (var i = 3; i > 0; i--) idx = idx * 24 + ret[i];
+		return idx;
+	}
+	var SOLVED_CORN = 126;
+	var SOLVED_EDGE = 11964;
+	var solv = new mathlib.Solver(6, 3, [[
+		SOLVED_CORN,
+		cMove,
+		576
+	], [
+		SOLVED_EDGE,
+		eMove,
+		13824
+	]]);
+	var faceStr = [
+		"LU",
+		"LD",
+		"FU",
+		"FD"
+	];
+	var moveIdx = [
+		"DRBULF",
+		"URFDLB",
+		"DBLUFR",
+		"UBRDFL"
+	];
+	var rotIdx = [
+		"&nbsp;&nbsp;",
+		"&nbsp;&nbsp;",
+		"y&nbsp;",
+		"y&nbsp;"
+	];
+	function solveRoux1Ori(scramble, solvOri) {
+		var corn = [SOLVED_CORN];
+		var edge = [SOLVED_EDGE];
+		for (var i = 1; i < 4; i++) {
+			corn[i] = cMove(corn[i - 1], 4);
+			edge[i] = eMove(edge[i - 1], 4);
+		}
+		var moveConj = [];
+		solvOri = solvOri.split("");
+		for (var s = 0; s < 4; s++) {
+			moveConj[s] = solvOri.join("");
+			var moves = cubeutil.parseScramble(scramble, moveConj[s]);
+			for (var i = 0; i < moves.length; i++) {
+				var m = moves[i][0];
+				for (var j = 0; j < moves[i][2]; j++) {
+					corn[s] = cMove(corn[s], m);
+					edge[s] = eMove(edge[s], m);
+				}
+			}
+			mathlib.circle(solvOri, 0, 2, 3, 5);
+		}
+		var sol = null;
+		for (var maxl = 1; maxl < 12; maxl++) for (var s = 0; s < 4; s++) {
+			sol = solv.search([corn[s], edge[s]], maxl == 1 ? 0 : maxl, maxl);
+			if (sol) {
+				sol.push(s);
+				return sol;
+			}
+		}
+	}
+	function solveRoux1(scramble, fdiv) {
+		fdiv.empty();
+		for (var face = 0; face < 4; face++) {
+			var sol = solveRoux1Ori(scramble, moveIdx[face]);
+			var ori = sol.pop();
+			if (face % 2 == 0) ori = (ori + 2) % 4;
+			for (var i = 0; i < sol.length; i++) sol[i] = "URFDLB".charAt(sol[i][0]) + " 2'".charAt(sol[i][1]);
+			fdiv.append($$2("<span class=\"sol\">").append(faceStr[face] + ": " + rotIdx[face] + [
+				"&nbsp;&nbsp;&nbsp;",
+				"x'&nbsp;",
+				"x2&nbsp;",
+				"x&nbsp;&nbsp;"
+			][ori], tools$1.getSolutionSpan(sol)), "<br>");
+		}
+	}
+	function execFunc(fdiv) {
+		if (!fdiv) return;
+		if (tools$1.isPuzzle("333")) solveRoux1(tools$1.getCurScramble()[1], fdiv);
+		else fdiv.html(IMAGE_UNAVAILABLE);
+	}
+	$$2(function() {
+		tools$1.regTool("roux1", TOOLS_SOLVERS + ">" + TOOLS_ROUX1, execFunc);
+	});
+	return { solve: solveRoux1 };
+}, [mathlib.CubieCube]);
+//#endregion
+//#region src/vendor/cstimer/thistlethwaite.js
+var $$1 = toolsui.$;
+var execMain = toolsui.execMain;
+var tools = toolsui.tools;
+var thistlethwaite = (function() {
+	var mul = grouplib.permMult;
+	var stepMoves = [
+		[
+			"U ",
+			"R ",
+			"F ",
+			"D ",
+			"L ",
+			"B "
+		],
+		[
+			"U ",
+			"R ",
+			"F2",
+			"D ",
+			"L ",
+			"B2"
+		],
+		[
+			"U ",
+			"R2",
+			"F2",
+			"D ",
+			"L2",
+			"B2"
+		],
+		[
+			"U2",
+			"R2",
+			"F2",
+			"D2",
+			"L2",
+			"B2"
+		]
+	];
+	var middleGroup = [
+		null,
+		[
+			"U ",
+			"R2",
+			"F2",
+			"D ",
+			"L2",
+			"B2",
+			"R U R U R U' R' U' R' U'"
+		],
+		[
+			"U2",
+			"R2",
+			"F2",
+			"D2",
+			"L2",
+			"B2",
+			"U D"
+		],
+		null
+	];
+	var axisSwitch = null;
+	var axisPrefix = null;
+	var allowedEnds = null;
+	var gens = [];
+	var solvs = [];
+	function move2state(moves) {
+		var cc = new mathlib.CubieCube();
+		moves = moves.split(" ");
+		for (var i = 0; i < moves.length; i++) cc.selfMoveStr(moves[i]);
+		return cc.toPerm();
+	}
+	function move2gen(moves) {
+		var gen = [];
+		for (var i = 0; i < moves.length; i++) gen.push(move2state(moves[i]));
+		return gen;
+	}
+	function initSolvers() {
+		if (gens.length > 0) return;
+		for (var i = 0; i < stepMoves.length; i++) gens[i] = move2gen(stepMoves[i]);
+		for (var i = 0; i < stepMoves.length; i++) {
+			solvs[i] = new grouplib.SubgroupSolver(gens[i], gens[i + 1], middleGroup[i] && move2gen(middleGroup[i]));
+			solvs[i].initTables();
+		}
+		var cc = new mathlib.CubieCube();
+		cc.ori = 8;
+		var rotYZ = cc.toPerm(null, null, null, true);
+		var rotYZi = mul(rotYZ, rotYZ);
+		cc.ori = 23;
+		var rotZ = cc.toPerm(null, null, null, true);
+		axisSwitch = [
+			[rotYZ, rotYZi],
+			[
+				rotYZ,
+				rotYZi,
+				rotZ,
+				mul(rotYZi, rotZ),
+				mul(rotYZ, rotZ)
+			],
+			[rotYZ, rotYZi],
+			[]
+		];
+		axisPrefix = [
+			[
+				"fb",
+				"ud",
+				"rl"
+			],
+			[
+				"ud",
+				"rl",
+				"fb",
+				"rl",
+				"fb",
+				"ud"
+			],
+			[""],
+			[""]
+		];
+		allowedEnds = [
+			[9, 21],
+			[5, 17],
+			[1, 13],
+			null
+		];
+	}
+	function enumStepSolutions(step, scramble, useNiss, tryMultiAxis, callback) {
+		initSolvers();
+		var state = move2state(scramble);
+		var states = [state];
+		var stateCtx = [];
+		if (tryMultiAxis) for (var i = 0; i < axisSwitch[step].length; i++) {
+			var trans = axisSwitch[step][i];
+			var transi = grouplib.permInv(trans);
+			states.push(mul(trans, mul(state, transi)));
+		}
+		for (var i = 0; i < states.length; i++) if (solvs[step].checkPerm(states[i]) == 2) states[i] = null;
+		else stateCtx[i] = { mask: useNiss ? 2 : 0 };
+		var first = null;
+		var curStepMoves = stepMoves[step];
+		var allowedEnd = allowedEnds[step];
+		for (var depth = 0; depth < 20; depth++) for (var stateAxis = 0; stateAxis < states.length; stateAxis++) {
+			if (states[stateAxis] == null) continue;
+			var conjMoves = [
+				"URFDLB",
+				"RFULBD",
+				"FURBDL",
+				"RDFLUB",
+				"FRDBLU",
+				"DFRUBL"
+			][stateAxis];
+			if (solvs[step].DissectionSolve(states[stateAxis], depth, depth, stateCtx[stateAxis], (sol) => {
+				if (sol.indexOf(-1) == -1) sol.unshift(-1);
+				if (sol.length > 0 && allowedEnd != null) {
+					var start = sol[0];
+					var end = sol.at(-1);
+					if (start != -1 && allowedEnd.indexOf(start[0] * 4 + start[1]) == -1 || end != -1 && allowedEnd.indexOf(end[0] * 4 + end[1]) == -1) return;
+				}
+				sol = sol.map((mv) => {
+					if (mv == -1) return "@";
+					var axis = mv[0];
+					var pow = "0 2'".indexOf(curStepMoves[axis][1]) * mv[1] % 4;
+					return conjMoves.charAt(axis) + "0 2'".charAt(pow);
+				});
+				if (first == null) first = sol;
+				return callback ? callback(sol, axisPrefix[step][stateAxis]) : sol;
+			})) return first;
+		}
+		return first;
+	}
+	function performSolution(scramble, solution) {
+		var ret = scramble + " " + solution;
+		if (solution.indexOf("@") != -1) ret = solution.replace("@", scramble);
+		return ret.replace(/\s+/g, " ");
+	}
+	function fillStepsCandidates(scramble, skeleton, useNiss, tryMultiAxis, nSols) {
+		initSolvers();
+		var ret = [];
+		for (var step = 0; step < 4; step++) {
+			ret[step] = [];
+			if (skeleton[step]) ret[step].push(skeleton[step]);
+			enumStepSolutions(step, scramble, useNiss, tryMultiAxis, function(sol, prefix) {
+				sol = (prefix ? prefix + ": " : "") + sol.join(" ").replace(/\s+/g, " ");
+				if (ret[step].indexOf(sol) == -1) ret[step].push(sol);
+				return ret[step].length >= nSols;
+			});
+			scramble = performSolution(scramble, ret[step][0].replace(/[^ ]+:/g, ""));
+		}
+		return ret;
+	}
+	function toPrettyStyle(solution) {
+		var m = /^(.*:\s*)?\s*(.*?)\s*@\s*(.*)$/.exec(solution);
+		if (!m) return solution;
+		var prefix = m[1] ? m[1] + " " : "";
+		var niss = m[2].split(" ");
+		var ret = [];
+		for (var i = niss.length - 1; i >= 0; i--) {
+			if (niss[i] == "") continue;
+			ret.push(niss[i][0] + "' 2'".charAt("'2 ".indexOf(niss[i][1]) + 1));
+		}
+		if (ret.length > 0) return prefix + "(" + ret.join(" ") + ")" + (m[3] ? " " + m[3] : "");
+		else return prefix + m[3];
+	}
+	execMain(function() {
+		var table = $$1("<table class=\"table\">");
+		var nisschk;
+		var solTd = [];
+		var stepNames = [
+			"EO",
+			"DR",
+			"HTR",
+			"OK"
+		];
+		var skeleton = [];
+		var scramble = "";
+		var stepData = [];
+		var useNiss = false;
+		var tryMultiAxis = true;
+		var nSols = 5;
+		function procClick(e) {
+			var data = $$1(e.target).attr("data");
+			if (!data) return;
+			else if (data == "niss") {
+				if (useNiss != !!nisschk.prop("checked")) {
+					useNiss = !useNiss;
+					procScramble(scramble);
+				}
+			} else if (data.startsWith("step")) renderTable(~~data.slice(4));
+			else if (data.startsWith("sol")) {
+				data = data.slice(3).split("_");
+				var step = ~~data[0];
+				var sol = ~~data[1];
+				skeleton[step] = stepData[step][sol];
+				skeleton.length = step + 1;
+				stepData = fillStepsCandidates(scramble, skeleton, useNiss, tryMultiAxis, nSols);
+				for (var i = 0; i < 4; i++) skeleton[i] = stepData[i][0];
+				renderTable(step);
+			}
+		}
+		function renderTable(step) {
+			table.empty();
+			nisschk = $$1("<input type=\"checkbox\" data=\"niss\">").prop("checked", useNiss);
+			table.append($$1("<tr>").append("<th>Step</th><th>Solution</th>", $$1("<th>").append($$1("<label>").append("NISS", nisschk))));
+			for (var i = 0; i < 4; i++) {
+				var tr = $$1("<tr>").append("<td>" + stepNames[i] + "</td>");
+				solTd[i] = $$1("<td style=\"text-align:left\" colspan=2>");
+				tr.append(solTd[i]);
+				tr.appendTo(table);
+				solTd[i].append($$1("<span class=\"click\" data=\"step" + i + "\">" + toPrettyStyle(skeleton[i]) + "</span>").click(procClick));
+			}
+			if (step != -1) {
+				var stepTd = solTd[step];
+				var stepSols = stepData[step];
+				stepTd.empty();
+				stepTd.append("<span>" + toPrettyStyle(stepSols[0]) + "</span>");
+				for (var j = 1; j < stepSols.length; j++) stepTd.append("<br>", $$1("<span class=\"click\" data=\"sol" + step + "_" + j + "\">" + toPrettyStyle(stepSols[j]) + "</span>").click(procClick));
+			}
+			nisschk.unbind("click").click(procClick);
+		}
+		function procScramble(_scramble) {
+			scramble = _scramble;
+			stepData = fillStepsCandidates(scramble, [], useNiss, tryMultiAxis, nSols);
+			for (var i = 0; i < 4; i++) skeleton[i] = stepData[i][0];
+			renderTable(-1);
+		}
+		function execFunc(fdiv) {
+			if (!fdiv) return;
+			fdiv.empty();
+			var scramble = tools.getCurScramble();
+			if (tools.isPuzzle("333") && /^[URFDLB 2']+$/.exec(scramble[1])) {
+				fdiv.append(table);
+				procScramble(scramble[1]);
+			} else {
+				fdiv.html(IMAGE_UNAVAILABLE);
+				return;
+			}
+		}
+		$$1(function() {
+			tools.regTool("333thistle", TOOLS_SOLVERS + ">EO DR HTR OK", execFunc);
+		});
+	});
+	return {
+		fillStepsCandidates,
+		toPrettyStyle
+	};
+})();
+//#endregion
+//#region src/stepsolver.ts
+const STEP_SOLVERS = [
+	[
+		"cross",
+		"Cross",
+		"333"
+	],
+	[
+		"xcross",
+		"XCross",
+		"333"
+	],
+	[
+		"xxcross",
+		"XXCross",
+		"333"
+	],
+	[
+		"xxxcross",
+		"XXXCross",
+		"333"
+	],
+	[
+		"eoline",
+		"EOLine",
+		"333"
+	],
+	[
+		"eocross",
+		"EOCross",
+		"333"
+	],
+	[
+		"roux1",
+		"Roux S1",
+		"333"
+	],
+	[
+		"333222",
+		"2x2x2",
+		"333"
+	],
+	[
+		"333cf",
+		"Cross + F2L",
+		"333",
+		true
+	],
+	[
+		"333roux",
+		"Roux S1 + S2",
+		"333",
+		true
+	],
+	[
+		"333petrus",
+		"2x2x2 + 2x2x3",
+		"333",
+		true
+	],
+	[
+		"333zz",
+		"EOLine + ZZF2L",
+		"333",
+		true
+	],
+	[
+		"333eodr",
+		"EO + DR",
+		"333",
+		true
+	],
+	[
+		"333thistle",
+		"EO DR HTR OK",
+		"333",
+		false,
+		true
+	],
+	[
+		"222face",
+		"2x2x2 face",
+		"222"
+	],
+	[
+		"sq1cs",
+		"SQ1 S1 + S2",
+		"sq1"
+	],
+	[
+		"pyrv",
+		"Pyraminx V",
+		"pyr"
+	],
+	[
+		"skbl1",
+		"Skewb Face",
+		"skb"
+	]
+].map(([id, name, puzzle, orientation = false, niss = false]) => ({
+	id,
+	name,
+	puzzle,
+	orientation,
+	niss
+}));
+/** Cube rotations, e.g. "z2 y'", or nothing. */
+const ROTATIONS = /^\s*([xyz][2']?\s*)*$/;
+/** Writes rotations with single spaces, e.g. "z2&nbsp;y" -> "z2 y". */
+function cleanRotation(text) {
+	return (text.replace(/&nbsp;/g, " ").match(/[xyz][2']?/g) ?? []).join(" ");
+}
+/** csTimer's moves (e.g. ["R ", "U2"]) as one string. */
+function joinMoves(moves) {
+	return moves.map((move) => move.trim()).filter(Boolean).join(" ");
+}
+/** Square-1 moves from csTimer's tool ("/", "3,0/") in scramble notation: "/ (3,0) /". */
+function sq1Moves(moves) {
+	return moves.map((move) => {
+		const turn = /^(-?\d+),(-?\d+)\/$/.exec(move.trim());
+		return turn ? `(${turn[1]},${turn[2]}) /` : move.trim();
+	}).join(" ");
+}
+/**
+* Reads back what a csTimer tool wrote into `elem`: one line per "<br>", each "label:
+* rotation" text followed by a solution. Lines without a solution (like csTimer's
+* orientation picker) are left out.
+*/
+function readLines(elem, writeMoves) {
+	const lines = [];
+	let text = "";
+	let moves;
+	const endLine = () => {
+		const plain = text.replace(/&nbsp;/g, " ");
+		if (moves === void 0 && /no solution found/.test(plain)) moves = null;
+		if (moves === void 0 && /\(skip\)/.test(plain)) moves = "";
+		const colon = plain.indexOf(":");
+		if (moves !== void 0 && colon >= 0) {
+			const rotation = plain.slice(colon + 1).replace(/\(.*\)|no solution found/g, "");
+			lines.push({
+				label: plain.slice(0, colon).trim(),
+				rotation: cleanRotation(rotation),
+				moves
+			});
+		}
+		text = "";
+		moves = void 0;
+	};
+	const read = (item) => {
+		if (typeof item === "string") {
+			if (item === "<br>") endLine();
+			else text += item;
+		} else if ("solution" in item) moves = writeMoves(item.solution);
+		else item.children.forEach(read);
+	};
+	elem.children.forEach(read);
+	return lines;
+}
+/** Runs a csTimer tool that writes into an element, and reads its answer back. */
+function runTool(tool, writeMoves = joinMoves) {
+	const elem = toolsui.$("<span>");
+	tool(elem);
+	return readLines(elem, writeMoves);
+}
+/**
+* The cross solver's lines: one per face (only the faces in `only`, if given), with
+* `solve` giving the moves for each face.
+*/
+function crossLines(solve, only) {
+	const lines = [];
+	cross.faces.forEach((label, face) => {
+		if (only && !only.includes(label)) return;
+		lines.push({
+			label,
+			rotation: cleanRotation(cross.rotations[face]),
+			moves: joinMoves(solve(face))
+		});
+	});
+	return lines;
+}
+const THISTLE_STEPS = [
+	"EO",
+	"DR",
+	"HTR",
+	"OK"
+];
+/** A line of the EO DR HTR solver, from csTimer's text like "fb: (R') U F". */
+function thistleLine(step, solution) {
+	const text = thistlethwaite.toPrettyStyle(solution.trim());
+	const axis = /^(\w+):\s*(.*)$/.exec(text);
+	return {
+		label: axis ? `${step} (${axis[1]})` : step,
+		rotation: "",
+		moves: (axis ? axis[2] : text).replace(/\s+/g, " ").trim()
+	};
+}
+/** Checks that `scramble` only has the moves csTimer's tool reads right. */
+function checkMoves(scramble, allowed, what) {
+	if (!allowed.test(scramble)) throw new Error(`The step solvers only read ${what}, not "${scramble}"`);
+}
+/** Face turns of a 3x3x3 (csTimer's step solvers don't read wide moves, slices or rotations). */
+const FACE_TURNS = /^[URFDLB2' ]*$/;
+/**
+* The answer of csTimer's step solver `id` for a puzzle after `scramble` (in the notation
+* of the puzzle's csTimer scrambles), only the lines labelled as in `only` if given. See
+* `StepSolverId` for what each one solves.
+*/
+function solveStep(id, scramble, options, only) {
+	const lines = solveAll(id, scramble, options, only);
+	return only ? lines.filter((line) => only.includes(line.label)) : lines;
+}
+/** `solveStep`'s answer, with every line except for the cross solvers, which skip faces. */
+function solveAll(id, scramble, options, only) {
+	const info = STEP_SOLVERS.find((solver) => solver.id === id);
+	if (!info) throw new Error(`Unknown step solver "${id}"`);
+	if (info.puzzle === "333") checkMoves(scramble, FACE_TURNS, "U, R, F, D, L and B turns");
+	if (info.puzzle === "222") checkMoves(scramble, /^[URF2' ]*$/, "U, R and F turns on a 2x2x2");
+	switch (id) {
+		case "cross":
+		case "xcross":
+		case "xxcross":
+		case "xxxcross": {
+			const moves = cubeutil.parseScramble(scramble, "FRUBLD");
+			if (id === "cross") {
+				const solutions = cross.solve(moves);
+				return crossLines((face) => solutions[face], only);
+			}
+			if (id === "xcross") return crossLines((face) => cross.xcross(moves, face), only);
+			return crossLines((face) => cross.xxcross(moves, face, id === "xxxcross"), only);
+		}
+		case "eoline":
+		case "eocross": return runTool((elem) => eoline.solve(scramble, id === "eocross", elem));
+		case "roux1": return runTool((elem) => roux1.solve(scramble, elem));
+		case "333thistle": return thistlethwaite.fillStepsCandidates(scramble, [], options.niss, true, 5).map((candidates, i) => {
+			const [first, ...others] = candidates.map((c) => thistleLine(THISTLE_STEPS[i], c));
+			return {
+				...first,
+				alternatives: others
+			};
+		});
+		case "222face": return runTool((elem) => gsolver.pocketCube(scramble, elem));
+		case "sq1cs": return runTool((elem) => gsolver.sq1Cube(scramble, elem), sq1Moves);
+		case "pyrv": return runTool((elem) => gsolver.pyraCube(scramble, elem));
+		case "skbl1": return runTool((elem) => gsolver.skewbCube(scramble, elem));
+		default: {
+			if (!info.orientation) return runTool((elem) => gsolver.rubiksCube.exec("222", scramble, elem));
+			gsolver.rubiksCube.setOri(options.orientation);
+			const lines = runTool((elem) => gsolver.rubiksCube.exec(id.slice(3), scramble, elem));
+			if (lines[0]) lines[0].rotation = cleanRotation(options.orientation);
+			return lines;
+		}
+	}
+}
+/** csTimer's patterns for its 3x3x3 general solver, by name (see `solvePattern`). */
+const STEP_PATTERNS = { ...gsolver.presets };
+/** The moves the general solver turns with (csTimer's gsolver.js): face, then axis. */
+const PATTERN_MOVES = {};
+Object.entries({
+	U: 0,
+	R: 17,
+	F: 34,
+	D: 48,
+	L: 65,
+	B: 82
+}).forEach(([face, n]) => {
+	for (const turn of " 2'") PATTERN_MOVES[face + turn] = n;
+});
+/** Search steps per round of `solvePattern` (a millisecond or so each). */
+const PATTERN_COST = 1e3;
+/** The general solver for the last patterns used, which keeps its tables. */
+const patternSolvers = /* @__PURE__ */ new Map();
+/**
+* The fewest face turns that take a 3x3x3, after `scramble`, to `pattern` (csTimer's
+* "3x3x3 General" solver), or null if none was found within `timeLimit` milliseconds.
+* The pattern is 54 stickers, face by face in U R F D L B order, each face read row by row
+* as in `STEP_PATTERNS`: a face letter is a sticker that must end up where that face's
+* stickers are in the pattern, X, Y and Z mark groups of stickers that must end up within
+* their own group's places (like edges that must be oriented), and "-" is any sticker.
+*/
+function solvePattern(scramble, pattern, timeLimit) {
+	checkMoves(scramble, FACE_TURNS, "U, R, F, D, L and B turns");
+	if (!/^[URFDLBXYZ-]{54}$/.test(pattern)) throw new Error(`A pattern is 54 of U R F D L B X Y Z and -, not "${pattern}"`);
+	let solver = patternSolvers.get(pattern);
+	if (!solver) {
+		if (patternSolvers.size >= 4) patternSolvers.clear();
+		solver = new mathlib.gSolver([pattern], gsolver.rubiksCube.move, PATTERN_MOVES);
+		patternSolvers.set(pattern, solver);
+	}
+	let state = pattern;
+	for (const [face, , power] of cubeutil.parseScramble(scramble, "URFDLB")) state = gsolver.rubiksCube.move(state, "URFDLB"[face] + " 2'"[power - 1]);
+	const maxLength = 30;
+	const end = performance.now() + timeLimit;
+	let solution = solver.search(state, 0, 0);
+	while (!solution && solver.maxl <= maxLength && performance.now() < end) solution = solver.searchNext(maxLength, PATTERN_COST);
+	return solution && joinMoves(solution);
 }
 //#endregion
 //#region src/puzzle.ts
@@ -22190,6 +25423,8 @@ var _solution = /* @__PURE__ */ new WeakMap();
 var _rules = /* @__PURE__ */ new WeakMap();
 var _fmc = /* @__PURE__ */ new WeakMap();
 var _solveTimeLimit = /* @__PURE__ */ new WeakMap();
+var _stepOrientation = /* @__PURE__ */ new WeakMap();
+var _stepNiss = /* @__PURE__ */ new WeakMap();
 var _solved = /* @__PURE__ */ new WeakMap();
 var _stopSolving = /* @__PURE__ */ new WeakMap();
 var _scrambleType = /* @__PURE__ */ new WeakMap();
@@ -22227,6 +25462,8 @@ var Puzzle = class {
 		});
 		_classPrivateFieldInitSpec(this, _fmc, false);
 		_classPrivateFieldInitSpec(this, _solveTimeLimit, 3e3);
+		_classPrivateFieldInitSpec(this, _stepOrientation, "z2");
+		_classPrivateFieldInitSpec(this, _stepNiss, false);
 		_classPrivateFieldInitSpec(this, _solved, void 0);
 		_classPrivateFieldInitSpec(this, _stopSolving, void 0);
 		_classPrivateFieldInitSpec(this, _scrambleType, "");
@@ -22664,7 +25901,7 @@ var Puzzle = class {
 		const solver = SOLVERS[this.id];
 		if (!solver) return false;
 		const type = _classPrivateFieldGet2(_scramble, this) ? _classPrivateFieldGet2(_scrambleType, this) : this.getScrambleType();
-		return tools.puzzleType(type) === solver.notation;
+		return tools$4.puzzleType(type) === solver.notation;
 	}
 	/**
 	* How this puzzle's solver solves (see `SolverKind`), `undefined` when it has none (see
@@ -22758,6 +25995,85 @@ var Puzzle = class {
 		const solved = _classPrivateFieldGet2(_solved, this);
 		return solved !== void 0 && solved.shortest && solved.scramble === _classPrivateFieldGet2(_scramble, this) && solved.solution === _classPrivateFieldGet2(_solution, this);
 	}
+	/**
+	* csTimer's step solvers that work for this puzzle with its current scramble type (see
+	* `StepSolverId` for what each one solves): the 3x3x3 ones, 2x2x2's face, Square-1's
+	* shape and colors, Pyraminx's V and Skewb's face. Empty for other puzzles.
+	*/
+	getStepSolvers() {
+		const puzzle = tools$4.puzzleType(_classPrivateFieldGet2(_scramble, this) ? _classPrivateFieldGet2(_scrambleType, this) : this.getScrambleType());
+		return STEP_SOLVERS.filter((solver) => solver.puzzle === puzzle).map((solver) => ({ ...solver }));
+	}
+	/**
+	* The shortest way to do one step of a solve after the scramble, with csTimer's step
+	* solver `id` (see `StepSolverId`), one line per face, place or step: e.g. for
+	* `'cross'`, the shortest cross on each of the 6 faces. The scramble only, not the
+	* solution: these are ideas for the start of a solve, so the solution is left as it is.
+	* On 3x3x3 the scramble must only have face turns (no wide moves, slices or rotations),
+	* and on 2x2x2 only U, R and F turns, as csTimer's scramblers make them. Throws when the
+	* solver doesn't work for this puzzle (see `getStepSolvers`).
+	*
+	* `only` keeps just the lines with those labels, e.g. `solveStep('xxxcross', ['D'])`: the
+	* cross solvers then only solve those faces, which matters for `'xxxcross'`, as it takes
+	* several seconds per face (`'xxcross'` well under one). The first use of some solvers
+	* takes a little longer while they set up.
+	*/
+	solveStep(id, only) {
+		if (!this.getStepSolvers().some((solver) => solver.id === id)) throw new Error(`The "${id}" step solver doesn't work for ${this.name} with "${this.getScrambleType()}" scrambles`);
+		const options = {
+			orientation: _classPrivateFieldGet2(_stepOrientation, this),
+			niss: _classPrivateFieldGet2(_stepNiss, this)
+		};
+		return solveStep(id, _classPrivateFieldGet2(_scramble, this), options, only);
+	}
+	/**
+	* How the 3x3x3 method solvers (`'333cf'`, `'333roux'`, `'333petrus'`, `'333zz'`,
+	* `'333eodr'`) hold the cube, as the rotations from the way it was scrambled, e.g. `''`
+	* (as scrambled: cross on D), `'x2'` or `'z2 y'`. Default `'z2'`, csTimer's: the cross on
+	* the U face's color (white). The first line of their answer starts with this rotation.
+	*/
+	setStepOrientation(rotation) {
+		if (!ROTATIONS.test(rotation)) throw new Error(`The step orientation is cube rotations like "z2 y", not "${rotation}"`);
+		_classPrivateFieldSet2(_stepOrientation, this, rotation.trim().replace(/\s+/g, " "));
+		return this;
+	}
+	getStepOrientation() {
+		return _classPrivateFieldGet2(_stepOrientation, this);
+	}
+	/**
+	* Whether the `'333thistle'` solver may use NISS (default false): moves done on the
+	* inverse scramble, written in brackets before the others, e.g. `"(R') U F"`.
+	*/
+	setStepNiss(niss) {
+		_classPrivateFieldSet2(_stepNiss, this, niss);
+		return this;
+	}
+	getStepNiss() {
+		return _classPrivateFieldGet2(_stepNiss, this);
+	}
+	/**
+	* csTimer's patterns for `solvePattern`, by name (`'Cross'`, `'EOLine'`, `'Domino'`, ...):
+	* 54 stickers each, face by face in U R F D L B order, each face read row by row as in
+	* min2phase's facelet strings (U with its top row next to B, D with its top row next to F).
+	*/
+	getStepPatterns() {
+		return { ...STEP_PATTERNS };
+	}
+	/**
+	* The fewest face turns that take the 3x3x3, after the scramble, to `pattern` (csTimer's
+	* "3x3x3 General" solver), searching up to the solve time limit (see
+	* `setSolveTimeLimit`), or null if it found nothing in that time. A pattern is 54
+	* stickers as in `getStepPatterns`: a face letter is a sticker that must end up where
+	* that letter is in the pattern, X, Y and Z mark groups of stickers that must end up
+	* within their own group's places (like edges that must be oriented), and "-" is any
+	* sticker. Easy patterns like a cross or a 2x2x2 block come in well under a second; whole
+	* layers or more can take far longer than `solve`. Like `solveStep`, it starts from the
+	* scramble only and needs face turns. Throws on puzzles other than 3x3x3.
+	*/
+	solvePattern(pattern) {
+		if (!this.getStepSolvers().some((solver) => solver.id === "cross")) throw new Error(`Patterns are for 3x3x3 only, not ${this.name} with "${this.getScrambleType()}" scrambles`);
+		return solvePattern(_classPrivateFieldGet2(_scramble, this), pattern, _classPrivateFieldGet2(_solveTimeLimit, this));
+	}
 	/** Puts the puzzle back to solved: no scramble and no solution. */
 	reset() {
 		_classPrivateFieldSet2(_scramble, this, "");
@@ -22834,7 +26150,7 @@ var Puzzle = class {
 		if (!hasScrambleImage(type)) throw new Error(`csTimer has no picture for "${type}" scrambles`);
 		const style = _classPrivateFieldGet2(_imageStyle, this);
 		const size = _classPrivateFieldGet2(_info, this).cubeSize;
-		if (style !== "cstimer" && size !== void 0 && tools.puzzleType(type) === this.id) return styleSvg(drawCubeNet(size, this.getStickers(), style, _classPrivateFieldGet2(_imageSize, this), _classPrivateFieldGet2(_cubeStyle, this)), _classPrivateFieldGet2(_styles, this));
+		if (style !== "cstimer" && size !== void 0 && tools$4.puzzleType(type) === this.id) return styleSvg(drawCubeNet(size, this.getStickers(), style, _classPrivateFieldGet2(_imageSize, this), _classPrivateFieldGet2(_cubeStyle, this)), _classPrivateFieldGet2(_styles, this));
 		const colors = _classPrivateFieldGet2(_info, this).cstimerOrder.map((face) => toCstimerColor(_classPrivateFieldGet2(_colors, this)[face])).join("");
 		let moves = _assertClassBrand(_Puzzle_brand, this, _movesDone).call(this);
 		if (this.id === "sq1") moves = joinSq1Turns(moves);
@@ -22895,7 +26211,7 @@ function _solutionRules() {
 function _hasCubeNotation() {
 	if (_classPrivateFieldGet2(_info, this).cubeSize === void 0) return false;
 	const type = _classPrivateFieldGet2(_scramble, this) ? _classPrivateFieldGet2(_scrambleType, this) : this.getScrambleType();
-	return tools.puzzleType(type) === this.id;
+	return tools$4.puzzleType(type) === this.id;
 }
 //#endregion
 //#region src/vendor/cstimer/megascramble.js

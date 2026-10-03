@@ -335,6 +335,41 @@
       .error {
         color: #dc2626;
       }
+      /* The step solvers' answers: what each line solves, its moves, and a button that
+         puts them in the solution box. */
+      .steps {
+        border-collapse: collapse;
+        margin-top: 4px;
+      }
+      .steps td {
+        padding: 3px 12px 3px 0;
+        vertical-align: top;
+      }
+      .steps td:first-child {
+        color: var(--muted);
+        white-space: nowrap;
+      }
+      .steps .mono,
+      input.mono {
+        font:
+          1rem/1.5 ui-monospace,
+          monospace;
+      }
+      .steps .alt {
+        color: var(--muted);
+        font-size: 0.85rem;
+      }
+      .steps button {
+        padding: 2px 10px;
+      }
+      #pattern-option {
+        margin-top: 16px;
+      }
+      #pattern {
+        box-sizing: border-box;
+        width: 100%;
+        padding: 6px 8px;
+      }
     </style>
   </head>
   <body>
@@ -457,6 +492,60 @@
           </div>
         </div>
         <p class="note" id="solution-options-note"></p>
+      </section>
+      <section class="panel" aria-labelledby="step-heading">
+        <h2 id="step-heading">Step solvers</h2>
+        <div class="options row-wrap">
+          <div class="option">
+            <span>Step</span>
+            <select id="step-solver" aria-label="Step solver"></select>
+          </div>
+          <div class="option" id="step-orientation-option">
+            <span>Hold the cube with</span>
+            <select id="step-orientation" aria-label="Orientation"></select>
+          </div>
+          <div class="option" id="step-faces-option">
+            <span>Faces</span>
+            <select id="step-faces" aria-label="Faces">
+              <option value="">All</option>
+              <option>D</option>
+              <option>U</option>
+              <option>L</option>
+              <option>R</option>
+              <option>F</option>
+              <option>B</option>
+            </select>
+          </div>
+          <div class="option" id="step-niss-option">
+            <span>NISS</span>
+            <div class="toggle" role="group" aria-label="NISS">
+              <button type="button" data-niss="off">Off</button>
+              <button type="button" data-niss="on">On</button>
+            </div>
+          </div>
+          <div class="option">
+            <span>&nbsp;</span>
+            <button id="solve-step">Solve step</button>
+          </div>
+        </div>
+        <p class="meta" id="step-info"></p>
+        <table class="steps" id="step-lines"></table>
+        <div class="options row-wrap" id="pattern-option">
+          <div class="option">
+            <span>Pattern</span>
+            <select id="pattern-preset" aria-label="Pattern"></select>
+          </div>
+          <label class="option" style="flex: 1">
+            <span>Stickers (U R F D L B faces, 9 each; - for any sticker)</span>
+            <input id="pattern" type="text" spellcheck="false" maxlength="54" class="mono" />
+          </label>
+          <div class="option">
+            <span>&nbsp;</span>
+            <button id="solve-pattern">Solve to pattern</button>
+          </div>
+        </div>
+        <p class="meta" id="pattern-info"></p>
+        <table class="steps" id="pattern-lines"></table>
       </section>
       <section class="panel" aria-labelledby="viewer-options-heading">
         <h2 id="viewer-options-heading">Visualizer options</h2>
@@ -800,6 +889,126 @@
             : '';
       }
 
+      // The step solvers: csTimer's 24 ways to hold the cube for its method solvers,
+      // the solver picked, and the last answers, kept while the scramble is the same.
+      const ORIENTATIONS = ['z2', '', 'z', "z'", 'x', "x'"].flatMap((r) =>
+        ['', 'y', 'y2', "y'"].map((y) => [r, y].filter(Boolean).join(' ')),
+      );
+      $('step-orientation').append(
+        ...ORIENTATIONS.map((r) => new Option(r === '' ? '(as scrambled)' : r, r)),
+      );
+      const nissButtons = [...document.querySelectorAll('[data-niss]')];
+      const patterns = new Puzzle('333').getStepPatterns();
+      $('pattern-preset').append(
+        ...Object.keys(patterns).map((name) => new Option(name, name)),
+        new Option('(typed)', ''),
+      );
+      $('pattern-preset').value = 'Cross';
+      $('pattern').value = patterns.Cross;
+      let stepAnswer;
+      let patternAnswer;
+
+      // A table row for each line: what it solves, its moves, and a Use button that puts
+      // `use(i)` in the solution box.
+      function showLines(table, lines, use) {
+        table.replaceChildren(
+          ...lines.map((line, i) => {
+            const row = table.insertRow();
+            const moves = [line.rotation, line.moves].filter(Boolean).join(' ');
+            const cell = document.createElement('td');
+            cell.className = 'mono';
+            cell.textContent =
+              line.moves === null
+                ? '(none found)'
+                : line.moves === ''
+                  ? `${line.rotation} (skip)`
+                  : moves;
+            for (const alt of line.alternatives ?? []) {
+              const div = document.createElement('div');
+              div.className = 'alt';
+              div.textContent = `or ${alt.label}: ${alt.moves}`;
+              cell.append(div);
+            }
+            const button = document.createElement('button');
+            button.textContent = 'Use';
+            button.disabled = line.moves === null;
+            button.addEventListener('click', () => {
+              stopSearch();
+              current().setSolution(use(i));
+              solutionInput.value = current().getSolution();
+              draw();
+            });
+            const label = document.createElement('td');
+            label.textContent = line.label;
+            const action = document.createElement('td');
+            action.append(button);
+            row.replaceChildren(label, cell, action);
+            return row;
+          }),
+        );
+      }
+
+      function showStepSolvers(puzzle) {
+        const select = $('step-solver');
+        const solvers = puzzle.getStepSolvers();
+        const ids = solvers.map((s) => s.id).join();
+        if (select.dataset.ids !== ids) {
+          const picked = select.value;
+          select.replaceChildren(...solvers.map((s) => new Option(s.name, s.id)));
+          if (solvers.some((s) => s.id === picked)) select.value = picked;
+          select.dataset.ids = ids;
+        }
+        const solver = solvers.find((s) => s.id === select.value);
+        select.disabled = !solver;
+        $('solve-step').disabled = !solver;
+        $('step-orientation').value = puzzle.getStepOrientation();
+        $('step-orientation').disabled = !solver?.orientation;
+        $('step-orientation-option').classList.toggle('off', !solver?.orientation);
+        for (const button of nissButtons) {
+          button.setAttribute(
+            'aria-pressed',
+            String((button.dataset.niss === 'on') === puzzle.getStepNiss()),
+          );
+          button.disabled = !solver?.niss;
+        }
+        $('step-niss-option').classList.toggle('off', !solver?.niss);
+        const crossFamily = ['cross', 'xcross', 'xxcross', 'xxxcross'].includes(solver?.id);
+        $('step-faces').disabled = !crossFamily;
+        $('step-faces-option').classList.toggle('off', !crossFamily);
+        const fresh = (answer) =>
+          answer && answer.puzzle === puzzle && answer.scramble === puzzle.getScramble();
+        if (!fresh(stepAnswer)) stepAnswer = undefined;
+        if (!fresh(patternAnswer)) patternAnswer = undefined;
+        $('step-info').textContent = !solver
+          ? 'csTimer’s step solvers are for 3x3x3, 2x2x2, Square-1, Pyraminx and Skewb'
+          : stepAnswer
+            ? `${stepAnswer.name}, solved in ${stepAnswer.ms.toFixed(0)} ms (from the scramble)`
+            : solver.id === 'xxxcross'
+              ? 'XXXCross takes several seconds per face'
+              : '';
+        showLines($('step-lines'), stepAnswer?.lines ?? [], (i) => {
+          // A method's steps follow each other, so Use takes every step up to that one.
+          const { lines, method } = stepAnswer;
+          const take = method ? lines.slice(0, i + 1) : [lines[i]];
+          return take.map((l) => [l.rotation, l.moves].filter(Boolean).join(' ')).join(' ');
+        });
+        const cube = solvers.some((s) => s.id === 'cross');
+        $('pattern-option').classList.toggle('off', !cube);
+        for (const id of ['pattern-preset', 'pattern', 'solve-pattern']) $(id).disabled = !cube;
+        $('pattern-info').textContent = !cube
+          ? 'Patterns are for 3x3x3 only'
+          : patternAnswer
+            ? patternAnswer.lines[0].moves === null
+              ? `Nothing found in ${patternAnswer.ms.toFixed(0)} ms (the solver search time)`
+              : `Solved in ${patternAnswer.ms.toFixed(0)} ms, the fewest moves there are`
+            : 'Letters: U R F D L B for stickers that must be in place, X Y Z for groups';
+        showLines(
+          $('pattern-lines'),
+          patternAnswer?.lines ?? [],
+          () => patternAnswer.lines[0].moves,
+        );
+      }
+
       function draw() {
         const puzzle = current();
         puzzle.setImageSize(imageSize);
@@ -814,6 +1023,7 @@
           `Scramble · ${moves(puzzle.getScrambleMoveCount())}` +
           (ms === undefined ? '' : ` · generated in ${ms.toFixed(0)} ms`);
         showSolution(puzzle);
+        showStepSolvers(puzzle);
         // 3D only for the cubes; the other puzzles are shown in 2D, and the cubes go back
         // to the view picked last.
         view3D.disabled = !puzzle.has3DView();
@@ -1204,6 +1414,72 @@
           });
         }
       }
+      $('step-solver').addEventListener('change', (e) => {
+        // XXXCross takes several seconds per face, so it starts with one.
+        if (e.target.value === 'xxxcross' && !$('step-faces').value) $('step-faces').value = 'D';
+        draw();
+      });
+      $('step-orientation').addEventListener('change', (e) => {
+        current().setStepOrientation(e.target.value);
+        draw();
+      });
+      for (const button of nissButtons) {
+        button.addEventListener('click', () => {
+          current().setStepNiss(button.dataset.niss === 'on');
+          draw();
+        });
+      }
+      // Runs a step solver after the page has shown that it is working.
+      function later(infoId, work) {
+        $(infoId).classList.remove('error');
+        $(infoId).textContent = 'Solving…';
+        setTimeout(() => {
+          try {
+            work();
+          } catch (error) {
+            $(infoId).classList.add('error');
+            $(infoId).textContent = error.message;
+            return;
+          }
+          draw();
+        }, 20);
+      }
+      $('solve-step').addEventListener('click', () => {
+        const puzzle = current();
+        const solver = puzzle.getStepSolvers().find((s) => s.id === $('step-solver').value);
+        later('step-info', () => {
+          const start = performance.now();
+          const face = $('step-faces').disabled ? '' : $('step-faces').value;
+          const lines = puzzle.solveStep(solver.id, face ? [face] : undefined);
+          stepAnswer = {
+            puzzle,
+            scramble: puzzle.getScramble(),
+            name: solver.name,
+            lines,
+            ms: performance.now() - start,
+            method: solver.orientation || solver.niss || solver.id === 'sq1cs',
+          };
+        });
+      });
+      $('pattern-preset').addEventListener('change', (e) => {
+        if (e.target.value) $('pattern').value = patterns[e.target.value];
+      });
+      $('pattern').addEventListener('input', () => ($('pattern-preset').value = ''));
+      $('solve-pattern').addEventListener('click', () => {
+        const puzzle = current();
+        puzzle.setSolveTimeLimit(searchTime.limit ? searchTime.seconds * 1000 : Infinity);
+        later('pattern-info', () => {
+          const start = performance.now();
+          const moves = puzzle.solvePattern($('pattern').value.trim());
+          const name = $('pattern-preset').value || 'Pattern';
+          patternAnswer = {
+            puzzle,
+            scramble: puzzle.getScramble(),
+            lines: [{ label: name, rotation: '', moves }],
+            ms: performance.now() - start,
+          };
+        });
+      });
       $('next').addEventListener('click', next);
       document.addEventListener('keydown', (e) => {
         if (e.code === 'Space' && e.target === document.body) {
