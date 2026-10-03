@@ -437,6 +437,24 @@
               <button type="button" data-fmc="on">On</button>
             </div>
           </div>
+          <div class="option" id="search-option">
+            <span>Solver search time</span>
+            <div class="toggle" role="group" aria-label="Solver search time">
+              <button type="button" data-limit="seconds">Up to</button>
+              <button type="button" data-limit="none">No limit</button>
+            </div>
+            <label class="size">
+              <input
+                id="search-seconds"
+                type="number"
+                min="0.1"
+                max="600"
+                step="0.5"
+                aria-label="Seconds to search"
+              />
+              <span>s</span>
+            </label>
+          </div>
         </div>
         <p class="note" id="solution-options-note"></p>
       </section>
@@ -688,14 +706,21 @@
         wideMoves: 'Rw-or-r',
         fmc: false,
       };
+      // How long the Solve button searches for a shorter solution: some seconds, or until
+      // the solution is the shortest there is.
+      const searchTime = { seconds: 3, limit: true };
+      const limitButtons = [...document.querySelectorAll('[data-limit]')];
+      $('search-seconds').value = searchTime.seconds;
       const rotationButtons = [...document.querySelectorAll('[data-rotations]')];
       const sliceButtons = [...document.querySelectorAll('[data-slice]')];
       const wideButtons = [...document.querySelectorAll('[data-wide]')];
       const fmcButtons = [...document.querySelectorAll('[data-fmc]')];
       const STATUS_TEXT = { solved: 'Solved', '+2': '+2', DNF: 'DNF' };
-      // The last solve done with the Solve button: which puzzle, scramble and solution, and
-      // how long it took.
+      // The last solve done with the Solve button: which puzzle, scramble and solution, how
+      // long it took and whether it is the shortest there is.
       let lastSolve;
+      // The solve the Solve button is running: which puzzle and scramble, and when it began.
+      let searching;
 
       // Applies the solution options to the puzzle and shows them, with the solution's
       // move count, solve status and any moves the options don't allow.
@@ -738,14 +763,30 @@
         const solveButton = $('solve');
         solveButton.disabled = !puzzle.hasSolver();
         solveButton.title = puzzle.hasSolver() ? '' : 'Only 2x2x2 and 3x3x3 can be solved for now';
+        const running = searching && searching.puzzle === puzzle;
+        solveButton.textContent = running ? 'Stop' : 'Solve';
         const solved =
           lastSolve &&
           lastSolve.puzzle === puzzle &&
           lastSolve.scramble === puzzle.getScramble() &&
           lastSolve.solution === puzzle.getSolution();
-        $('solve-info').textContent = solved
-          ? `Solved by the computer in ${lastSolve.ms.toFixed(0)} ms`
-          : '';
+        $('solve-info').textContent = running
+          ? `Searching for a shorter solution… ${moves(puzzle.getSolutionMoveCount())} so far`
+          : solved
+            ? `Solved by the computer in ${lastSolve.ms.toFixed(0)} ms, ` +
+              (puzzle.isSolutionShortest()
+                ? 'the shortest solution there is'
+                : 'the shortest it found in the time allowed')
+            : '';
+        for (const button of limitButtons) {
+          button.setAttribute(
+            'aria-pressed',
+            String((button.dataset.limit === 'seconds') === searchTime.limit),
+          );
+          button.disabled = !puzzle.hasSolver();
+        }
+        $('search-seconds').disabled = !puzzle.hasSolver() || !searchTime.limit;
+        $('search-option').classList.toggle('off', !puzzle.hasSolver());
         $('solution-options-note').textContent = !cube
           ? 'Solution options and solve status are for the cubes only'
           : fmc
@@ -892,6 +933,7 @@
       }
 
       function next() {
+        stopSearch();
         const start = performance.now();
         current().scramble();
         scrambleTimes.set(current().id, performance.now() - start);
@@ -899,6 +941,7 @@
       }
 
       function showPuzzle() {
+        stopSearch();
         const puzzle = current();
         typeSelect.replaceChildren(
           ...puzzle.getScrambleTypes().map((t) => new Option(`${t.name} (${t.id})`, t.id)),
@@ -1077,33 +1120,67 @@
         draw();
       });
       scrambleInput.addEventListener('input', () => {
+        stopSearch();
         current().setScramble(scrambleInput.value);
         scrambleTimes.delete(current().id);
         fit(scrambleInput);
         draw();
       });
-      $('solve').addEventListener('click', () => {
+      // Ends the running solve, if any, keeping the shortest solution it found.
+      function stopSearch() {
+        searching?.puzzle.stopSolving();
+      }
+      $('solve').addEventListener('click', async () => {
+        if (searching) {
+          stopSearch();
+          return;
+        }
         const puzzle = current();
+        const scramble = puzzle.getScramble();
+        puzzle.setSolveTimeLimit(searchTime.limit ? searchTime.seconds * 1000 : Infinity);
         const start = performance.now();
+        searching = { puzzle, scramble };
+        // Shows each shorter solution as it is found.
+        const show = (solution) => {
+          if (current() !== puzzle || puzzle.getScramble() !== scramble) return;
+          puzzle.setSolution(solution);
+          solutionInput.value = solution;
+          draw();
+        };
         try {
-          const solution = puzzle.solve();
-          lastSolve = {
-            puzzle,
-            scramble: puzzle.getScramble(),
-            solution,
-            ms: performance.now() - start,
-          };
+          const solution = await puzzle.solveAsync(show);
+          lastSolve = { puzzle, scramble, solution, ms: performance.now() - start };
         } catch (error) {
           info.classList.add('error');
           info.textContent = error.message;
           return;
+        } finally {
+          const { typed } = searching;
+          searching = undefined;
+          if (typed) puzzle.setSolution(solutionInput.value);
         }
-        solutionInput.value = puzzle.getSolution();
+        if (current() === puzzle && puzzle.getScramble() === scramble) {
+          solutionInput.value = puzzle.getSolution();
+        }
         draw();
       });
       solutionInput.addEventListener('input', () => {
+        // What is typed wins over what the solve found.
+        if (searching) searching.typed = true;
+        stopSearch();
         current().setSolution(solutionInput.value);
         draw();
+      });
+      for (const button of limitButtons) {
+        button.addEventListener('click', () => {
+          searchTime.limit = button.dataset.limit === 'seconds';
+          draw();
+        });
+      }
+      $('search-seconds').addEventListener('change', (e) => {
+        const seconds = Number(e.target.value);
+        if (seconds > 0) searchTime.seconds = seconds;
+        e.target.value = searchTime.seconds;
       });
       for (const [buttons, apply] of [
         [

@@ -19,7 +19,7 @@ import {
   allowedSolutionMoves,
 } from './solution.js';
 import type { SliceMoves, SolutionRules, SolveStatus, WideMoves } from './solution.js';
-import { SOLVER_SIZES, solveCube } from './solver.js';
+import { CubeSearch, SOLVER_SIZES } from './solver.js';
 import image from './vendor/cstimer/image.js';
 import tools from './vendor/cstimer/toolsutil.js';
 
@@ -298,6 +298,11 @@ class Puzzle {
   #solution = '';
   #rules: SolutionRules = { countRotations: true, sliceMoves: 'one-move', wideMoves: 'Rw-or-r' };
   #fmc = false;
+  #solveTimeLimit = 3000;
+  /** The solution the last solve found, while it is still the puzzle's solution. */
+  #solved: { scramble: string; solution: string; shortest: boolean } | undefined;
+  /** Ends the running `solveAsync` early. */
+  #stopSolving: (() => void) | undefined;
   /** The scramble type `#scramble` was made with, which is the one to draw it with. */
   #scrambleType = '';
   /** A scramble type picked with `setScrambleType`, used instead of the method's. */
@@ -846,20 +851,106 @@ class Puzzle {
   }
 
   /**
-   * Finds a solution for the scramble with csTimer's own solvers and makes it the puzzle's
-   * solution (replacing anything set with `setSolution`), so `getImage()` then shows the
-   * puzzle solved. Returns that solution, `''` if the scramble leaves the puzzle solved.
-   * It is a computer solution, not a human method: the fewest moves on 2x2x2 (only U, R
-   * and F turns), at most 21 face turns on 3x3x3 (min2phase). Only face turns, so it
-   * follows every solution option, FMC mode included. The first 3x3x3 solve takes a bit
-   * longer while the solver sets up. Throws on puzzles without a solver (see `hasSolver`).
+   * How long `solve` and `solveAsync` may search for a shorter 3x3x3 solution, in
+   * milliseconds (default 3000). A few seconds usually gets 17 to 19 moves, often the
+   * shortest there is, but proving that nothing shorter exists can take many minutes.
+   * `Infinity` searches until it has that proof, so the solution is always the shortest.
+   * 2x2x2 is always solved in the fewest moves at once.
+   */
+  setSolveTimeLimit(ms: number): this {
+    if (!(ms > 0)) throw new Error(`The solve time limit must be more than 0 ms, not ${ms}`);
+    this.#solveTimeLimit = ms;
+    return this;
+  }
+
+  getSolveTimeLimit(): number {
+    return this.#solveTimeLimit;
+  }
+
+  /**
+   * Finds the shortest solution it can for the scramble with csTimer's own solvers, in the
+   * half-turn metric (R2 counts as one move), and makes it the puzzle's solution (replacing
+   * anything set with `setSolution`), so `getImage()` then shows the puzzle solved. Returns
+   * that solution, `''` if the scramble leaves the puzzle solved. It is a computer
+   * solution, not a human method: the fewest moves on 2x2x2 (only U, R and F turns); on
+   * 3x3x3 the shortest found within the time limit (see `setSolveTimeLimit`), and
+   * `isSolutionShortest` says whether it is known to be the shortest. Only face turns, so
+   * it follows every solution option, FMC mode included. The page can't do anything else
+   * while it searches; `solveAsync` lets it. The first 3x3x3 solve takes a bit longer
+   * while the solver sets up. Throws on puzzles without a solver (see `hasSolver`).
    */
   solve(): string {
+    const search = this.#startSearch();
+    const end = performance.now() + this.#solveTimeLimit;
+    while (!search.shortest && performance.now() < end) search.step();
+    return this.#finishSearch(search);
+  }
+
+  /**
+   * The same as `solve`, but searches in small steps, letting the page carry on between
+   * them, and calls `onProgress` with each shorter solution it finds. `stopSolving` ends it
+   * early with the shortest found so far. The solution only becomes the puzzle's if its
+   * scramble is still the same at the end.
+   */
+  async solveAsync(onProgress?: (solution: string) => void): Promise<string> {
+    const search = this.#startSearch();
+    this.#stopSolving?.();
+    let stopped = false;
+    const stop = (): void => {
+      stopped = true;
+    };
+    this.#stopSolving = stop;
+    const end = performance.now() + this.#solveTimeLimit;
+    onProgress?.(search.solution);
+    while (!search.shortest && !stopped && performance.now() < end) {
+      // Let the page draw and handle clicks between steps.
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      if (stopped) break;
+      if (search.step() && !search.shortest) onProgress?.(search.solution);
+    }
+    if (this.#stopSolving === stop) this.#stopSolving = undefined;
+    return this.#finishSearch(search);
+  }
+
+  /** Ends the running `solveAsync`, if any, with the shortest solution found so far. */
+  stopSolving(): this {
+    this.#stopSolving?.();
+    this.#stopSolving = undefined;
+    return this;
+  }
+
+  /**
+   * Whether the puzzle's solution is the one the last solve found and that solve made sure
+   * no shorter solution exists. Always true after solving a 2x2x2; on 3x3x3 only when the
+   * search finished within the time limit (see `setSolveTimeLimit`).
+   */
+  isSolutionShortest(): boolean {
+    const solved = this.#solved;
+    return (
+      solved !== undefined &&
+      solved.shortest &&
+      solved.scramble === this.#scramble &&
+      solved.solution === this.#solution
+    );
+  }
+
+  #startSearch(): CubeSearch {
     if (!this.hasSolver()) {
       throw new Error(`No solver for ${this.name} with "${this.getScrambleType()}" scrambles yet`);
     }
-    this.#solution = solveCube(this.#info.cubeSize!, this.#scramble);
-    return this.#solution;
+    return new CubeSearch(this.#info.cubeSize!, this.#scramble);
+  }
+
+  #finishSearch(search: CubeSearch): string {
+    if (search.scramble === this.#scramble) {
+      this.#solution = search.solution;
+      this.#solved = {
+        scramble: search.scramble,
+        solution: search.solution,
+        shortest: search.shortest,
+      };
+    }
+    return search.solution;
   }
 
   /**

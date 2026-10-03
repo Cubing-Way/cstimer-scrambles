@@ -9,6 +9,8 @@ interface Search {
     firstAxisFilter?: number,
     lastAxisFilter?: number,
   ): string;
+  /** Carries on the last search: a shorter solution, `Error 8` if still looking, `Error 7` if done. */
+  next(probeMax: number, probeMin: number, verbose: number): string;
 }
 
 declare const min2phase: {
