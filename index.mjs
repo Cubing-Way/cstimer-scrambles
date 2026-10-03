@@ -1,4 +1,4 @@
-import { a as poly3d, c as mathlib, i as scrMgr, n as clock, o as kernel, r as sq1, s as tools, t as scramble_333$1 } from "./redi-CSp0LG7N.mjs";
+import { a as scrMgr, c as tools, i as sq1, l as mathlib, n as min2phase, o as poly3d, r as clock, s as kernel, t as scramble_333$1 } from "./redi-DgB7LORJ.mjs";
 //#region src/registry.ts
 const events = /* @__PURE__ */ new Map();
 /** Adds scramble events to the registry. Each puzzle module calls this once. */
@@ -717,7 +717,7 @@ var cubeutil = (function() {
 })();
 //#endregion
 //#region src/vendor/cstimer/image.js
-var image = (function() {
+var image$1 = (function() {
 	var img;
 	var hsq3 = Math.sqrt(3) / 2;
 	var PI = Math.PI;
@@ -2621,7 +2621,7 @@ function drawImage(type, scramble, settings = {}, width) {
 	Object.assign(kernel.props, settings);
 	let svg;
 	try {
-		svg = image.draw([
+		svg = image$1.draw([
 			type,
 			scramble,
 			0
@@ -2788,7 +2788,7 @@ function thickenBorders(svg) {
 * The faces in the order their stickers are given, and where each one sits on the cube:
 * turned from the front (F) about an axis, by some degrees.
 */
-const FACES = [
+const FACES$1 = [
 	[
 		"U",
 		"x",
@@ -2970,7 +2970,7 @@ function column(m, j) {
 */
 function placeCopies(view) {
 	const turned = multiply(rotation("x", view.angle.x), rotation("y", view.angle.y));
-	FACES.forEach(([, axis, degrees], i) => {
+	FACES$1.forEach(([, axis, degrees], i) => {
 		const out = column(multiply(turned, rotation(axis, degrees)), 2);
 		const back = view.floating && out[2] < .5 / CAMERA;
 		view.copies[i].style.display = back ? "grid" : "none";
@@ -2982,7 +2982,7 @@ function placeCopies(view) {
 * about y flip.
 */
 function moveFaces(faces, out, offsets) {
-	FACES.forEach(([name, axis, degrees], i) => {
+	FACES$1.forEach(([name, axis, degrees], i) => {
 		const offset = offsets[name];
 		const [x, y, z] = column(rotation(axis, degrees), 2).map((n) => n * out);
 		const center = [
@@ -3056,18 +3056,18 @@ function createView(element, size, angle, setAngle) {
 		}
 		return face;
 	};
-	const faces = FACES.map(([name]) => {
+	const faces = FACES$1.map(([name]) => {
 		const face = makeFace(name, "cstimer-3d-face");
 		cube.append(face);
 		return face;
 	});
-	for (const [, axis, degrees] of FACES) {
+	for (const [, axis, degrees] of FACES$1) {
 		const core = doc.createElement("div");
 		core.className = "cstimer-3d-core";
 		core.style.transform = `${place(axis, degrees)} translateZ(calc(var(--side) * 0.48))`;
 		cube.append(core);
 	}
-	const copies = FACES.map(([name]) => {
+	const copies = FACES$1.map(([name]) => {
 		const copy = makeFace(name, "cstimer-3d-face cstimer-3d-copy");
 		cube.append(copy);
 		return copy;
@@ -3134,7 +3134,7 @@ function drawCube3D(element, size, stickers, options = {}) {
 	turn(view);
 	const stickerless = isStickerless(cubeStyle);
 	const corners = Array.from({ length: size * size }, (_, j) => tileCorners(cubeStyle, size, j).map((r) => `${parseFloat((r * 100).toFixed(3))}%`).join(" "));
-	FACES.forEach(([name], i) => {
+	FACES$1.forEach(([name], i) => {
 		const colors = stickers[name] ?? [];
 		for (const face of [view.faces[i], view.copies[i]]) {
 			face.style.padding = stickerless ? "0" : "";
@@ -3214,7 +3214,7 @@ function isSolved(posit, size) {
 * or further ('DNF'). With `plusTwo` false it is only ever 'solved' or 'DNF'.
 */
 function cubeSolveStatus(size, moves, plusTwo) {
-	if (isSolved(image.nnnPosit(size, moves), size)) return "solved";
+	if (isSolved(image$1.nnnPosit(size, moves), size)) return "solved";
 	if (!plusTwo) return "DNF";
 	for (const face of [
 		"R",
@@ -3226,9 +3226,1511 @@ function cubeSolveStatus(size, moves, plusTwo) {
 			"",
 			"2",
 			"'"
-		]) if (isSolved(image.nnnPosit(size, `${moves} ${block}${turn}`), size)) return "+2";
+		]) if (isSolved(image$1.nnnPosit(size, `${moves} ${block}${turn}`), size)) return "+2";
 	}
 	return "DNF";
+}
+//#endregion
+//#region src/vendor/cstimer/2x2x2.js
+var scramble_222$1 = (function(rn) {
+	var solv = new mathlib.Solver(3, 3, [[
+		0,
+		[
+			doPermMove,
+			"p",
+			7
+		],
+		5040
+	], [
+		0,
+		[
+			doOriMove,
+			"o",
+			7,
+			-3
+		],
+		729
+	]]);
+	var movePieces = [
+		[
+			0,
+			2,
+			3,
+			1
+		],
+		[
+			0,
+			1,
+			5,
+			4
+		],
+		[
+			0,
+			4,
+			6,
+			2
+		]
+	];
+	var moveOris = [
+		null,
+		[
+			0,
+			1,
+			0,
+			1,
+			3
+		],
+		[
+			1,
+			0,
+			1,
+			0,
+			3
+		]
+	];
+	var oriCoord = new mathlib.Coord("o", 7, -3);
+	function doPermMove(arr, m) {
+		mathlib.acycle(arr, movePieces[m]);
+	}
+	function doOriMove(arr, m) {
+		mathlib.acycle(arr, movePieces[m], 1, moveOris[m]);
+	}
+	var cFacelet = [
+		[
+			3,
+			4,
+			9
+		],
+		[
+			1,
+			20,
+			5
+		],
+		[
+			2,
+			8,
+			17
+		],
+		[
+			0,
+			16,
+			21
+		],
+		[
+			13,
+			11,
+			6
+		],
+		[
+			15,
+			7,
+			22
+		],
+		[
+			12,
+			19,
+			10
+		]
+	];
+	var llFaces = [
+		0,
+		1,
+		2,
+		3,
+		8,
+		9,
+		4,
+		5,
+		20,
+		21,
+		16,
+		17
+	];
+	function checkNoBar(pidx, oidx) {
+		var perm = mathlib.setNPerm([], pidx, 7);
+		var ori = oriCoord.set([], oidx);
+		var f = [];
+		for (var i = 0; i < 24; i++) f[i] = i >> 2;
+		mathlib.fillFacelet(cFacelet, f, perm, ori, 4);
+		for (var i = 0; i < 24; i += 4) if ((1 << f[i] | 1 << f[i + 3]) & (1 << f[i + 1] | 1 << f[i + 2])) return false;
+		return true;
+	}
+	var egprobs = [
+		1,
+		2,
+		4,
+		4,
+		4,
+		4,
+		4,
+		4,
+		1,
+		2,
+		4,
+		4,
+		4,
+		4,
+		4,
+		4,
+		1,
+		2,
+		4,
+		4,
+		4,
+		4,
+		4,
+		4,
+		1,
+		2,
+		4,
+		4,
+		4,
+		4,
+		4,
+		4,
+		1,
+		2,
+		4,
+		4,
+		4,
+		4,
+		4,
+		4,
+		1,
+		2,
+		4,
+		4,
+		4,
+		4,
+		4,
+		4
+	];
+	var egmap = [
+		0,
+		17,
+		5,
+		14,
+		8,
+		1,
+		2,
+		4
+	];
+	var egfilter = [
+		"EG0-O",
+		"EG0-H",
+		"EG0-L",
+		"EG0-Pi",
+		"EG0-S",
+		"EG0-T",
+		"EG0-U",
+		"EG0-aS",
+		"EG1B-O",
+		"EG1B-H",
+		"EG1B-L",
+		"EG1B-Pi",
+		"EG1B-S",
+		"EG1B-T",
+		"EG1B-U",
+		"EG1B-aS",
+		"EG1L-O",
+		"EG1L-H",
+		"EG1L-L",
+		"EG1L-Pi",
+		"EG1L-S",
+		"EG1L-T",
+		"EG1L-U",
+		"EG1L-aS",
+		"EG1F-O",
+		"EG1F-H",
+		"EG1F-L",
+		"EG1F-Pi",
+		"EG1F-S",
+		"EG1F-T",
+		"EG1F-U",
+		"EG1F-aS",
+		"EG1R-O",
+		"EG1R-H",
+		"EG1R-L",
+		"EG1R-Pi",
+		"EG1R-S",
+		"EG1R-T",
+		"EG1R-U",
+		"EG1R-aS",
+		"EG2-O",
+		"EG2-H",
+		"EG2-L",
+		"EG2-Pi",
+		"EG2-S",
+		"EG2-T",
+		"EG2-U",
+		"EG2-aS"
+	];
+	var egperms = [
+		[
+			4,
+			5,
+			6
+		],
+		[
+			4,
+			6,
+			5
+		],
+		[
+			6,
+			5,
+			4
+		],
+		[
+			5,
+			4,
+			6
+		],
+		[
+			5,
+			6,
+			4
+		],
+		[
+			6,
+			4,
+			5
+		]
+	];
+	var egll_map = [
+		[
+			12816,
+			4641,
+			2,
+			"H-1"
+		],
+		[
+			12576,
+			4641,
+			2,
+			"H-2"
+		],
+		[
+			8976,
+			4641,
+			4,
+			"H-3"
+		],
+		[
+			12306,
+			4641,
+			4,
+			"H-4"
+		],
+		[
+			786,
+			528,
+			4,
+			"L-1"
+		],
+		[
+			8976,
+			528,
+			4,
+			"L-2"
+		],
+		[
+			531,
+			528,
+			4,
+			"L-3"
+		],
+		[
+			12816,
+			528,
+			4,
+			"L-4"
+		],
+		[
+			8211,
+			528,
+			4,
+			"L-5"
+		],
+		[
+			12306,
+			528,
+			4,
+			"L-6"
+		],
+		[
+			12816,
+			4626,
+			4,
+			"Pi-1"
+		],
+		[
+			531,
+			4626,
+			4,
+			"Pi-2"
+		],
+		[
+			8976,
+			4626,
+			4,
+			"Pi-3"
+		],
+		[
+			8211,
+			4626,
+			4,
+			"Pi-4"
+		],
+		[
+			12306,
+			4626,
+			4,
+			"Pi-5"
+		],
+		[
+			786,
+			4626,
+			4,
+			"Pi-6"
+		],
+		[
+			12816,
+			8736,
+			4,
+			"S-1"
+		],
+		[
+			531,
+			8736,
+			4,
+			"S-2"
+		],
+		[
+			786,
+			8736,
+			4,
+			"S-3"
+		],
+		[
+			12306,
+			8736,
+			4,
+			"S-4"
+		],
+		[
+			8211,
+			8736,
+			4,
+			"S-5"
+		],
+		[
+			8976,
+			8736,
+			4,
+			"S-6"
+		],
+		[
+			8976,
+			4128,
+			4,
+			"T-1"
+		],
+		[
+			8211,
+			4128,
+			4,
+			"T-2"
+		],
+		[
+			531,
+			4128,
+			4,
+			"T-3"
+		],
+		[
+			12816,
+			4128,
+			4,
+			"T-4"
+		],
+		[
+			12306,
+			4128,
+			4,
+			"T-5"
+		],
+		[
+			786,
+			4128,
+			4,
+			"T-6"
+		],
+		[
+			531,
+			8208,
+			4,
+			"U-1"
+		],
+		[
+			12816,
+			8208,
+			4,
+			"U-2"
+		],
+		[
+			786,
+			8208,
+			4,
+			"U-3"
+		],
+		[
+			12306,
+			8208,
+			4,
+			"U-4"
+		],
+		[
+			8976,
+			8208,
+			4,
+			"U-5"
+		],
+		[
+			8211,
+			8208,
+			4,
+			"U-6"
+		],
+		[
+			12816,
+			4113,
+			4,
+			"aS-1"
+		],
+		[
+			531,
+			4113,
+			4,
+			"aS-2"
+		],
+		[
+			786,
+			4113,
+			4,
+			"aS-3"
+		],
+		[
+			12306,
+			4113,
+			4,
+			"aS-4"
+		],
+		[
+			8976,
+			4113,
+			4,
+			"aS-5"
+		],
+		[
+			8211,
+			4113,
+			4,
+			"aS-6"
+		]
+	];
+	var tcllp_map = [
+		[
+			291,
+			545,
+			4,
+			"Hammer-1"
+		],
+		[
+			12321,
+			545,
+			4,
+			"Hammer-2"
+		],
+		[
+			306,
+			545,
+			4,
+			"Hammer-3"
+		],
+		[
+			561,
+			545,
+			4,
+			"Hammer-4"
+		],
+		[
+			801,
+			545,
+			4,
+			"Hammer-5"
+		],
+		[
+			8961,
+			545,
+			4,
+			"Hammer-6"
+		],
+		[
+			291,
+			4130,
+			4,
+			"Spaceship-1"
+		],
+		[
+			8961,
+			4130,
+			4,
+			"Spaceship-2"
+		],
+		[
+			4896,
+			4130,
+			4,
+			"Spaceship-3"
+		],
+		[
+			12321,
+			4130,
+			4,
+			"Spaceship-4"
+		],
+		[
+			12306,
+			4130,
+			4,
+			"Spaceship-5"
+		],
+		[
+			561,
+			4130,
+			4,
+			"Spaceship-6"
+		],
+		[
+			8241,
+			2,
+			4,
+			"Stollery-1"
+		],
+		[
+			12576,
+			2,
+			4,
+			"Stollery-2"
+		],
+		[
+			12801,
+			2,
+			4,
+			"Stollery-3"
+		],
+		[
+			8451,
+			2,
+			4,
+			"Stollery-4"
+		],
+		[
+			561,
+			2,
+			4,
+			"Stollery-5"
+		],
+		[
+			8496,
+			2,
+			4,
+			"Stollery-6"
+		],
+		[
+			291,
+			8738,
+			1,
+			"Pinwheel-1"
+		],
+		[
+			4146,
+			8738,
+			1,
+			"Pinwheel-2"
+		],
+		[
+			12801,
+			8738,
+			4,
+			"Pinwheel-3"
+		],
+		[
+			8241,
+			272,
+			2,
+			"2Face-1"
+		],
+		[
+			12546,
+			272,
+			4,
+			"2Face-2"
+		],
+		[
+			531,
+			272,
+			2,
+			"2Face-3"
+		],
+		[
+			12321,
+			272,
+			4,
+			"2Face-4"
+		],
+		[
+			4866,
+			290,
+			4,
+			"Turtle-1"
+		],
+		[
+			4146,
+			290,
+			4,
+			"Turtle-2"
+		],
+		[
+			12801,
+			290,
+			4,
+			"Turtle-3"
+		],
+		[
+			4656,
+			290,
+			4,
+			"Turtle-4"
+		],
+		[
+			8976,
+			290,
+			4,
+			"Turtle-5"
+		],
+		[
+			801,
+			290,
+			4,
+			"Turtle-6"
+		],
+		[
+			12816,
+			4370,
+			4,
+			"Pinwheel Poser-1"
+		],
+		[
+			12576,
+			4370,
+			4,
+			"Pinwheel Poser-2"
+		],
+		[
+			12801,
+			4370,
+			4,
+			"Pinwheel Poser-3"
+		],
+		[
+			8451,
+			4370,
+			4,
+			"Pinwheel Poser-4"
+		],
+		[
+			8976,
+			4370,
+			4,
+			"Pinwheel Poser-5"
+		],
+		[
+			8496,
+			4370,
+			4,
+			"Pinwheel Poser-6"
+		],
+		[
+			8241,
+			17,
+			4,
+			"Gun-1"
+		],
+		[
+			4146,
+			17,
+			4,
+			"Gun-2"
+		],
+		[
+			306,
+			17,
+			4,
+			"Gun-3"
+		],
+		[
+			12321,
+			17,
+			4,
+			"Gun-4"
+		],
+		[
+			8976,
+			17,
+			4,
+			"Gun-5"
+		],
+		[
+			8496,
+			17,
+			4,
+			"Gun-6"
+		]
+	];
+	var tclln_map = [
+		[
+			4866,
+			4609,
+			4,
+			"Hammer-1"
+		],
+		[
+			12321,
+			4609,
+			4,
+			"Hammer-2"
+		],
+		[
+			8976,
+			4609,
+			4,
+			"Hammer-3"
+		],
+		[
+			12801,
+			4609,
+			4,
+			"Hammer-4"
+		],
+		[
+			4611,
+			4609,
+			4,
+			"Hammer-5"
+		],
+		[
+			12576,
+			4609,
+			4,
+			"Hammer-6"
+		],
+		[
+			291,
+			4114,
+			4,
+			"Spaceship-1"
+		],
+		[
+			4146,
+			4114,
+			4,
+			"Spaceship-2"
+		],
+		[
+			786,
+			4114,
+			4,
+			"Spaceship-3"
+		],
+		[
+			12801,
+			4114,
+			4,
+			"Spaceship-4"
+		],
+		[
+			4131,
+			4114,
+			4,
+			"Spaceship-5"
+		],
+		[
+			8496,
+			4114,
+			4,
+			"Spaceship-6"
+		],
+		[
+			291,
+			1,
+			4,
+			"Stollery-1"
+		],
+		[
+			12576,
+			1,
+			4,
+			"Stollery-2"
+		],
+		[
+			306,
+			1,
+			4,
+			"Stollery-3"
+		],
+		[
+			8451,
+			1,
+			4,
+			"Stollery-4"
+		],
+		[
+			12546,
+			1,
+			4,
+			"Stollery-5"
+		],
+		[
+			4611,
+			1,
+			4,
+			"Stollery-6"
+		],
+		[
+			291,
+			4369,
+			1,
+			"Pinwheel-1"
+		],
+		[
+			4146,
+			4369,
+			1,
+			"Pinwheel-2"
+		],
+		[
+			4896,
+			4369,
+			4,
+			"Pinwheel-3"
+		],
+		[
+			8241,
+			8194,
+			2,
+			"2Face-1"
+		],
+		[
+			306,
+			8194,
+			4,
+			"2Face-2"
+		],
+		[
+			4146,
+			8194,
+			2,
+			"2Face-3"
+		],
+		[
+			12321,
+			8194,
+			4,
+			"2Face-4"
+		],
+		[
+			8241,
+			4354,
+			4,
+			"Turtle-1"
+		],
+		[
+			12576,
+			4354,
+			4,
+			"Turtle-2"
+		],
+		[
+			4131,
+			4354,
+			4,
+			"Turtle-3"
+		],
+		[
+			12321,
+			4354,
+			4,
+			"Turtle-4"
+		],
+		[
+			306,
+			4354,
+			4,
+			"Turtle-5"
+		],
+		[
+			4611,
+			4354,
+			4,
+			"Turtle-6"
+		],
+		[
+			4866,
+			8482,
+			4,
+			"Pinwheel Poser-1"
+		],
+		[
+			531,
+			8482,
+			4,
+			"Pinwheel Poser-2"
+		],
+		[
+			8211,
+			8482,
+			4,
+			"Pinwheel Poser-3"
+		],
+		[
+			786,
+			8482,
+			4,
+			"Pinwheel Poser-4"
+		],
+		[
+			8976,
+			8482,
+			4,
+			"Pinwheel Poser-5"
+		],
+		[
+			801,
+			8482,
+			4,
+			"Pinwheel Poser-6"
+		],
+		[
+			291,
+			34,
+			4,
+			"Gun-1"
+		],
+		[
+			4146,
+			34,
+			4,
+			"Gun-2"
+		],
+		[
+			306,
+			34,
+			4,
+			"Gun-3"
+		],
+		[
+			8976,
+			34,
+			4,
+			"Gun-4"
+		],
+		[
+			786,
+			34,
+			4,
+			"Gun-5"
+		],
+		[
+			8496,
+			34,
+			4,
+			"Gun-6"
+		]
+	];
+	var tcll_map = [
+		[
+			291,
+			545,
+			4,
+			"TCLL1-Hammer"
+		],
+		[
+			291,
+			4130,
+			4,
+			"TCLL1-Spaceship"
+		],
+		[
+			8241,
+			2,
+			4,
+			"TCLL1-Stollery"
+		],
+		[
+			291,
+			8738,
+			1,
+			"TCLL1-Pinwheel"
+		],
+		[
+			8241,
+			272,
+			2,
+			"TCLL1-2Face"
+		],
+		[
+			4866,
+			290,
+			4,
+			"TCLL1-Turtle"
+		],
+		[
+			12816,
+			4370,
+			4,
+			"TCLL1-Pinwheel Poser"
+		],
+		[
+			8241,
+			17,
+			4,
+			"TCLL1-Gun"
+		],
+		[
+			4866,
+			4609,
+			4,
+			"TCLL2-Hammer"
+		],
+		[
+			291,
+			4114,
+			4,
+			"TCLL2-Spaceship"
+		],
+		[
+			291,
+			1,
+			4,
+			"TCLL2-Stollery"
+		],
+		[
+			291,
+			4369,
+			1,
+			"TCLL2-Pinwheel"
+		],
+		[
+			8241,
+			8194,
+			2,
+			"TCLL2-2Face"
+		],
+		[
+			8241,
+			4354,
+			4,
+			"TCLL2-Turtle"
+		],
+		[
+			4866,
+			8482,
+			4,
+			"TCLL2-Pinwheel Poser"
+		],
+		[
+			291,
+			34,
+			4,
+			"TCLL2-Gun"
+		]
+	];
+	var lsall_map = [
+		[0, "LS1-PBL"],
+		[546, "LS1-Sune"],
+		[273, "LS1-aSune"],
+		[258, "LS1-Ua"],
+		[33, "LS1-Ub"],
+		[288, "LS1-La"],
+		[528, "LS1-Lb"],
+		[513, "LS1-Ta"],
+		[18, "LS1-Tb"],
+		[66081, "LS2-Hammer"],
+		[66066, "LS2-Spaceship"],
+		[66048, "LS2-StolleryA"],
+		[65538, "LS2-StolleryB"],
+		[65568, "LS2-StolleryC"],
+		[65808, "LS2-2Face"],
+		[65826, "LS2-Turtle"],
+		[65553, "LS2-GunA"],
+		[65793, "LS2-GunB"],
+		[131346, "LS3-Hammer"],
+		[131601, "LS3-Spaceship"],
+		[131328, "LS3-StolleryA"],
+		[131073, "LS3-StolleryB"],
+		[131088, "LS3-StolleryC"],
+		[131616, "LS3-2Face"],
+		[131361, "LS3-Turtle"],
+		[131106, "LS3-GunA"],
+		[131586, "LS3-GunB"],
+		[8226, "LS4-SuneA"],
+		[8736, "LS4-SuneB"],
+		[8706, "LS4-SuneC"],
+		[8721, "LS4-PiA"],
+		[8481, "LS4-PiB"],
+		[8208, "LS4-U"],
+		[8193, "LS4-L"],
+		[8448, "LS4-T"],
+		[8466, "LS4-H"],
+		[73746, "LS5-HammerA"],
+		[73986, "LS5-HammerB"],
+		[74016, "LS5-SpaceshipA"],
+		[74241, "LS5-SpaceshipB"],
+		[73728, "LS5-Stollery"],
+		[74274, "LS5-Pinwheel"],
+		[73761, "LS5-TurtleA"],
+		[74256, "LS5-TurtleB"],
+		[74001, "LS5-Pinwheel Poser"],
+		[139536, "LS6-Hammer"],
+		[139521, "LS6-Spaceship"],
+		[139266, "LS6-2Face"],
+		[139281, "LS6-Turtle"],
+		[139554, "LS6-Pinwheel PoserA"],
+		[139809, "LS6-Pinwheel PoserB"],
+		[139794, "LS6-Pinwheel PoserC"],
+		[139776, "LS6-GunA"],
+		[139296, "LS6-GunB"],
+		[4113, "LS7-aSuneA"],
+		[4368, "LS7-aSuneB"],
+		[4353, "LS7-aSuneC"],
+		[4626, "LS7-PiA"],
+		[4386, "LS7-PiB"],
+		[4608, "LS7-U"],
+		[4098, "LS7-L"],
+		[4128, "LS7-T"],
+		[4641, "LS7-H"],
+		[70176, "LS8-Hammer"],
+		[69666, "LS8-Spaceship"],
+		[69633, "LS8-2Face"],
+		[70146, "LS8-Turtle"],
+		[69921, "LS8-Pinwheel PoserA"],
+		[69906, "LS8-Pinwheel PoserB"],
+		[70161, "LS8-Pinwheel PoserC"],
+		[69648, "LS8-GunA"],
+		[69888, "LS8-GunB"],
+		[135681, "LS9-HammerA"],
+		[135201, "LS9-HammerB"],
+		[135186, "LS9-SpaceshipA"],
+		[135456, "LS9-SpaceshipB"],
+		[135168, "LS9-Stollery"],
+		[135441, "LS9-Pinwheel"],
+		[135426, "LS9-TurtleA"],
+		[135696, "LS9-TurtleB"],
+		[135714, "LS9-Pinwheel Poser"]
+	];
+	var egllprobs = mathlib.idxArray(egll_map, 2);
+	var egllfilter = mathlib.idxArray(egll_map, 3);
+	var tcllpprobs = mathlib.idxArray(tcllp_map, 2);
+	var tcllpfilter = mathlib.idxArray(tcllp_map, 3);
+	var tcllnprobs = mathlib.idxArray(tclln_map, 2);
+	var tcllnfilter = mathlib.idxArray(tclln_map, 3);
+	var tcllprobs = mathlib.idxArray(tcll_map, 2);
+	var tcllfilter = mathlib.idxArray(tcll_map, 3);
+	var lsallprobs = mathlib.valuedArray(lsall_map.length, 1);
+	var lsallfilter = mathlib.idxArray(lsall_map, 1);
+	function getLLScramble(type, length, cases) {
+		var llcase = 0;
+		var ncubie = 4;
+		var perm = [
+			0,
+			1,
+			2,
+			3
+		];
+		var ori = [
+			0,
+			0,
+			0,
+			0,
+			0,
+			0,
+			0
+		];
+		if (type == "222tcp") {
+			llcase = tcllp_map[scrMgr.fixCase(cases, tcllpprobs)];
+			ori = [
+				0,
+				0,
+				0,
+				0,
+				1,
+				0,
+				0
+			];
+			perm = perm.concat(egperms[0]);
+		} else if (type == "222tcn") {
+			llcase = tclln_map[scrMgr.fixCase(cases, tcllnprobs)];
+			ori = [
+				0,
+				0,
+				0,
+				0,
+				2,
+				0,
+				0
+			];
+			perm = perm.concat(egperms[0]);
+		} else if (type == "222tc") {
+			var tcllIdx = scrMgr.fixCase(cases, tcllprobs);
+			llcase = tcll_map[tcllIdx].slice();
+			ori = [
+				0,
+				0,
+				0,
+				0,
+				tcllIdx < 8 ? 1 : 2,
+				0,
+				0
+			];
+			perm = perm.concat(egperms[0]);
+			var perm4 = mathlib.rndPerm(4);
+			llcase[0] = 0;
+			for (var i = 0; i < 4; i++) llcase[0] |= perm4[i] << i * 4;
+		} else if (type == "222eg0") {
+			llcase = egll_map[scrMgr.fixCase(cases, egllprobs)];
+			perm = perm.concat(egperms[0]);
+		} else if (type == "222eg1") {
+			llcase = egll_map[scrMgr.fixCase(cases, egllprobs)];
+			perm = perm.concat(egperms[2 + rn(4)]);
+		} else if (type == "222eg2") {
+			llcase = egll_map[scrMgr.fixCase(cases, egllprobs)];
+			perm = perm.concat(egperms[1]);
+		} else if (type == "222lsall") {
+			perm = perm.concat(egperms[0]);
+			var perm4 = mathlib.rndPerm(4);
+			perm4.push(perm4[3]);
+			perm4[3] = 4;
+			llcase = [0, lsall_map[scrMgr.fixCase(cases, lsallprobs)][0]];
+			for (var i = 0; i < 5; i++) llcase[0] |= perm4[i] << i * 4;
+			ncubie = 5;
+		}
+		var rndA = rn(4);
+		while (rndA-- > 0) doPermMove(perm, 0);
+		var perm0 = perm.slice();
+		for (var i = 0; i < ncubie; i++) {
+			perm[i] = perm0[llcase[0] >> i * 4 & 15];
+			ori[i] = llcase[1] >> i * 4 & 15;
+		}
+		var rndU = rn(4);
+		while (rndU-- > 0) {
+			doOriMove(ori, 0);
+			doPermMove(perm, 0);
+		}
+		perm = mathlib.getNPerm(perm, 7);
+		ori = oriCoord.get(ori);
+		return solv.toStr(solv.search([perm, ori], 9).reverse(), "URF", "'2 ");
+	}
+	function getLLImage(type, ll_map, llfilter, cases, canvas) {
+		var llcase = ll_map[cases];
+		var llface = [];
+		for (var i = 0; i < 4; i++) if (!type || type == "all" || type == "ori") {
+			var perm = llcase[0] >> (i << 2) & 15;
+			var ori = llcase[1] >> (i << 2) & 15;
+			var cols = type == "all" ? "DLFURB" : "DGGUGG";
+			for (var j = 0; j < 3; j++) {
+				var pos = llFaces.indexOf(cFacelet[i][j]);
+				llface[pos] = cols.charAt(cFacelet[perm][(j + 3 - ori) % 3] >> 2);
+			}
+		} else if (type == "ls") {
+			var ori = llcase[0] >> (i << 2) & 15;
+			for (var j = 0; j < 3; j++) {
+				var pos = llFaces.indexOf(cFacelet[i][j]);
+				llface[pos] = "DGU".charAt((j + 3 - ori) % 3 == 0 ? i == 3 ? 2 : 0 : 1);
+			}
+		}
+		llface = llface.join("");
+		if (!canvas) return [
+			llface,
+			null,
+			llfilter[cases]
+		];
+		image.llImage.drawImage(llface, null, canvas);
+	}
+	function getScramble(type, length, state) {
+		var ori, perm, lim;
+		var maxl = type == "222o" ? 0 : 9;
+		do {
+			lim = 2;
+			if (type == "222o" || type == "222so") {
+				perm = rn(5040);
+				ori = rn(729);
+				lim = 3;
+			} else if (type == "222eg") {
+				ori = egmap[state & 7];
+				perm = [
+					0,
+					2,
+					3,
+					4,
+					5,
+					1
+				][state >> 3];
+				var arr = mathlib.setNPerm([
+					0,
+					0,
+					0,
+					0
+				].concat(egperms[perm]), rn(24), 4);
+				perm = mathlib.getNPerm(arr, 7);
+				var rndU = rn(4);
+				ori = oriCoord.set([], ori);
+				while (rndU-- > 0) doOriMove(ori, 0);
+				ori = oriCoord.get(ori);
+			} else if (/^222eg[012]$/.exec(type)) return getScramble("222eg", length, [
+				0,
+				8,
+				40
+			][~~type[5]] + state);
+			else if (type == "222nb") do {
+				perm = rn(5040);
+				ori = rn(729);
+			} while (!checkNoBar(perm, ori));
+		} while (perm == 0 && ori == 0 || solv.search([perm, ori], 0, lim) != null);
+		return solv.toStr(solv.search([perm, ori], maxl).reverse(), "URF", "'2 ");
+	}
+	scrMgr.reg([
+		"222o",
+		"222so",
+		"222nb"
+	], getScramble)("222eg0", getLLScramble, [
+		egllfilter,
+		egllprobs,
+		getLLImage.bind(null, "all", egll_map, egllfilter)
+	])("222eg1", getLLScramble, [
+		egllfilter,
+		egllprobs,
+		getLLImage.bind(null, "all", egll_map, egllfilter)
+	])("222eg2", getLLScramble, [
+		egllfilter,
+		egllprobs,
+		getLLImage.bind(null, "all", egll_map, egllfilter)
+	])("222tcp", getLLScramble, [
+		tcllpfilter,
+		tcllpprobs,
+		getLLImage.bind(null, "all", tcllp_map, tcllpfilter)
+	])("222tcn", getLLScramble, [
+		tcllnfilter,
+		tcllnprobs,
+		getLLImage.bind(null, "all", tclln_map, tcllnfilter)
+	])("222tc", getLLScramble, [
+		tcllfilter,
+		tcllprobs,
+		getLLImage.bind(null, "ori", tcll_map, tcllfilter)
+	])("222lsall", getLLScramble, [
+		lsallfilter,
+		lsallprobs,
+		getLLImage.bind(null, "ls", lsall_map, lsallfilter)
+	])("222eg", getScramble, [egfilter, egprobs]);
+	return {
+		solveFacelet: function(f) {
+			var perm = [];
+			var ori = [];
+			if (mathlib.detectFacelet(cFacelet, f, perm, ori, 4) == -1) return null;
+			var sol = solv.search([mathlib.getNPerm(perm, 7), oriCoord.get(ori)], 0);
+			return sol && solv.toStr(sol, "URF", " 2'").trim();
+		},
+		getEGLLImage: getLLImage.bind(null, false, egll_map, egllfilter)
+	};
+})(mathlib.rn);
+//#endregion
+//#region src/solver.ts
+/** Face order of min2phase's facelet strings; a face's opposite is 3 places further. */
+const FACES = "URFDLB";
+/** Face order of csTimer's stickers (see `image.nnnPosit`). */
+const CSTIMER_FACES = "DLBURF";
+/** The cube sizes `solveCube` can solve. */
+const SOLVER_SIZES = [2, 3];
+/**
+* The stickers of a size x size x size cube after `moves`, as face numbers (0-5, the face in
+* FACES each sticker's color started on), face by face in FACES order, each face read row
+* by row as in min2phase's facelet strings: U with its top row next to B, D with its top
+* row next to F, and L and B as seen from their own side.
+*/
+function cubeFacelets(size, moves) {
+	const posit = image$1.nnnPosit(size, moves);
+	const facelets = [];
+	for (const face of FACES) {
+		const f = CSTIMER_FACES.indexOf(face);
+		for (let row = 0; row < size; row++) for (let col = 0; col < size; col++) {
+			const x = face === "L" || face === "B" ? size - 1 - col : col;
+			const y = face === "D" ? size - 1 - row : row;
+			facelets.push(FACES.indexOf(CSTIMER_FACES[posit[(f * size + y) * size + x]]));
+		}
+	}
+	return facelets;
+}
+/**
+* Renames the colors of `facelets` so each of `faces` gets the color its sticker at `at`
+* has now (and its opposite face the opposite color), which turns a cube held any way into
+* the same cube held with those stickers in place.
+*/
+function holdBy(facelets, faces, at) {
+	const name = [];
+	faces.forEach((face, i) => {
+		const color = facelets[at[i]];
+		name[color] = face;
+		name[(color + 3) % 6] = (face + 3) % 6;
+	});
+	return facelets.map((color) => name[color]);
+}
+/**
+* A short solution for a size x size x size cube after `moves` (cube notation as csTimer
+* reads it, rotations and wide moves included), for the cube as it is held after them:
+* optimal on 2x2x2 (only U, R and F turns), at most 21 face turns on 3x3x3.
+* `''` when it is already solved. Only for the sizes in SOLVER_SIZES.
+*/
+function solveCube(size, moves) {
+	if (size === 2) {
+		const facelets = holdBy(cubeFacelets(2, moves), [
+			3,
+			4,
+			5
+		], [
+			14,
+			18,
+			23
+		]);
+		const solution = scramble_222$1.solveFacelet(facelets);
+		if (solution === null) throw new Error(`Can't solve this 2x2x2: "${moves}"`);
+		return solution;
+	}
+	if (size === 3) {
+		const facelets = holdBy(cubeFacelets(3, moves), [
+			0,
+			1,
+			2
+		], [
+			4,
+			13,
+			22
+		]);
+		const solution = min2phase.solve(facelets.map((f) => FACES[f]).join("")).trim().replace(/ +/g, " ");
+		if (solution.startsWith("Error")) throw new Error(`Can't solve this 3x3x3: "${moves}"`);
+		return solution;
+	}
+	throw new Error(`No solver for ${size}x${size}x${size} cubes yet`);
 }
 //#endregion
 //#region \0@oxc-project+runtime@0.152.0/helpers/esm/checkPrivateRedeclaration.js
@@ -4073,6 +5575,27 @@ var Puzzle = class {
 		if (this.getInvalidMoves().length > 0) return "DNF";
 		return cubeSolveStatus(size, [_classPrivateFieldGet2(_scramble, this), _classPrivateFieldGet2(_solution, this)].filter(Boolean).join(" "), !_classPrivateFieldGet2(_fmc, this));
 	}
+	/**
+	* Whether `solve` works for this puzzle with its current scramble type: 2x2x2 and 3x3x3,
+	* with their own scramble types (not relays or other notations). More puzzles later.
+	*/
+	hasSolver() {
+		return SOLVER_SIZES.includes(_classPrivateFieldGet2(_info, this).cubeSize ?? 0) && _assertClassBrand(_Puzzle_brand, this, _hasCubeNotation).call(this);
+	}
+	/**
+	* Finds a solution for the scramble with csTimer's own solvers and makes it the puzzle's
+	* solution (replacing anything set with `setSolution`), so `getImage()` then shows the
+	* puzzle solved. Returns that solution, `''` if the scramble leaves the puzzle solved.
+	* It is a computer solution, not a human method: the fewest moves on 2x2x2 (only U, R
+	* and F turns), at most 21 face turns on 3x3x3 (min2phase). Only face turns, so it
+	* follows every solution option, FMC mode included. The first 3x3x3 solve takes a bit
+	* longer while the solver sets up. Throws on puzzles without a solver (see `hasSolver`).
+	*/
+	solve() {
+		if (!this.hasSolver()) throw new Error(`No solver for ${this.name} with "${this.getScrambleType()}" scrambles yet`);
+		_classPrivateFieldSet2(_solution, this, solveCube(_classPrivateFieldGet2(_info, this).cubeSize, _classPrivateFieldGet2(_scramble, this)));
+		return _classPrivateFieldGet2(_solution, this);
+	}
 	/** Puts the puzzle back to solved: no scramble and no solution. */
 	reset() {
 		_classPrivateFieldSet2(_scramble, this, "");
@@ -4094,7 +5617,7 @@ var Puzzle = class {
 		const size = _classPrivateFieldGet2(_info, this).cubeSize;
 		if (size === void 0) throw new Error(`${this.name} has no 3D view yet, only cubes do`);
 		const moves = _assertClassBrand(_Puzzle_brand, this, _movesDone).call(this);
-		const posit = image.nnnPosit(size, moves);
+		const posit = image$1.nnnPosit(size, moves);
 		const order = _classPrivateFieldGet2(_info, this).cstimerOrder;
 		const stickers = {};
 		for (const face of this.getFaces()) {
