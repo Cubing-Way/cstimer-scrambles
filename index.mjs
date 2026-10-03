@@ -3156,6 +3156,73 @@ function drawCube3D(element, size, stickers, options = {}) {
 	}
 }
 //#endregion
+//#region src/solution.ts
+const SLICE_MOVES = [
+	"one-move",
+	"two-moves",
+	"not-allowed"
+];
+const WIDE_MOVES = ["Rw-or-r", "Rw-only"];
+/** The WCA Fewest Moves rules: rotations are free, no slice moves, wide moves only as `Rw`. */
+const FMC_RULES = {
+	countRotations: false,
+	sliceMoves: "not-allowed",
+	wideMoves: "Rw-only"
+};
+const MOVE = /^(?:\d+(?:-\d+)?)?([FRUBLDfrubldxyzSME])w?[2']?$/;
+/** The moves in `moves`, without relay numbers like `2)`. */
+function splitMoves(moves) {
+	return moves.split(/\s+/).filter((move) => move && !/^\w+\)$/.test(move));
+}
+/** How many moves `moves` has under `rules`. Moves csTimer can't read count as 1. */
+function countSolutionMoves(moves, rules) {
+	let count = 0;
+	for (const move of splitMoves(moves)) {
+		const letter = MOVE.exec(move)?.[1];
+		if (letter && "xyz".includes(letter)) count += rules.countRotations ? 1 : 0;
+		else if (letter && "SME".includes(letter)) count += rules.sliceMoves === "two-moves" ? 2 : 1;
+		else count += 1;
+	}
+	return count;
+}
+/** The moves in `moves` that csTimer can't read or that `rules` don't allow, in order. */
+function invalidSolutionMoves(moves, rules) {
+	return splitMoves(moves).filter((move) => {
+		const letter = MOVE.exec(move)?.[1];
+		if (letter === void 0) return true;
+		if ("SME".includes(letter)) return rules.sliceMoves === "not-allowed";
+		if ("frubld".includes(letter)) return rules.wideMoves === "Rw-only";
+		return false;
+	});
+}
+/** Whether every face of csTimer's sticker list (`size` x `size` per face) is one color. */
+function isSolved(posit, size) {
+	const n = size * size;
+	for (let face = 0; face < 6; face++) for (let i = 1; i < n; i++) if (posit[face * n + i] !== posit[face * n]) return false;
+	return true;
+}
+/**
+* Whether the cube of `size` is solved after `moves`, one outer block turn from it ('+2'),
+* or further ('DNF'). With `plusTwo` false it is only ever 'solved' or 'DNF'.
+*/
+function cubeSolveStatus(size, moves, plusTwo) {
+	if (isSolved(image.nnnPosit(size, moves), size)) return "solved";
+	if (!plusTwo) return "DNF";
+	for (const face of [
+		"R",
+		"U",
+		"F"
+	]) for (let width = 1; width < size; width++) {
+		const block = width === 1 ? face : `${width}${face}w`;
+		for (const turn of [
+			"",
+			"2",
+			"'"
+		]) if (isSolved(image.nnnPosit(size, `${moves} ${block}${turn}`), size)) return "+2";
+	}
+	return "DNF";
+}
+//#endregion
 //#region \0@oxc-project+runtime@0.152.0/helpers/esm/checkPrivateRedeclaration.js
 function _checkPrivateRedeclaration(e, t) {
 	if (t.has(e)) throw new TypeError("Cannot initialize the same private elements twice on an object");
@@ -3536,6 +3603,8 @@ var _method = /* @__PURE__ */ new WeakMap();
 var _length = /* @__PURE__ */ new WeakMap();
 var _scramble = /* @__PURE__ */ new WeakMap();
 var _solution = /* @__PURE__ */ new WeakMap();
+var _rules = /* @__PURE__ */ new WeakMap();
+var _fmc = /* @__PURE__ */ new WeakMap();
 var _scrambleType = /* @__PURE__ */ new WeakMap();
 var _type = /* @__PURE__ */ new WeakMap();
 var _Puzzle_brand = /* @__PURE__ */ new WeakSet();
@@ -3564,6 +3633,12 @@ var Puzzle = class {
 		_classPrivateFieldInitSpec(this, _length, void 0);
 		_classPrivateFieldInitSpec(this, _scramble, "");
 		_classPrivateFieldInitSpec(this, _solution, "");
+		_classPrivateFieldInitSpec(this, _rules, {
+			countRotations: true,
+			sliceMoves: "one-move",
+			wideMoves: "Rw-or-r"
+		});
+		_classPrivateFieldInitSpec(this, _fmc, false);
 		_classPrivateFieldInitSpec(this, _scrambleType, "");
 		_classPrivateFieldInitSpec(this, _type, void 0);
 		const info = puzzleInfo(id);
@@ -3904,9 +3979,90 @@ var Puzzle = class {
 	getScrambleMoveCount() {
 		return countMoves(this.id, _classPrivateFieldGet2(_scramble, this));
 	}
-	/** How many moves the solution has, counted like `getScrambleMoveCount`. */
+	/**
+	* How many moves the solution has, counted like `getScrambleMoveCount`. On cubes the
+	* solution options change this: rotations may be free (`setCountRotations`) and slice
+	* moves may count as 2 (`setSliceMoves`), and FMC mode (`setFmcMode`) uses its own rules.
+	*/
 	getSolutionMoveCount() {
-		return countMoves(this.id, _classPrivateFieldGet2(_solution, this));
+		if (!_assertClassBrand(_Puzzle_brand, this, _hasCubeNotation).call(this)) return countMoves(this.id, _classPrivateFieldGet2(_solution, this));
+		return countSolutionMoves(_classPrivateFieldGet2(_solution, this), _assertClassBrand(_Puzzle_brand, this, _solutionRules).call(this));
+	}
+	/**
+	* Whether the rotations x, y and z count toward the solution's move count: `true` (the
+	* default) or `false`. Cubes only; FMC mode never counts them.
+	*/
+	setCountRotations(count) {
+		_classPrivateFieldGet2(_rules, this).countRotations = count;
+		return this;
+	}
+	/** What was set with `setCountRotations`, `true` by default. */
+	getCountRotations() {
+		return _classPrivateFieldGet2(_rules, this).countRotations;
+	}
+	/**
+	* Whether the slice moves M, S and E are allowed in the solution, and if so whether each
+	* counts as 1 or 2 moves: `'one-move'` (the default), `'two-moves'` or `'not-allowed'`
+	* (see `SliceMoves`). Cubes only; FMC mode never allows them.
+	*/
+	setSliceMoves(mode) {
+		if (!SLICE_MOVES.includes(mode)) throw new Error(`Unknown slice moves mode "${mode}". Modes: ${SLICE_MOVES.join(", ")}`);
+		_classPrivateFieldGet2(_rules, this).sliceMoves = mode;
+		return this;
+	}
+	/** The mode set with `setSliceMoves`, `'one-move'` by default. */
+	getSliceMoves() {
+		return _classPrivateFieldGet2(_rules, this).sliceMoves;
+	}
+	/**
+	* How wide moves may be written in the solution: `'Rw-or-r'` (the default) or
+	* `'Rw-only'`, where `r` is not allowed (see `WideMoves`). Cubes only; FMC mode always
+	* uses `'Rw-only'`.
+	*/
+	setWideMoves(mode) {
+		if (!WIDE_MOVES.includes(mode)) throw new Error(`Unknown wide moves mode "${mode}". Modes: ${WIDE_MOVES.join(", ")}`);
+		_classPrivateFieldGet2(_rules, this).wideMoves = mode;
+		return this;
+	}
+	/** The mode set with `setWideMoves`, `'Rw-or-r'` by default. */
+	getWideMoves() {
+		return _classPrivateFieldGet2(_rules, this).wideMoves;
+	}
+	/**
+	* Turns FMC mode on or off (off by default). While it is on, the solution follows the WCA
+	* Fewest Moves rules, whatever the other solution options say: rotations don't count,
+	* M, S and E are not allowed, wide moves are written only as `Rw`, and the solve status is
+	* only `'solved'` or `'DNF'`, never `'+2'`. The other options are kept and apply again
+	* when it is turned off. Cubes only.
+	*/
+	setFmcMode(on) {
+		_classPrivateFieldSet2(_fmc, this, on);
+		return this;
+	}
+	/** Whether FMC mode is on, `false` by default. */
+	getFmcMode() {
+		return _classPrivateFieldGet2(_fmc, this);
+	}
+	/**
+	* The moves of the solution that aren't allowed by the solution options, or that can't be
+	* read as cube moves at all, in the order they are typed, e.g. `['M', 'r']`. Always `[]`
+	* for puzzles other than the cubes.
+	*/
+	getInvalidMoves() {
+		if (!_assertClassBrand(_Puzzle_brand, this, _hasCubeNotation).call(this)) return [];
+		return invalidSolutionMoves(_classPrivateFieldGet2(_solution, this), _assertClassBrand(_Puzzle_brand, this, _solutionRules).call(this));
+	}
+	/**
+	* Whether the scramble and then the solution leave the cube solved: `'solved'`, `'+2'`
+	* when one more outer block turn would solve it, or `'DNF'` (see `SolveStatus`). A
+	* solution with a move that isn't allowed is a DNF (see `getInvalidMoves`), and FMC mode
+	* has no +2. `undefined` for puzzles other than the cubes, which can't be checked yet.
+	*/
+	getSolveStatus() {
+		const size = _classPrivateFieldGet2(_info, this).cubeSize;
+		if (size === void 0 || !_assertClassBrand(_Puzzle_brand, this, _hasCubeNotation).call(this)) return void 0;
+		if (this.getInvalidMoves().length > 0) return "DNF";
+		return cubeSolveStatus(size, [_classPrivateFieldGet2(_scramble, this), _classPrivateFieldGet2(_solution, this)].filter(Boolean).join(" "), !_classPrivateFieldGet2(_fmc, this));
 	}
 	/** Puts the puzzle back to solved: no scramble and no solution. */
 	reset() {
@@ -4009,6 +4165,19 @@ function _checkOffset(face, offset) {
 		if (typeof value !== "number" || !Number.isFinite(value)) throw new Error(`Offset ${key} must be a number, not ${value}`);
 	}
 	return full;
+}
+/** The rules the solution follows: FMC's in FMC mode, the options set otherwise. */
+function _solutionRules() {
+	return _classPrivateFieldGet2(_fmc, this) ? FMC_RULES : _classPrivateFieldGet2(_rules, this);
+}
+/**
+* Whether the moves are written in cube notation: on a cube, with one of its own scramble
+* types (not, say, 3x3x3's relays or its words-only "noob" scrambles).
+*/
+function _hasCubeNotation() {
+	if (_classPrivateFieldGet2(_info, this).cubeSize === void 0) return false;
+	const type = _classPrivateFieldGet2(_scramble, this) ? _classPrivateFieldGet2(_scrambleType, this) : this.getScrambleType();
+	return tools.puzzleType(type) === this.id;
 }
 //#endregion
 //#region src/cstimer.ts
