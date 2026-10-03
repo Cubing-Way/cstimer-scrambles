@@ -9,6 +9,15 @@ import { CUBE_STYLES } from './cubestyle.js';
 import type { CubeStyle } from './cubestyle.js';
 import { IMAGE_PARTS, styleSvg } from './styling.js';
 import type { ElementStyle, ImagePart, PartFilter } from './styling.js';
+import {
+  FMC_RULES,
+  SLICE_MOVES,
+  WIDE_MOVES,
+  countSolutionMoves,
+  cubeSolveStatus,
+  invalidSolutionMoves,
+} from './solution.js';
+import type { SliceMoves, SolutionRules, SolveStatus, WideMoves } from './solution.js';
 import image from './vendor/cstimer/image.js';
 import tools from './vendor/cstimer/toolsutil.js';
 
@@ -285,6 +294,8 @@ class Puzzle {
   #length: number | undefined;
   #scramble = '';
   #solution = '';
+  #rules: SolutionRules = { countRotations: true, sliceMoves: 'one-move', wideMoves: 'Rw-or-r' };
+  #fmc = false;
   /** The scramble type `#scramble` was made with, which is the one to draw it with. */
   #scrambleType = '';
   /** A scramble type picked with `setScrambleType`, used instead of the method's. */
@@ -722,9 +733,120 @@ class Puzzle {
     return countMoves(this.id, this.#scramble);
   }
 
-  /** How many moves the solution has, counted like `getScrambleMoveCount`. */
+  /**
+   * How many moves the solution has, counted like `getScrambleMoveCount`. On cubes the
+   * solution options change this: rotations may be free (`setCountRotations`) and slice
+   * moves may count as 2 (`setSliceMoves`), and FMC mode (`setFmcMode`) uses its own rules.
+   */
   getSolutionMoveCount(): number {
-    return countMoves(this.id, this.#solution);
+    if (!this.#hasCubeNotation()) return countMoves(this.id, this.#solution);
+    return countSolutionMoves(this.#solution, this.#solutionRules());
+  }
+
+  /**
+   * Whether the rotations x, y and z count toward the solution's move count: `true` (the
+   * default) or `false`. Cubes only; FMC mode never counts them.
+   */
+  setCountRotations(count: boolean): this {
+    this.#rules.countRotations = count;
+    return this;
+  }
+
+  /** What was set with `setCountRotations`, `true` by default. */
+  getCountRotations(): boolean {
+    return this.#rules.countRotations;
+  }
+
+  /**
+   * Whether the slice moves M, S and E are allowed in the solution, and if so whether each
+   * counts as 1 or 2 moves: `'one-move'` (the default), `'two-moves'` or `'not-allowed'`
+   * (see `SliceMoves`). Cubes only; FMC mode never allows them.
+   */
+  setSliceMoves(mode: SliceMoves): this {
+    if (!SLICE_MOVES.includes(mode)) {
+      throw new Error(`Unknown slice moves mode "${mode}". Modes: ${SLICE_MOVES.join(', ')}`);
+    }
+    this.#rules.sliceMoves = mode;
+    return this;
+  }
+
+  /** The mode set with `setSliceMoves`, `'one-move'` by default. */
+  getSliceMoves(): SliceMoves {
+    return this.#rules.sliceMoves;
+  }
+
+  /**
+   * How wide moves may be written in the solution: `'Rw-or-r'` (the default) or
+   * `'Rw-only'`, where `r` is not allowed (see `WideMoves`). Cubes only; FMC mode always
+   * uses `'Rw-only'`.
+   */
+  setWideMoves(mode: WideMoves): this {
+    if (!WIDE_MOVES.includes(mode)) {
+      throw new Error(`Unknown wide moves mode "${mode}". Modes: ${WIDE_MOVES.join(', ')}`);
+    }
+    this.#rules.wideMoves = mode;
+    return this;
+  }
+
+  /** The mode set with `setWideMoves`, `'Rw-or-r'` by default. */
+  getWideMoves(): WideMoves {
+    return this.#rules.wideMoves;
+  }
+
+  /**
+   * Turns FMC mode on or off (off by default). While it is on, the solution follows the WCA
+   * Fewest Moves rules, whatever the other solution options say: rotations don't count,
+   * M, S and E are not allowed, wide moves are written only as `Rw`, and the solve status is
+   * only `'solved'` or `'DNF'`, never `'+2'`. The other options are kept and apply again
+   * when it is turned off. Cubes only.
+   */
+  setFmcMode(on: boolean): this {
+    this.#fmc = on;
+    return this;
+  }
+
+  /** Whether FMC mode is on, `false` by default. */
+  getFmcMode(): boolean {
+    return this.#fmc;
+  }
+
+  /**
+   * The moves of the solution that aren't allowed by the solution options, or that can't be
+   * read as cube moves at all, in the order they are typed, e.g. `['M', 'r']`. Always `[]`
+   * for puzzles other than the cubes.
+   */
+  getInvalidMoves(): string[] {
+    if (!this.#hasCubeNotation()) return [];
+    return invalidSolutionMoves(this.#solution, this.#solutionRules());
+  }
+
+  /**
+   * Whether the scramble and then the solution leave the cube solved: `'solved'`, `'+2'`
+   * when one more outer block turn would solve it, or `'DNF'` (see `SolveStatus`). A
+   * solution with a move that isn't allowed is a DNF (see `getInvalidMoves`), and FMC mode
+   * has no +2. `undefined` for puzzles other than the cubes, which can't be checked yet.
+   */
+  getSolveStatus(): SolveStatus | undefined {
+    const size = this.#info.cubeSize;
+    if (size === undefined || !this.#hasCubeNotation()) return undefined;
+    if (this.getInvalidMoves().length > 0) return 'DNF';
+    const moves = [this.#scramble, this.#solution].filter(Boolean).join(' ');
+    return cubeSolveStatus(size, moves, !this.#fmc);
+  }
+
+  /** The rules the solution follows: FMC's in FMC mode, the options set otherwise. */
+  #solutionRules(): SolutionRules {
+    return this.#fmc ? FMC_RULES : this.#rules;
+  }
+
+  /**
+   * Whether the moves are written in cube notation: on a cube, with one of its own scramble
+   * types (not, say, 3x3x3's relays or its words-only "noob" scrambles).
+   */
+  #hasCubeNotation(): boolean {
+    if (this.#info.cubeSize === undefined) return false;
+    const type = this.#scramble ? this.#scrambleType : this.getScrambleType();
+    return tools.puzzleType(type) === this.id;
   }
 
   /** Puts the puzzle back to solved: no scramble and no solution. */
@@ -850,4 +972,7 @@ export type {
   ImagePart,
   PartFilter,
   ElementStyle,
+  SliceMoves,
+  WideMoves,
+  SolveStatus,
 };

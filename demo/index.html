@@ -179,7 +179,7 @@
         display: block;
         margin: 16px 0 0;
       }
-      .moves span {
+      .moves > span {
         display: block;
         margin-bottom: 4px;
         color: var(--muted);
@@ -235,6 +235,25 @@
       .toggle button:disabled {
         opacity: 0.5;
         cursor: not-allowed;
+      }
+      /* The solution options under the scramble and solution boxes, in a row. */
+      .solution-options {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px 24px;
+        margin-top: 12px;
+      }
+      .status {
+        font-weight: 600;
+      }
+      .status.dnf {
+        color: #dc2626;
+      }
+      .status.plus2 {
+        color: #d97706;
+      }
+      .status.solved {
+        color: #16a34a;
       }
       /* Number boxes for the camera angle and the floating face's offset, in rows. */
       .xyz {
@@ -333,6 +352,38 @@
               ></textarea>
             </label>
           </div>
+          <div class="solution-options">
+            <div class="option" id="rotations-option">
+              <span>Rotations x y z</span>
+              <div class="toggle" role="group" aria-label="Rotations x y z">
+                <button type="button" data-rotations="count">Count</button>
+                <button type="button" data-rotations="free">Don’t count</button>
+              </div>
+            </div>
+            <div class="option" id="slice-option">
+              <span>Slice moves M S E</span>
+              <div class="toggle" role="group" aria-label="Slice moves M S E">
+                <button type="button" data-slice="one-move">1 move</button>
+                <button type="button" data-slice="two-moves">2 moves</button>
+                <button type="button" data-slice="not-allowed">Not allowed</button>
+              </div>
+            </div>
+            <div class="option" id="wide-option">
+              <span>Wide moves</span>
+              <div class="toggle" role="group" aria-label="Wide moves">
+                <button type="button" data-wide="Rw-or-r">Rw or r</button>
+                <button type="button" data-wide="Rw-only">Rw only</button>
+              </div>
+            </div>
+            <div class="option" id="fmc-option">
+              <span>FMC mode</span>
+              <div class="toggle" role="group" aria-label="FMC mode">
+                <button type="button" data-fmc="off">Off</button>
+                <button type="button" data-fmc="on">On</button>
+              </div>
+            </div>
+          </div>
+          <p class="note" id="solution-note"></p>
           <p class="meta" id="info"></p>
         </section>
         <section class="panel" aria-labelledby="viewer-heading">
@@ -610,6 +661,63 @@
         for (const input of offsetInputs) input.value = offset[input.dataset.offset] ?? 0;
       }
       const moves = (n) => `${n} ${n === 1 ? 'move' : 'moves'}`;
+      // The solution options picked, applied to every cube.
+      const solutionOptions = {
+        countRotations: true,
+        sliceMoves: 'one-move',
+        wideMoves: 'Rw-or-r',
+        fmc: false,
+      };
+      const rotationButtons = [...document.querySelectorAll('[data-rotations]')];
+      const sliceButtons = [...document.querySelectorAll('[data-slice]')];
+      const wideButtons = [...document.querySelectorAll('[data-wide]')];
+      const fmcButtons = [...document.querySelectorAll('[data-fmc]')];
+      const STATUS_CLASS = { solved: 'solved', '+2': 'plus2', DNF: 'dnf' };
+      const STATUS_TEXT = { solved: 'Solved', '+2': '+2', DNF: 'DNF' };
+
+      // Applies the solution options to the puzzle and shows them, with the solution's
+      // move count, solve status and any moves the options don't allow.
+      function showSolution(puzzle) {
+        const cube = puzzle.has3DView();
+        const { countRotations, sliceMoves, wideMoves, fmc } = solutionOptions;
+        if (cube) {
+          puzzle
+            .setCountRotations(countRotations)
+            .setSliceMoves(sliceMoves)
+            .setWideMoves(wideMoves)
+            .setFmcMode(fmc);
+        }
+        const groups = [
+          [rotationButtons, 'rotations', countRotations ? 'count' : 'free', 'rotations-option'],
+          [sliceButtons, 'slice', sliceMoves, 'slice-option'],
+          [wideButtons, 'wide', wideMoves, 'wide-option'],
+          [fmcButtons, 'fmc', fmc ? 'on' : 'off', 'fmc-option'],
+        ];
+        for (const [buttons, key, value, option] of groups) {
+          // FMC mode sets the other three, which are kept for when it is turned off.
+          const off = !cube || (fmc && key !== 'fmc');
+          for (const button of buttons) {
+            button.setAttribute('aria-pressed', String(button.dataset[key] === value));
+            button.disabled = off;
+          }
+          $(option).classList.toggle('off', off);
+        }
+        const status = puzzle.getSolveStatus();
+        solutionLabel.replaceChildren(`Solution · ${moves(puzzle.getSolutionMoveCount())}`);
+        if (status) {
+          const badge = document.createElement('span');
+          badge.className = `status ${STATUS_CLASS[status]}`;
+          badge.textContent = STATUS_TEXT[status];
+          solutionLabel.append(' · ', badge);
+        }
+        const invalid = [...new Set(puzzle.getInvalidMoves())];
+        const note = $('solution-note');
+        if (!cube) note.textContent = 'Solution options and solve status are for the cubes only';
+        else if (invalid.length) note.textContent = `Not allowed: ${invalid.join(' ')}`;
+        else if (fmc)
+          note.textContent = 'FMC: rotations don’t count, no M S E, wide moves only as Rw, no +2';
+        else note.textContent = '';
+      }
 
       function draw() {
         const puzzle = current();
@@ -624,7 +732,7 @@
         scrambleLabel.textContent =
           `Scramble · ${moves(puzzle.getScrambleMoveCount())}` +
           (ms === undefined ? '' : ` · generated in ${ms.toFixed(0)} ms`);
-        solutionLabel.textContent = `Solution · ${moves(puzzle.getSolutionMoveCount())}`;
+        showSolution(puzzle);
         // 3D only for the cubes; the other puzzles are shown in 2D, and the cubes go back
         // to the view picked last.
         view3D.disabled = !puzzle.has3DView();
@@ -944,6 +1052,22 @@
         current().setSolution(solutionInput.value);
         draw();
       });
+      for (const [buttons, apply] of [
+        [
+          rotationButtons,
+          (b) => (solutionOptions.countRotations = b.dataset.rotations === 'count'),
+        ],
+        [sliceButtons, (b) => (solutionOptions.sliceMoves = b.dataset.slice)],
+        [wideButtons, (b) => (solutionOptions.wideMoves = b.dataset.wide)],
+        [fmcButtons, (b) => (solutionOptions.fmc = b.dataset.fmc === 'on')],
+      ]) {
+        for (const button of buttons) {
+          button.addEventListener('click', () => {
+            apply(button);
+            draw();
+          });
+        }
+      }
       $('next').addEventListener('click', next);
       document.addEventListener('keydown', (e) => {
         if (e.code === 'Space' && e.target === document.body) {
